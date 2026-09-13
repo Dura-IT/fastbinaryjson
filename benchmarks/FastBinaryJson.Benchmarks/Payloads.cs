@@ -95,6 +95,7 @@ namespace FastBinaryJson.Benchmarks
                 new PayloadCase<List<CorrelationRecord>>("GuidDense", PayloadFactory.CorrelationCount + " records, 8 GUIDs each", PayloadFactory.CreateCorrelationRecords()),
                 new PayloadCase<ShapeCatalogue>("Polymorphic", PayloadFactory.ShapeCount + " shapes, 3 derived types", PayloadFactory.CreateShapeCatalogue()),
                 new PayloadCase<CharHolder>("CharHolder", "known defect probe, not a shape", PayloadFactory.CreateCharHolder()),
+                new PayloadCase<Dictionary<string, string>>("LongDictionaryKey", "defect probe: dictionary key over 256 encoded bytes", PayloadFactory.CreateLongKeyDictionary()),
             };
         }
 

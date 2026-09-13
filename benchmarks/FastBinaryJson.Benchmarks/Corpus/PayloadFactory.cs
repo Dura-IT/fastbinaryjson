@@ -51,6 +51,25 @@ namespace FastBinaryJson.Benchmarks.Corpus
             return new CharHolder { Value = 'x', Context = "isolates the ParseChar defect" };
         }
 
+        /// <summary>
+        /// Probes a suspected defect in WriteName, which writes the encoded name length into a
+        /// single byte and then emits only (length % 256) bytes. Any name at or above 256 encoded
+        /// bytes is therefore truncated, and at exactly 256 it writes a zero length and no bytes.
+        /// Property names that long are unrealistic, but WriteName is also the path taken by
+        /// string dictionary keys, where a long composite key is ordinary.
+        /// </summary>
+        public static Dictionary<string, string> CreateLongKeyDictionary()
+        {
+            Random random = NewRandom();
+            string longKey = NextSentence(random, 60);
+
+            return new Dictionary<string, string>
+            {
+                { "short", "ordinary value" },
+                { longKey, "value behind a key of " + longKey.Length.ToString() + " characters" },
+            };
+        }
+
         public static Order CreateNestedOrder()
         {
             Random random = NewRandom();
