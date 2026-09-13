@@ -13,11 +13,15 @@
     <AssemblyOriginatorKeyFile>fastBinaryJSON.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE;DEBUG;NETSTANDARD2_0 ;net4 ; NETSTANDARD2_0; NET4</DefineConstants>
-    <OutputPath>..\output\</OutputPath>
+  <!--
+    Both properties below were previously scoped to 'Debug|AnyCPU' only, which made Release
+    uncompilable (10x CS0227) and, had it compiled, would have dropped every NET4 block -
+    including [DataMember(Name=...)] support, which changes serialized output.
+    Hoisted to project level so Debug and Release compile identical source.
+  -->
+  <PropertyGroup>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Optimize>true</Optimize>
+    <DefineConstants>$(DefineConstants);NET4</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

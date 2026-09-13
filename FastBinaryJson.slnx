@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="fastBinaryJSONcore/fastBinaryJSON.csproj" />
+  <Project Path="benchmarks/FastBinaryJson.Benchmarks/FastBinaryJson.Benchmarks.csproj" />
+</Solution>
