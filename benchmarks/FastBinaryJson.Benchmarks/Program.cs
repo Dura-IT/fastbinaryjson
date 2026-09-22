@@ -19,10 +19,6 @@ namespace FastBinaryJson.Benchmarks
                     Reports.PrintCompatibilityMatrix(payloads, arms);
                     return 0;
 
-                case "defects":
-                    DefectProbes.Run();
-                    return 0;
-
                 case "sizes":
                     Reports.PrintCompatibilityMatrix(payloads, arms);
                     Reports.PrintSizeTable(payloads, arms);
@@ -33,7 +29,7 @@ namespace FastBinaryJson.Benchmarks
                     return 0;
 
                 default:
-                    Console.Error.WriteLine("usage: FastBinaryJson.Benchmarks [validate|sizes|defects|bench]");
+                    Console.Error.WriteLine("usage: FastBinaryJson.Benchmarks [validate|sizes|bench]");
                     return 1;
             }
         }
