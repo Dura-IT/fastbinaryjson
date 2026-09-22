@@ -6,16 +6,24 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsPackable>false</IsPackable>
     <!--
-      Nullable stays off for the mechanical port only. Tests.cs is 2010-era, nullable-oblivious
-      source; enabling it here would mean rewriting test bodies in the same commit that changes
-      the assertion framework, making any red test impossible to attribute. Re-enabled by the
-      follow-up commit that restyles this suite to house conventions.
+      Nullable is on project-wide, per house convention. The single exception is Tests.cs, which
+      carries a file-scoped '#nullable disable': it is 1,790 lines of 2010-era, nullable-oblivious
+      ported source, and annotating it belongs to the restyle commit rather than here. Scoping the
+      exception to that one file keeps every new file in this project nullable-checked.
     -->
-    <Nullable>disable</Nullable>
+    <Nullable>enable</Nullable>
     <!--
-      Golden wire-format fixtures embed each fixture type's AssemblyQualifiedName, which carries
-      this assembly's name and version. Both are pinned so that a routine version bump does not
-      silently invalidate every committed fixture. Changing either requires regenerating them.
+      Golden wire-format fixtures embed AssemblyQualifiedNames, so three separate identities are
+      baked into the committed bytes and all three are part of the format contract:
+
+        1. This assembly's NAME and VERSION, for every fixture type. Pinned below.
+        2. TargetFramework, for the typed-array fixtures. int-array-typed, string-array-typed and
+           string-array-typed-v14 carry the element type's AQN, which on .NET resolves to
+           'System.Private.CoreLib, Version=10.0.0.0'. Bumping the TFM rewrites those three files.
+           MSBuild cannot pin that, so GoldenFileTests asserts the runtime version instead and
+           fails with an explicit message rather than three unexplained byte diffs.
+        3. Reflection member order per fixture type, which is why GoldenCorpus.cs says that
+           reordering a property is a format change.
     -->
     <AssemblyName>FastBinaryJson.UnitTests</AssemblyName>
     <Version>1.0.0</Version>

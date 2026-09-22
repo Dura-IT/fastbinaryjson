@@ -5,6 +5,19 @@ using System.Text.Json.Serialization;
 namespace FastBinaryJson.Benchmarks.Corpus
 {
     /*
+     * Some shapes here look duplicated in tests/FastBinaryJson.UnitTests - CharHolder, and the
+     * Shape/Circle/Rectangle trio. They are deliberately NOT shared.
+     *
+     * The test-side versions are golden-fixture types, and every committed .bjson file embeds
+     * their AssemblyQualifiedName, which carries the TEST assembly's name and version. Moving them
+     * anywhere else, or referencing them from here, would bind those bytes to this project's
+     * identity instead. The fixture types have to stay in the assembly the fixtures were generated
+     * under.
+     *
+     * The types here exist to give the benchmark corpus a comparable shape, and are free to change
+     * without invalidating anything.
+     */
+    /*
      * House convention prefers `record` for immutable data models. These are deliberately
      * mutable classes with implicit parameterless constructors instead: fastBinaryJSON is a
      * 2010-era reflection/Reflection.Emit serializer that instantiates via a parameterless

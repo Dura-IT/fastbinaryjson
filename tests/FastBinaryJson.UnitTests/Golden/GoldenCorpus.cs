@@ -119,6 +119,27 @@ namespace FastBinaryJson.UnitTests.Golden
             };
         }
 
+        /// <summary>
+        /// A graph in which one instance is referenced twice, so the writer takes its $i
+        /// back-reference branch.
+        /// </summary>
+        /// <remarks>
+        /// First and Third are the SAME instance with a distinct one between them. WriteObject
+        /// keys on object identity and numbers back-references by traversal order, so both the
+        /// sharing and its position are part of what this fixture pins.
+        /// </remarks>
+        internal static ReferenceBox BuildSharedReference()
+        {
+            Party shared = new Party { Name = "Shared", City = "Landgraaf" };
+
+            return new ReferenceBox
+            {
+                First = shared,
+                Second = new Party { Name = "Other", City = "Brunssum" },
+                Third = shared,
+            };
+        }
+
         internal static Clock BuildUtcClock()
         {
             return new Clock { Moment = FixedUtc };
@@ -164,7 +185,7 @@ namespace FastBinaryJson.UnitTests.Golden
 
         public decimal DecimalValue { get; set; }
 
-        public string StringValue { get; set; }
+        public string? StringValue { get; set; }
 
         public DateTime Timestamp { get; set; }
 
@@ -172,21 +193,21 @@ namespace FastBinaryJson.UnitTests.Golden
 
         public Guid Id { get; set; }
 
-        public byte[] Blob { get; set; }
+        public byte[]? Blob { get; set; }
 
         public Flavour Flavour { get; set; }
     }
 
     internal sealed class Party
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = null!;
 
-        public string City { get; set; }
+        public string City { get; set; } = null!;
     }
 
     internal sealed class InvoiceLine
     {
-        public string Sku { get; set; }
+        public string Sku { get; set; } = null!;
 
         public int Quantity { get; set; }
 
@@ -195,20 +216,20 @@ namespace FastBinaryJson.UnitTests.Golden
 
     internal sealed class Invoice
     {
-        public string Number { get; set; }
+        public string Number { get; set; } = null!;
 
         public DateTime Issued { get; set; }
 
-        public Party BillTo { get; set; }
+        public Party BillTo { get; set; } = null!;
 
-        public Party ShipTo { get; set; }
+        public Party ShipTo { get; set; } = null!;
 
-        public List<InvoiceLine> Lines { get; set; }
+        public List<InvoiceLine> Lines { get; set; } = null!;
     }
 
     internal abstract class Shape
     {
-        public string Label { get; set; }
+        public string Label { get; set; } = null!;
     }
 
     internal sealed class Circle : Shape
@@ -225,7 +246,22 @@ namespace FastBinaryJson.UnitTests.Golden
 
     internal sealed class ShapeBox
     {
-        public List<Shape> Shapes { get; set; }
+        public List<Shape> Shapes { get; set; } = null!;
+    }
+
+    /*
+     * Fixture properties use '= null!' rather than an initialized default: every one of them is
+     * assigned by GoldenCorpus on the way in and by the deserializer on the way out, so a default
+     * value would never be observed, and allocating one would imply these models have a meaningful
+     * empty state. They do not.
+     */
+    internal sealed class ReferenceBox
+    {
+        public Party First { get; set; } = null!;
+
+        public Party Second { get; set; } = null!;
+
+        public Party Third { get; set; } = null!;
     }
 
     internal sealed class Clock

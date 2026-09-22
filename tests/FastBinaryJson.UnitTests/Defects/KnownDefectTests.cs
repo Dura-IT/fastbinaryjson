@@ -26,6 +26,7 @@ namespace FastBinaryJson.UnitTests.Defects
      * the specifics are what a fix has to change and what a consumer has to work around.
      */
     [TestFixture]
+    [TestOf(typeof(BJSON))]
     public sealed class KnownDefectTests
     {
         #region parser returns the wrong CLR type
@@ -194,6 +195,44 @@ namespace FastBinaryJson.UnitTests.Defects
 
         #endregion
 
+        #region UTC date-time round trip
+
+        /*
+         * DEFECT: UseUTCDateTime does not round-trip a DateTime.
+         *
+         * The write path sends the value through ToUniversalTime and the read path through
+         * ToLocalTime, so a value written as Utc comes back as Local, shifted by the reading
+         * machine's offset. The BYTES are correct and machine independent - what is broken is the
+         * asymmetry, which makes the restored value depend on where it is read.
+         *
+         * Under TZ=UTC the two cancel out and nothing looks wrong, which is why this survives.
+         * The golden fixture utc-datetime therefore pins the bytes only, and defers to this test
+         * for the read-back.
+         *
+         * Expressed against TimeZoneInfo.Local rather than a hardcoded offset, so it characterizes
+         * the same defect in every time zone instead of passing only in one.
+         */
+        [Test]
+        public void UtcDateTime_RoundTrip_ReturnsLocalTime()
+        {
+            DateTime written = new DateTime(2026, 1, 2, 3, 4, 5, 678, DateTimeKind.Utc);
+            BJSONParameters parameters = new BJSONParameters { UseUTCDateTime = true };
+
+            byte[] bytes = BJSON.ToBJSON(new ClockHolder { Moment = written }, parameters);
+            ClockHolder restored = BJSON.ToObject<ClockHolder>(bytes, parameters)!;
+
+            restored.Moment.Kind.Should().Be(DateTimeKind.Local, "the read path calls ToLocalTime regardless of how the value was written");
+            restored.Moment.Should().Be(written.ToLocalTime(), "the value is shifted by the reading machine's UTC offset");
+
+            // Stated separately so the consequence is not lost in a green run on a UTC machine.
+            if (TimeZoneInfo.Local.GetUtcOffset(written) != TimeSpan.Zero)
+            {
+                restored.Moment.Should().NotBe(written, "a value written as Utc does not come back as the same instant's Utc representation");
+            }
+        }
+
+        #endregion
+
         #region custom type registration
 
         /*
@@ -255,7 +294,12 @@ namespace FastBinaryJson.UnitTests.Defects
 
         private sealed class AddressHolder
         {
-            public IPAddress Value { get; set; }
+            public IPAddress Value { get; set; } = null!;
+        }
+
+        private sealed class ClockHolder
+        {
+            public DateTime Moment { get; set; }
         }
     }
 }

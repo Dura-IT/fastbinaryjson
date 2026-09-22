@@ -18,6 +18,27 @@ using System.Threading;
 // variable change. This pragma goes away when those types are renamed to PascalCase.
 #pragma warning disable CS8981
 
+// This ported file predates nullable reference types by a decade. The rest of the project is
+// nullable-checked; annotating these 1,790 lines belongs to the restyle commit.
+#nullable disable
+
+/*
+ * Four tests were removed from this file rather than ported further: Perftest, BigData,
+ * Speed_Test_Serialize and Speed_Test_Deserialize (with their CreateLong and CreateBigdata
+ * helpers).
+ *
+ * None of them asserted anything - they were DateTime.Now loops printing to the console, so they
+ * could only fail by throwing. BigData built 2,000,000 objects from a clock-seeded Random and
+ * peaked at 3.17 GB resident, six of the suite's eight seconds, which a 7 GB CI runner would have
+ * carried on every push for no signal at all.
+ *
+ * They are not relocated, because benchmarks/FastBinaryJson.Benchmarks already measures the same
+ * axes properly: BenchmarkDotNet, LaunchCount=3, MemoryDiagnoser, a fixed five-shape corpus and a
+ * separate cold-start arm. A 2,000,000-element payload shape is the one thing here that corpus
+ * does not cover; if it is wanted it belongs in PayloadFactory with a fixed seed, not in a unit
+ * test.
+ */
+
 //namespace UnitTests
 //{
 public class tests
@@ -196,26 +217,6 @@ public class tests
         public DataTable ds { get; set; }
     }
 
-    private static long CreateLong(string s)
-    {
-        long num = 0;
-        bool neg = false;
-        foreach (char cc in s)
-        {
-            if (cc == '-')
-                neg = true;
-            else if (cc == '+')
-                neg = false;
-            else
-            {
-                num *= 10;
-                num += (int)(cc - '0');
-            }
-        }
-
-        return neg ? -num : num;
-    }
-
     private static DataSet CreateDataset()
     {
         DataSet ds = new DataSet();
@@ -354,39 +355,6 @@ public class tests
     }
 
     [Test]
-    public static void Perftest()
-    {
-        string s = "123456";
-
-        DateTime dt = DateTime.Now;
-
-        for (int i = 0; i < 1000000; i++)
-        {
-            var o = CreateLong(s);
-        }
-
-        Console.WriteLine("convertlong (ms): " + DateTime.Now.Subtract(dt).TotalMilliseconds);
-
-        dt = DateTime.Now;
-
-        for (int i = 0; i < 1000000; i++)
-        {
-            var o = long.Parse(s);
-        }
-
-        Console.WriteLine("long.parse (ms): " + DateTime.Now.Subtract(dt).TotalMilliseconds);
-
-        dt = DateTime.Now;
-
-        for (int i = 0; i < 1000000; i++)
-        {
-            var o = Convert.ToInt64(s);
-        }
-
-        Console.WriteLine("convert.toint64 (ms): " + DateTime.Now.Subtract(dt).TotalMilliseconds);
-    }
-
-    [Test]
     public static void List_int()
     {
         List<int> ls = new List<int>();
@@ -517,49 +485,6 @@ public class tests
     }
 
     [Test]
-    public static void Speed_Test_Deserialize()
-    {
-
-        Console.Write("fastbinaryjson deserialize");
-        colclass c = CreateObject(false, false);
-        double t = 0;
-        for (int pp = 0; pp < fivetimes; pp++)
-        {
-            DateTime st = DateTime.Now;
-            colclass deserializedStore;
-            byte[] jsonText = BJSON.ToBJSON(c);
-            for (int i = 0; i < thousandtimes; i++)
-            {
-                deserializedStore = BJSON.ToObject<colclass>(jsonText, new BJSONParameters { ParametricConstructorOverride = true });
-            }
-            t += DateTime.Now.Subtract(st).TotalMilliseconds;
-            Console.Write("\t" + DateTime.Now.Subtract(st).TotalMilliseconds);
-        }
-        Console.WriteLine("\tAVG = " + t / fivetimes);
-    }
-
-    [Test]
-    public static void Speed_Test_Serialize()
-    {
-        Console.Write("fastbinaryjson serialize");
-        //fastBinaryJSON.BJSON.Parameters.UsingGlobalTypes = false;
-        colclass c = CreateObject(false, false);
-        double t = 0;
-        for (int pp = 0; pp < fivetimes; pp++)
-        {
-            DateTime st = DateTime.Now;
-            byte[] jsonText = null;
-            for (int i = 0; i < thousandtimes; i++)
-            {
-                jsonText = BJSON.ToBJSON(c);
-            }
-            t += DateTime.Now.Subtract(st).TotalMilliseconds;
-            Console.Write("\t" + DateTime.Now.Subtract(st).TotalMilliseconds);
-        }
-        Console.WriteLine("\tAVG = " + t / fivetimes);
-    }
-
-    [Test]
     public static void List_NestedRetClass()
     {
         List<RetNestedclass> r = new List<RetNestedclass>();
@@ -591,13 +516,23 @@ public class tests
     [Test]
     public static void GermanNumbers()
     {
-        Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de");
-        decimal d = 3.141592654M;
-        var s = BJSON.ToBJSON(d);
-        var o = BJSON.ToObject(s);
-        ClassicAssert.AreEqual(d, (decimal)o);
-
-        Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en");
+        // Upstream restored to a hardcoded "en" rather than to whatever was there, and did it
+        // outside any try/finally - so a failed assertion left the whole rest of the run in "de",
+        // and a passing one left it in "en" regardless of the machine's real locale. Either way
+        // later culture-sensitive tests stopped testing the culture they appeared to.
+        var original = Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de");
+            decimal d = 3.141592654M;
+            var s = BJSON.ToBJSON(d);
+            var o = BJSON.ToObject(s);
+            ClassicAssert.AreEqual(d, (decimal)o);
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = original;
+        }
     }
 
     public class arrayclass
@@ -1118,41 +1053,6 @@ public class tests
         }
     }
 
-    [Test]
-    public static void BigData()
-    {
-        Console.WriteLine();
-        Console.Write("fastbinaryjson bigdata serialize");
-        colclass c = CreateBigdata();
-        Console.WriteLine("\r\ntest obj created");
-        var stopwatch = new Stopwatch();
-        for (int pp = 0; pp < fivetimes; pp++)
-        {
-            byte[] jsonText = null;
-            stopwatch.Restart();
-
-            jsonText = BJSON.ToBJSON(c);
-
-            stopwatch.Stop();
-            Console.Write("\t" + stopwatch.ElapsedMilliseconds + "ms");
-            Console.Write("\tcount = " + c.items.Count);
-            Console.WriteLine("\tsize = " + jsonText.Length.ToString("#,#"));
-        }
-        GC.Collect();
-    }
-
-    private static colclass CreateBigdata()
-    {
-        colclass c = new colclass();
-        Random r = new Random((int)DateTime.Now.Ticks);
-
-        for (int i = 0; i < 2 * thousandtimes * thousandtimes; i++)
-        {
-            c.items.Add(new class1(r.Next().ToString(), r.Next().ToString(), Guid.NewGuid()));
-        }
-        return c;
-    }
-
     public class ctype
     {
         public System.Net.IPAddress ip;
@@ -1200,9 +1100,13 @@ public class tests
     {
         var dto = new readonlyProps(new List<string> { "test", "test2" });
 
-        BJSON.Parameters.ShowReadOnlyProperties = true;
-        var s = BJSON.ToBJSON(dto);
-        var o = BJSON.ToObject<readonlyProps>(s);
+        // Upstream set BJSON.Parameters.ShowReadOnlyProperties and never put it back. That is a
+        // process-wide singleton, so every later test using a parameterless BJSON call ran under
+        // the mutated value, with no ordering guarantee about which ones. Passed explicitly here
+        // instead, which leaves the global untouched.
+        var parameters = new BJSONParameters { ShowReadOnlyProperties = true };
+        var s = BJSON.ToBJSON(dto, parameters);
+        var o = BJSON.ToObject<readonlyProps>(s, parameters);
 
         ClassicAssert.IsNotNull(o);
         CollectionAssert.AreEqual(dto.Collection, o.Collection);
