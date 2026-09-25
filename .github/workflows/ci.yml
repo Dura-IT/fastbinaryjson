@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# Cancel superseded runs on the same ref so pushes don't stack up runners.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Three OSes on purpose. The golden wire-format fixtures under
+  # tests/FastBinaryJson.UnitTests/Golden/Fixtures embed each type's
+  # AssemblyQualifiedName and the runtime's System.Private.CoreLib version, and
+  # until now they had only ever been asserted on one macOS machine. Byte-format
+  # compatibility is precisely the class of bug that shows up on one platform
+  # only, so the matrix is the point of this workflow rather than a nicety.
+  build-and-test:
+    name: build + test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One OS failing must not hide the other two - a fixture that decodes
+      # differently on Windows is the finding, and it needs the comparison.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Restore
+        run: dotnet restore FastBinaryJson.slnx
+
+      # Both configurations are built and tested, which is not redundant here.
+      # Upstream's Release configuration never compiled at all (AllowUnsafeBlocks
+      # was scoped to Debug, giving 10x CS0227), and the NET4 define was
+      # Debug-only - that one gates [DataMember(Name=...)] handling, so the two
+      # configurations would not have been wire-compatible with each other. PR #1
+      # hoisted both properties to project level; these two steps are what keeps
+      # that fixed.
+      - name: Build (Debug)
+        run: dotnet build FastBinaryJson.slnx --no-restore -c Debug --nologo
+
+      - name: Build (Release)
+        run: dotnet build FastBinaryJson.slnx --no-restore -c Release --nologo
+
+      - name: Test (Debug)
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj
+          -c Debug --no-build --nologo
+
+      - name: Test (Release, with coverage)
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj
+          -c Release --no-build --nologo
+          --collect:"XPlat Code Coverage"
+          --results-directory artifacts/coverage
+
+      # Uploaded from one OS only - the other two measure the same code. The
+      # report is an artifact, not a gate: the 80% Dura IT threshold gets
+      # enforced by the SonarCloud quality gate in phase 3, once the TFM is
+      # final and the analyzer stack goes in.
+      - name: Upload coverage
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: coverage
+          path: artifacts/coverage/**/coverage.cobertura.xml
+          if-no-files-found: error
