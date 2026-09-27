@@ -8,9 +8,7 @@ using System.Runtime.Serialization;
 #if NET4
 using System.Linq;
 #endif
-#if !SILVERLIGHT
 using System.Data;
-#endif
 using System.Collections.Specialized;
 
 namespace fastJSON
@@ -40,11 +38,9 @@ namespace fastJSON
         StringKeyDictionary,
         NameValue,
         StringDictionary,
-#if !SILVERLIGHT
         Hashtable,
         DataSet,
         DataTable,
-#endif
         Custom,
         Unknown,
     }
@@ -335,11 +331,9 @@ namespace fastJSON
                 else
                     d_type = myPropInfoType.Dictionary;
             }
-#if !SILVERLIGHT
             else if (t == typeof(Hashtable)) d_type = myPropInfoType.Hashtable;
             else if (t == typeof(DataSet)) d_type = myPropInfoType.DataSet;
             else if (t == typeof(DataTable)) d_type = myPropInfoType.DataTable;
-#endif
             else if (IsTypeRegistered(t))
                 d_type = myPropInfoType.Custom;
 

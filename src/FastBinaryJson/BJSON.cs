@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-#if !SILVERLIGHT
 using System.Data;
-#endif
 using System.IO;
 using System.Collections.Specialized;
 using fastJSON;
@@ -328,13 +326,11 @@ namespace fastBinaryJSON
 
             var o = new BJsonParser(json, _params.UseUTCDateTime, _params.v1_4TypedArray).Decode();
             if (type?.IsEnum == true) return CreateEnum(type, o);
-#if !SILVERLIGHT
             if (type != null && type == typeof(DataSet))
                 return CreateDataset(o as Dictionary<string, object>, null);
 
             if (type != null && type == typeof(DataTable))
                 return CreateDataTable(o as Dictionary<string, object>, null);
-#endif
             if (o is typedarray)
             {
                 return ParseTypedArray(new Dictionary<string, object>(), o);
@@ -515,12 +511,10 @@ namespace fastBinaryJSON
                 _globalTypes = true;
 
             bool found = d.TryGetValue("$type", out tn);
-#if !SILVERLIGHT
             if (found == false && type == typeof(System.Object))
             {
                 return d;  // CreateDataset(d, globaltypes);
             }
-#endif
             if (found)
             {
                 if (_globalTypes && globaltypes != null)
@@ -577,14 +571,12 @@ namespace fastBinaryJSON
                         {
                             switch (pi.Type)
                             {
-#if !SILVERLIGHT
                                 case myPropInfoType.DataSet:
                                     oset = CreateDataset((Dictionary<string, object>)v, globaltypes);
                                     break;
                                 case myPropInfoType.DataTable:
                                     oset = CreateDataTable((Dictionary<string, object>)v, globaltypes);
                                     break;
-#endif
                                 case myPropInfoType.Custom:
                                     oset = Reflection.Instance.CreateCustom((string)v, pi.pt);
                                     break;
@@ -677,11 +669,7 @@ namespace fastBinaryJSON
         private object CreateEnum(Type pt, object v)
         {
             // FEATURE : optimize create enum
-#if !SILVERLIGHT
             return Enum.Parse(pt, v.ToString());
-#else
-            return Enum.Parse(pt, v, true);
-#endif
         }
 
         private object CreateArray(List<object> data, Type pt, Type bt, Dictionary<string, object> globalTypes)
@@ -810,7 +798,6 @@ namespace fastBinaryJSON
             return col;
         }
 
-#if !SILVERLIGHT
         private DataSet CreateDataset(Dictionary<string, object> reader, Dictionary<string, object> globalTypes)
         {
             DataSet ds = new DataSet();
@@ -908,7 +895,6 @@ namespace fastBinaryJSON
 
             return dt;
         }
-#endif
     }
 
 }
