@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-#if !SILVERLIGHT
 using System.Data;
-#endif
 using System.IO;
 using System.Collections.Specialized;
 using fastJSON;
@@ -147,13 +145,11 @@ namespace fastBinaryJSON
 
             else if (obj is IDictionary)
                 WriteDictionary((IDictionary)obj);
-#if !SILVERLIGHT
             else if (obj is DataSet)
                 WriteDataset((DataSet)obj);
 
             else if (obj is DataTable)
                 WriteDataTable((DataTable)obj);
-#endif
             else if (obj is byte[])
                 WriteBytes((byte[])obj);
 
@@ -416,7 +412,6 @@ namespace fastBinaryJSON
             _output.Write(b, 0, b.Length);
         }
 
-#if !SILVERLIGHT
         private DatasetSchema GetSchema(DataTable ds)
         {
             if (ds == null) return null;
@@ -525,7 +520,6 @@ namespace fastBinaryJSON
             // end datatable
             _output.WriteByte(TOKENS.DOC_END);
         }
-#endif
         bool _TypesWritten = false;
 
         private void WriteObject(object obj)
