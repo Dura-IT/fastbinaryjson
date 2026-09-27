@@ -25,6 +25,7 @@
     <PackageProjectUrl>https://github.com/Dura-IT/fastbinaryjson</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Dura-IT/fastbinaryjson</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageOutputPath>$(MSBuildThisFileDirectory)../../artifacts/packages/</PackageOutputPath>
   </PropertyGroup>
 
@@ -38,6 +39,14 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DefineConstants>$(DefineConstants);NET4</DefineConstants>
   </PropertyGroup>
+
+  <!--
+    README.md is packed so nuget.org shows it. It is plain Markdown with absolute links on
+    purpose: nuget.org escapes raw HTML and does not resolve relative links.
+  -->
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="$(MSBuildProjectName).UnitTests" />
