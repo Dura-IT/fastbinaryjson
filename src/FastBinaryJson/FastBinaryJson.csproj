@@ -3,12 +3,29 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net4.0</TargetFrameworks>
     <ImplicitUsings>disable</ImplicitUsings>
-    <Version>1.5.0.0</Version>
-    <FileVersion>1.5.0.0</FileVersion>
-    <Description>smallest fastest polymorphic binary json serializer</Description>
-    <Copyright>2010-2018</Copyright>
-    <Authors>M. Gholam</Authors>
-    <PackageProjectUrl>https://www.codeproject.com/Articles/159450/fastJSON</PackageProjectUrl>
+    <Version>0.1.0</Version>
+
+    <!--
+      AssemblyName is set explicitly and must stay different from upstream's 'fastBinaryJSON'.
+      The namespace is deliberately unchanged, so anyone referencing this package alongside
+      Mehdi Gholam's original would otherwise get duplicate type definitions. The project name
+      alone is not enough - 'FastBinaryJson' differs from 'fastBinaryJSON' by case only.
+    -->
+    <AssemblyName>DuraIT.FastBinaryJson</AssemblyName>
+    <PackageId>DuraIT.FastBinaryJson</PackageId>
+    <!-- The namespace stays lowercase-camel on purpose: it is the drop-in compatibility guarantee. -->
+    <RootNamespace>fastBinaryJSON</RootNamespace>
+
+    <Authors>Ben de Bruijn</Authors>
+    <Company>Durable IT Solutions</Company>
+    <Copyright>© 2010-2019 Mehdi Gholam, © 2026 Durable IT Solutions</Copyright>
+    <Description>Binary JSON serializer for .NET with attribute-free runtime polymorphism. Maintained fork of mgholam/fastBinaryJSON, wire-format compatible with it.</Description>
+    <PackageTags>json;binary;serialization;serializer;polymorphic;fastbinaryjson</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Dura-IT/fastbinaryjson</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Dura-IT/fastbinaryjson</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)../../artifacts/packages/</PackageOutputPath>
   </PropertyGroup>
 
   <!--
