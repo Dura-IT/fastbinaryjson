@@ -1,3 +1,14 @@
+Upstream changelog from mgholam/fastBinaryJSON, kept verbatim below and ending at v1.6.1
+(2019-11-01), the last release upstream made. Upstream never tagged a release, so this file
+plus the old nuspec were the only version-to-commit mapping it ever produced.
+
+Two wire-format breaks are recorded in here and both still matter: v1.5.0 changed the typed
+array bytes, and v1.5.1 changed RegisterCustomType().
+
+This fork's own versioning restarts at 0.1.0 and does not continue the numbering below.
+
+-------------------------------------------------------------------------------
+
 v1.6.1
 ------
 - optimized black list checking
