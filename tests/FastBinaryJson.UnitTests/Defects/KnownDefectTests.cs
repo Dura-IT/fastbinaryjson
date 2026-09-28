@@ -29,64 +29,6 @@ namespace FastBinaryJson.UnitTests.Defects
     [TestOf(typeof(BJSON))]
     public sealed class KnownDefectTests
     {
-        #region name truncation
-
-        /*
-         * DEFECT: names of 256 encoded bytes or more are silently truncated.
-         *
-         * BJsonSerializer.WriteName writes a SINGLE byte length prefix and then writes
-         * `b.Length % 256` bytes. Both wrap. With the default UseUnicodeStrings = true a name is
-         * UTF-16, so the limit is 128 CHARACTERS, not 256; with UseUnicodeStrings = false it is 256
-         * ASCII characters.
-         *
-         * WriteName serves both property names and dictionary keys, so this corrupts user data,
-         * not just schema. Nothing throws - the key comes back short, or empty, and the value is
-         * still attached to it.
-         *
-         * Observed with the default parameters:
-         *   127 chars -> 254 bytes -> intact
-         *   128 chars -> 256 bytes -> key restored EMPTY
-         *   200 chars -> 400 bytes -> key restored as 72 chars
-         */
-        [TestCase(120, 120)]
-        [TestCase(127, 127)]
-        [TestCase(128, 0)]
-        [TestCase(200, 72)]
-        [TestCase(300, 44)]
-        public void DictionaryKey_LongerThan127Characters_IsSilentlyTruncated(int keyLength, int restoredLength)
-        {
-            string key = new string('k', keyLength);
-            Dictionary<string, string> source = new Dictionary<string, string> { { key, "value" } };
-
-            byte[] bytes = BJSON.ToBJSON(source);
-            Dictionary<string, string> restored = BJSON.ToObject<Dictionary<string, string>>(bytes)!;
-
-            restored.Should().ContainSingle("the pair survives; only the key is damaged");
-            foreach (KeyValuePair<string, string> pair in restored)
-            {
-                pair.Key.Length.Should().Be(restoredLength);
-                pair.Value.Should().Be("value", "only the name is truncated, never the value");
-            }
-        }
-
-        [Test]
-        public void DictionaryKey_LongerThan127Characters_SurvivesWhenWrittenAsUtf8()
-        {
-            // Same key, same defect, different threshold: UTF-8 halves the encoded size for ASCII,
-            // so 200 characters now fits under 256 bytes. This is a workaround, not a fix - a
-            // 256-character ASCII key corrupts under these parameters too.
-            string key = new string('k', 200);
-            Dictionary<string, string> source = new Dictionary<string, string> { { key, "value" } };
-            BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = false };
-
-            byte[] bytes = BJSON.ToBJSON(source, parameters);
-            Dictionary<string, string> restored = BJSON.ToObject<Dictionary<string, string>>(bytes, parameters)!;
-
-            restored.Should().ContainKey(key);
-        }
-
-        #endregion
-
         #region DateTimeOffset
 
         /*

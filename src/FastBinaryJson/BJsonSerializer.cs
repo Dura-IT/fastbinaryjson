@@ -695,19 +695,35 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteName(string s)
         {
-            byte[] b;
             if (_params.UseUnicodeStrings == false)
+                WriteNameBytes(Reflection.UTF8GetBytes(s), TOKENS.NAME, TOKENS.NAME_LONG);
+            else
+                WriteNameBytes(Reflection.UnicodeGetBytes(s), TOKENS.NAME_UNI, TOKENS.NAME_UNI_LONG);
+        }
+
+        /// <summary>
+        /// Writes an encoded name, choosing the single-byte or the four-byte length form.
+        /// </summary>
+        /// <remarks>
+        /// This used to put the length into one byte and then write `b.Length % 256` bytes, so both
+        /// wrapped and any name of 256 encoded bytes or more was silently truncated. The short form
+        /// is kept for everything below that threshold, unchanged, which is what leaves every name
+        /// that already worked byte-identical.
+        /// </remarks>
+        private void WriteNameBytes(byte[] b, byte shortToken, byte longToken)
+        {
+            if (b.Length < 256)
             {
-                _output.WriteByte(TOKENS.NAME);
-                b = Reflection.UTF8GetBytes(s);
+                _output.WriteByte(shortToken);
+                _output.WriteByte((byte)b.Length);
             }
             else
             {
-                _output.WriteByte(TOKENS.NAME_UNI);
-                b = Reflection.UnicodeGetBytes(s);
+                _output.WriteByte(longToken);
+                _output.Write(Helper.GetBytes(b.Length, false), 0, 4);
             }
-            _output.WriteByte((byte)b.Length);
-            _output.Write(b, 0, b.Length % 256);
+
+            _output.Write(b, 0, b.Length);
         }
 
         private void WriteString(string s)

@@ -52,6 +52,19 @@ namespace DuraIT.FastBinaryJson
          * reinterpreted. The reverse does not hold - upstream rejects this token as unknown.
          */
         public const byte SBYTE = 33;
+
+        /*
+         * The long form of NAME and NAME_UNI, carrying a four-byte length instead of one, which is
+         * how WriteString has always carried its own. WriteName put the encoded length in a single
+         * byte and wrote `b.Length % 256` bytes, so every name of 256 encoded bytes or more was
+         * silently truncated - 128 characters at the default UseUnicodeStrings = true.
+         *
+         * Written only from 256 encoded bytes onwards, so every name that survived before is still
+         * encoded exactly as it was. Only input that was already being corrupted produces these
+         * tokens, which is why upstream not accepting them costs nothing.
+         */
+        public const byte NAME_LONG = 34;
+        public const byte NAME_UNI_LONG = 35;
     }
 
     public class TypedArray

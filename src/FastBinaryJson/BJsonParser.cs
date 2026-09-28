@@ -62,6 +62,10 @@ namespace DuraIT.FastBinaryJson
                 key = ParseName();
             else if (t == TOKENS.NAME_UNI)
                 key = ParseName2();
+            else if (t == TOKENS.NAME_LONG)
+                key = ParseLongName(false);
+            else if (t == TOKENS.NAME_UNI_LONG)
+                key = ParseLongName(true);
             else
                 throw new Exception("excpecting a name field");
 
@@ -88,6 +92,23 @@ namespace DuraIT.FastBinaryJson
         {
             byte c = _json[_index++];
             string s = Reflection.UTF8GetString(_json, _index, c);
+            _index += c;
+            return s;
+        }
+
+        /// <summary>
+        /// Reads a name written in the four-byte length form, for names of 256 encoded bytes or more.
+        /// </summary>
+        /// <remarks>
+        /// Distinct from ParseNameLong, which serves the typed-array type name and reads a TWO-byte
+        /// length under its own token. Four bytes here to match WriteString and to leave no second
+        /// truncation threshold behind - a two-byte length would just move the cliff to 64k.
+        /// </remarks>
+        private string ParseLongName(bool unicode)
+        {
+            int c = Helper.ToInt32(_json, _index);
+            _index += 4;
+            string s = unicode ? Reflection.UnicodeGetString(_json, _index, c) : Reflection.UTF8GetString(_json, _index, c);
             _index += c;
             return s;
         }
