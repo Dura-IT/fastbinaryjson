@@ -175,9 +175,8 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteSByte(sbyte p)
         {
-            _output.WriteByte(TOKENS.BYTE);
-            byte i = (byte)p;
-            _output.WriteByte(i);
+            _output.WriteByte(TOKENS.SBYTE);
+            _output.WriteByte(unchecked((byte)p));
         }
 
         private void WriteTimeSpan(TimeSpan obj)

@@ -42,6 +42,16 @@ namespace DuraIT.FastBinaryJson
         public const byte TIMESPAN = 30;
         public const byte ARRAY_TYPED_LONG = 31;
         public const byte NAME_UNI = 32;
+
+        /*
+         * Added by this fork. Upstream stops at 32, so 33 onwards were free.
+         *
+         * SBYTE exists because WriteSByte emitted BYTE after casting, which left sbyte and byte
+         * indistinguishable on the wire with no way for a reader to recover the sign. A stream
+         * written before this token still reads: BYTE assigned to an sbyte property is
+         * reinterpreted. The reverse does not hold - upstream rejects this token as unknown.
+         */
+        public const byte SBYTE = 33;
     }
 
     public class TypedArray
@@ -611,6 +621,9 @@ namespace DuraIT.FastBinaryJson
                                 case myPropInfoType.Enum:
                                     oset = CreateEnum(pi.pt, v);
                                     break;
+                                case myPropInfoType.SByte:
+                                    oset = CreateSByte(v);
+                                    break;
                                 case myPropInfoType.StringKeyDictionary:
                                     oset = CreateStringKeyDictionary((Dictionary<string, object>)v, pi.pt, pi.GenericTypes, globaltypes);
                                     break;
@@ -650,6 +663,20 @@ namespace DuraIT.FastBinaryJson
                 }
             }
             return o;
+        }
+
+        /// <summary>
+        /// Restores an sbyte from either token, so streams written before TOKENS.SBYTE still load.
+        /// </summary>
+        /// <remarks>
+        /// A pre-fix writer emitted TOKENS.BYTE for an sbyte, so the parser hands back a byte and
+        /// the value has lost its sign: -42 was written as 214. Reinterpreting the bits is what
+        /// recovers it. Nothing else can - the old bytes do not record that the value was signed,
+        /// which is why the untyped read path cannot be repaired the same way.
+        /// </remarks>
+        private static sbyte CreateSByte(object value)
+        {
+            return value is sbyte signed ? signed : unchecked((sbyte)(byte)value);
         }
 
         private object ParseTypedArray(Dictionary<string, object>? globaltypes, object v)

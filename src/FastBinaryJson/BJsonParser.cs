@@ -124,6 +124,8 @@ namespace DuraIT.FastBinaryJson
             {
                 case TOKENS.BYTE:
                     return ParseByte();
+                case TOKENS.SBYTE:
+                    return ParseSByte();
                 case TOKENS.BYTEARRAY:
                     return ParseByteArray();
                 case TOKENS.CHAR:
@@ -374,6 +376,11 @@ namespace DuraIT.FastBinaryJson
         private byte ParseByte()
         {
             return _json[_index++];
+        }
+
+        private sbyte ParseSByte()
+        {
+            return unchecked((sbyte)_json[_index++]);
         }
 
         private byte GetToken()

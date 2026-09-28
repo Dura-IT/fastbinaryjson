@@ -41,6 +41,17 @@ namespace DuraIT.FastBinaryJson.Internal
         DataTable,
         Custom,
         Unknown,
+
+        /*
+         * Appended rather than grouped with the other primitives on purpose: this enum is public,
+         * so inserting a member would renumber every one after it for anything already compiled
+         * against the previous version.
+         *
+         * SByte is here because an sbyte property has to be told what to do with a byte. A stream
+         * written before TOKENS.SBYTE existed carries BYTE, and an unconverted byte cannot be
+         * assigned to an sbyte property at all.
+         */
+        SByte,
     }
 
     public class myPropInfo
@@ -303,6 +314,7 @@ namespace DuraIT.FastBinaryJson.Internal
             else if (t == typeof(DateTime) || t == typeof(DateTime?)) d_type = myPropInfoType.DateTime;
             else if (t.IsEnum) d_type = myPropInfoType.Enum;
             else if (t == typeof(Guid) || t == typeof(Guid?)) d_type = myPropInfoType.Guid;
+            else if (t == typeof(sbyte) || t == typeof(sbyte?)) d_type = myPropInfoType.SByte;
             else if (t == typeof(StringDictionary)) d_type = myPropInfoType.StringDictionary;
             else if (t == typeof(NameValueCollection)) d_type = myPropInfoType.NameValue;
             else if (t.IsArray)

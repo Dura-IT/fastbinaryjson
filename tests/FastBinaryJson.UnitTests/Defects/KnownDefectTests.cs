@@ -29,53 +29,6 @@ namespace FastBinaryJson.UnitTests.Defects
     [TestOf(typeof(BJSON))]
     public sealed class KnownDefectTests
     {
-        #region parser returns the wrong CLR type
-
-        /*
-         * DEFECT: sbyte does not survive a round trip.
-         *
-         * Reflection.myPropInfoType has members for Int, Long, String, Bool, DateTime, Enum and
-         * Guid only. Every other primitive falls to Unknown, and an Unknown value is assigned to
-         * the property straight through, unconverted. That is fine as long as the parser hands
-         * back the same CLR type the serializer was given, which holds for short, ushort, uint,
-         * ulong, float, double, decimal and TimeSpan.
-         *
-         * WriteSByte writes TOKENS.BYTE after casting to byte, so sbyte and byte are
-         * indistinguishable on the wire and ParseByte returns byte.
-         *
-         * Effect: assigning to a typed sbyte property throws; reading an untyped graph silently
-         * yields the wrong type, and a negative value wraps, with no error at all.
-         *
-         * char had the same shape and is FIXED - see PrimitiveRoundTripTests. It differed in one
-         * way that decided the fix: WriteChar already wrote the value correctly, so casting back in
-         * ParseChar was enough and no byte moved. sbyte cannot be repaired that way, because the
-         * information is not on the wire to begin with.
-         */
-        [Test]
-        public void SByte_TypedProperty_ThrowsOnDeserialize()
-        {
-            byte[] bytes = BJSON.ToBJSON(new SByteHolder { Value = -42 });
-
-            Action read = () => BJSON.ToObject<SByteHolder>(bytes);
-
-            read.Should()
-                .Throw<InvalidCastException>("WriteSByte emits TOKENS.BYTE and ParseByte returns byte")
-                .WithMessage("*System.Byte*System.SByte*");
-        }
-
-        [Test]
-        public void SByte_Untyped_SilentlyBecomesByteAndWrapsNegatives()
-        {
-            byte[] bytes = BJSON.ToBJSON((sbyte)-42);
-
-            object? parsed = BJSON.Parse(bytes);
-
-            parsed.Should().BeOfType<byte>("sbyte is written as TOKENS.BYTE and never converted back");
-            parsed.Should().Be((byte)214, "-42 cast to byte wraps to 214, and nothing records the sign");
-        }
-
-        #endregion
-
         #region name truncation
 
         /*
@@ -242,11 +195,6 @@ namespace FastBinaryJson.UnitTests.Defects
         }
 
         #endregion
-
-        private sealed class SByteHolder
-        {
-            public sbyte Value { get; set; }
-        }
 
         private sealed class OffsetHolder
         {
