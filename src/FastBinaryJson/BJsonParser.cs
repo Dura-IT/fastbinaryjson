@@ -18,7 +18,7 @@ namespace DuraIT.FastBinaryJson
             _useUTC = useUTC;
         }
 
-        public object Decode()
+        public object? Decode()
         {
             bool b = false;
             return ParseValue(out b);
@@ -68,10 +68,10 @@ namespace DuraIT.FastBinaryJson
             t = GetToken();
             if (t != TOKENS.COLON)
                 throw new Exception("expecting a colon");
-            object val = ParseValue(out breakparse);
+            object? val = ParseValue(out breakparse);
 
             if (breakparse == false)
-                dic.Add(key, val);
+                dic.Add(key, val!);
 
             return breakparse;
         }
@@ -99,14 +99,14 @@ namespace DuraIT.FastBinaryJson
             bool breakparse = false;
             while (!breakparse)
             {
-                object o = ParseValue(out breakparse);
+                object? o = ParseValue(out breakparse);
                 byte t = 0;
                 if (breakparse == false)
                 {
-                    array.Add(o);
+                    array.Add(o!);
                     t = GetToken();
                 }
-                else t = (byte)o;
+                else t = (byte)o!;
 
                 if (t == TOKENS.COMMA)
                     continue;
@@ -116,7 +116,7 @@ namespace DuraIT.FastBinaryJson
             return array;
         }
 
-        private object ParseValue(out bool breakparse)
+        private object? ParseValue(out bool breakparse)
         {
             byte t = GetToken();
             breakparse = false;
@@ -211,14 +211,14 @@ namespace DuraIT.FastBinaryJson
             bool breakparse = false;
             while (!breakparse)
             {
-                object o = ParseValue(out breakparse);
+                object? o = ParseValue(out breakparse);
                 byte b = 0;
                 if (breakparse == false)
                 {
-                    ar.data.Add(o);
+                    ar.data.Add(o!);
                     b = GetToken();
                 }
-                else b = (byte)o;
+                else b = (byte)o!;
 
                 if (b == TOKENS.COMMA)
                     continue;

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 namespace DuraIT.FastBinaryJson.Internal
 {
     internal sealed class SafeDictionary<TKey, TValue>
+        where TKey : notnull
     {
         private readonly object _Padlock = new object();
         private readonly Dictionary<TKey, TValue> _Dictionary;
@@ -18,10 +19,19 @@ namespace DuraIT.FastBinaryJson.Internal
             _Dictionary = new Dictionary<TKey, TValue>();
         }
 
-        public bool TryGetValue(TKey key, out TValue value)
+        public bool TryGetValue(TKey key, out TValue? value)
         {
             lock (_Padlock)
-                return _Dictionary.TryGetValue(key, out value);
+            {
+                if (_Dictionary.TryGetValue(key, out TValue? found))
+                {
+                    value = found;
+                    return true;
+                }
+
+                value = default;
+                return false;
+            }
         }
 
         public int Count()

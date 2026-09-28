@@ -67,7 +67,7 @@ namespace FastBinaryJson.UnitTests.Defects
         {
             byte[] bytes = BJSON.ToBJSON('Z');
 
-            object parsed = BJSON.Parse(bytes);
+            object? parsed = BJSON.Parse(bytes);
 
             parsed.Should().BeOfType<short>("ParseChar never casts back to char");
             parsed.Should().Be((short)'Z');
@@ -90,7 +90,7 @@ namespace FastBinaryJson.UnitTests.Defects
         {
             byte[] bytes = BJSON.ToBJSON((sbyte)-42);
 
-            object parsed = BJSON.Parse(bytes);
+            object? parsed = BJSON.Parse(bytes);
 
             parsed.Should().BeOfType<byte>("sbyte is written as TOKENS.BYTE and never converted back");
             parsed.Should().Be((byte)214, "-42 cast to byte wraps to 214, and nothing records the sign");
@@ -128,7 +128,7 @@ namespace FastBinaryJson.UnitTests.Defects
             Dictionary<string, string> source = new Dictionary<string, string> { { key, "value" } };
 
             byte[] bytes = BJSON.ToBJSON(source);
-            Dictionary<string, string> restored = BJSON.ToObject<Dictionary<string, string>>(bytes);
+            Dictionary<string, string> restored = BJSON.ToObject<Dictionary<string, string>>(bytes)!;
 
             restored.Should().ContainSingle("the pair survives; only the key is damaged");
             foreach (KeyValuePair<string, string> pair in restored)
@@ -149,7 +149,7 @@ namespace FastBinaryJson.UnitTests.Defects
             BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = false };
 
             byte[] bytes = BJSON.ToBJSON(source, parameters);
-            Dictionary<string, string> restored = BJSON.ToObject<Dictionary<string, string>>(bytes, parameters);
+            Dictionary<string, string> restored = BJSON.ToObject<Dictionary<string, string>>(bytes, parameters)!;
 
             restored.Should().ContainKey(key);
         }
@@ -253,7 +253,7 @@ namespace FastBinaryJson.UnitTests.Defects
         [Test]
         public void CustomType_AppliesToExactTypeOnly()
         {
-            BJSON.RegisterCustomType(typeof(IPAddress), x => x.ToString(), x => IPAddress.Parse(x));
+            BJSON.RegisterCustomType(typeof(IPAddress), x => x.ToString()!, x => IPAddress.Parse(x));
 
             Action exact = () => BJSON.ToBJSON(new AddressHolder { Value = new IPAddress(new byte[] { 127, 0, 0, 1 }) });
             Action derived = () => BJSON.ToBJSON(new AddressHolder { Value = IPAddress.Loopback });

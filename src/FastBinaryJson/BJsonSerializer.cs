@@ -80,7 +80,7 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(TOKENS.DOC_END);
         }
 
-        private void WriteValue(object obj)
+        private void WriteValue(object? obj)
         {
             if (obj == null || obj is DBNull)
                 WriteNull();
@@ -200,9 +200,9 @@ namespace DuraIT.FastBinaryJson
                     byte[] b;
                     // array type name
                     if (_params.v1_4TypedArray)
-                        b = Reflection.UTF8GetBytes(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()));
+                        b = Reflection.UTF8GetBytes(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!));
                     else
-                        b = Reflection.UnicodeGetBytes(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()));
+                        b = Reflection.UnicodeGetBytes(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!));
                     if (b.Length < 256)
                     {
                         _output.WriteByte(TOKENS.ARRAY_TYPED);
@@ -354,9 +354,8 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteCustom(object obj)
         {
-            Reflection.Serialize s;
-            Reflection.Instance._customSerializer.TryGetValue(obj.GetType(), out s);
-            WriteString(s(obj));
+            Reflection.Instance._customSerializer.TryGetValue(obj.GetType(), out Reflection.Serialize? s);
+            WriteString(s!(obj));
         }
 
         private void WriteColon()
@@ -410,7 +409,7 @@ namespace DuraIT.FastBinaryJson
             _output.Write(b, 0, b.Length);
         }
 
-        private DatasetSchema GetSchema(DataTable ds)
+        private DatasetSchema? GetSchema(DataTable? ds)
         {
             if (ds == null) return null;
 
@@ -429,7 +428,7 @@ namespace DuraIT.FastBinaryJson
             return m;
         }
 
-        private DatasetSchema GetSchema(DataSet ds)
+        private DatasetSchema? GetSchema(DataSet? ds)
         {
             if (ds == null) return null;
 
@@ -464,7 +463,7 @@ namespace DuraIT.FastBinaryJson
         {
             _output.WriteByte(TOKENS.DOC_START);
             {
-                WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object)GetSchema(ds) : ds.GetXmlSchema());
+                WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(ds) : ds.GetXmlSchema());
                 WriteComma();
             }
             bool tablesep = false;
@@ -509,7 +508,7 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(TOKENS.DOC_START);
             //if (this.useExtension)
             {
-                this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object)this.GetSchema(dt) : this.GetXmlSchema(dt));
+                this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)this.GetSchema(dt) : this.GetXmlSchema(dt));
                 WriteComma();
             }
 
@@ -613,7 +612,7 @@ namespace DuraIT.FastBinaryJson
             WriteString(value);
         }
 
-        private void WritePair(string name, object value)
+        private void WritePair(string name, object? value)
         {
             if (_params.SerializeNulls == false && (value == null || value is DBNull))
                 return;
@@ -714,7 +713,7 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteString(string s)
         {
-            byte[] b = null;
+            byte[] b;
             if (_params.UseUnicodeStrings)
             {
                 _output.WriteByte(TOKENS.UNICODE_STRING);

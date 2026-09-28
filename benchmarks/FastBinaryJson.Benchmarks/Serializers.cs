@@ -40,9 +40,9 @@ namespace FastBinaryJson.Benchmarks
 
         public string Name => _name;
 
-        public byte[] Serialize<T>(T value) => global::DuraIT.FastBinaryJson.BJSON.ToBJSON(value, _parameters);
+        public byte[] Serialize<T>(T value) => global::DuraIT.FastBinaryJson.BJSON.ToBJSON(value!, _parameters);
 
-        public T Deserialize<T>(byte[] bytes) => global::DuraIT.FastBinaryJson.BJSON.ToObject<T>(bytes, _parameters);
+        public T Deserialize<T>(byte[] bytes) => global::DuraIT.FastBinaryJson.BJSON.ToObject<T>(bytes, _parameters)!;
     }
 
     /// <summary>

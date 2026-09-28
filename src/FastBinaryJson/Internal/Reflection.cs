@@ -15,7 +15,7 @@ namespace DuraIT.FastBinaryJson.Internal
     {
         public string Name;
         public string lcName;
-        public string memberName;
+        public string? memberName;
         public Reflection.GenericGetter Getter;
         public bool ReadOnly;
     }
@@ -45,14 +45,14 @@ namespace DuraIT.FastBinaryJson.Internal
 
     public class myPropInfo
     {
-        public Type pt;
-        public Type bt;
-        public Type changeType;
-        public Reflection.GenericSetter setter;
-        public Reflection.GenericGetter getter;
-        public Type[] GenericTypes;
-        public string Name;
-        public string memberName;
+        public Type pt = null!;
+        public Type? bt;
+        public Type? changeType;
+        public Reflection.GenericSetter? setter;
+        public Reflection.GenericGetter? getter;
+        public Type[]? GenericTypes;
+        public string Name = null!;
+        public string? memberName;
         public myPropInfoType Type;
         public bool CanWrite;
 
@@ -90,12 +90,12 @@ namespace DuraIT.FastBinaryJson.Internal
         private SafeDictionary<Type, string> _tyname = new SafeDictionary<Type, string>(10);
         private SafeDictionary<string, Type> _typecache = new SafeDictionary<string, Type>(10);
         private SafeDictionary<Type, CreateObject> _constrcache = new SafeDictionary<Type, CreateObject>(10);
-        private SafeDictionary<Type, CreateList> _conlistcache = new SafeDictionary<Type, CreateList>(10);
+        private SafeDictionary<Type, CreateList?> _conlistcache = new SafeDictionary<Type, CreateList?>(10);
         private SafeDictionary<Type, Getters[]> _getterscache = new SafeDictionary<Type, Getters[]>(10);
         private SafeDictionary<string, Dictionary<string, myPropInfo>> _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>(10);
         private SafeDictionary<Type, Type[]> _genericTypes = new SafeDictionary<Type, Type[]>(10);
         private SafeDictionary<Type, Type> _genericTypeDef = new SafeDictionary<Type, Type>(10);
-        private static SafeDictionary<short, OpCode> _opCodes;
+        private static SafeDictionary<short, OpCode>? _opCodes;
         private static List<string> _blacklistTypes = new List<string>()
         {
             "system.configuration.install.assemblyinstaller",
@@ -114,7 +114,7 @@ namespace DuraIT.FastBinaryJson.Internal
             foreach (var fi in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
             {
                 if (!typeof(OpCode).IsAssignableFrom(fi.FieldType)) continue;
-                var innerOpCode = (OpCode)fi.GetValue(null);
+                var innerOpCode = (OpCode)fi.GetValue(null)!;
                 if (innerOpCode.OpCodeType != OpCodeType.Nternal)
                     dict.Add(innerOpCode.Value, innerOpCode);
             }
@@ -172,9 +172,8 @@ namespace DuraIT.FastBinaryJson.Internal
 
         internal object CreateCustom(string v, Type type)
         {
-            Deserialize d;
-            _customDeserializer.TryGetValue(type, out d);
-            return d(v);
+            _customDeserializer.TryGetValue(type, out Deserialize? d);
+            return d!(v);
         }
 
         internal void RegisterCustomType(Type type, Serialize serializer, Deserialize deserializer)
@@ -192,16 +191,15 @@ namespace DuraIT.FastBinaryJson.Internal
         {
             if (_customSerializer.Count() == 0)
                 return false;
-            Serialize s;
-            return _customSerializer.TryGetValue(t, out s);
+            return _customSerializer.TryGetValue(t, out _);
         }
         #endregion
 
         public Type GetGenericTypeDefinition(Type t)
         {
-            Type tt = null;
+            Type? tt = null;
             if (_genericTypeDef.TryGetValue(t, out tt))
-                return tt;
+                return tt!;
             else
             {
                 tt = t.GetGenericTypeDefinition();
@@ -212,9 +210,9 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Type[] GetGenericArguments(Type t)
         {
-            Type[] tt = null;
+            Type[]? tt = null;
             if (_genericTypes.TryGetValue(t, out tt))
-                return tt;
+                return tt!;
             else
             {
                 tt = t.GetGenericArguments();
@@ -225,10 +223,10 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Dictionary<string, myPropInfo> Getproperties(Type type, string typename, bool ShowReadOnlyProperties)
         {
-            Dictionary<string, myPropInfo> sd = null;
+            Dictionary<string, myPropInfo>? sd = null;
             if (_propertycache.TryGetValue(typename, out sd))
             {
-                return sd;
+                return sd!;
             }
             else
             {
@@ -361,20 +359,20 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public string GetTypeAssemblyName(Type t)
         {
-            string val = "";
+            string? val = "";
             if (_tyname.TryGetValue(t, out val))
-                return val;
+                return val!;
             else
             {
-                string s = t.AssemblyQualifiedName;
+                string s = t.AssemblyQualifiedName!;
                 _tyname.Add(t, s);
                 return s;
             }
         }
 
-        internal Type GetTypeFromCache(string typename, bool blacklistChecking)
+        internal Type? GetTypeFromCache(string typename, bool blacklistChecking)
         {
-            Type val = null;
+            Type? val = null;
             if (_typecache.TryGetValue(typename, out val))
                 return val;
             else
@@ -388,7 +386,7 @@ namespace DuraIT.FastBinaryJson.Internal
                             throw new Exception("Black list type encountered, possible attack vector when using $type : " + typename);
                 }
 
-                Type t = Type.GetType(typename);
+                Type? t = Type.GetType(typename);
                 if (RDBMode)
                 {
                     if (t == null) // RaptorDB : loading runtime assemblies
@@ -399,7 +397,7 @@ namespace DuraIT.FastBinaryJson.Internal
                         }, null, true);
                     }
                 }
-                _typecache.Add(typename, t);
+                _typecache.Add(typename, t!);
                 return t;
             }
         }
@@ -411,7 +409,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 int count = 10;
                 if (capacity > 10)
                     count = capacity;
-                CreateList c = null;
+                CreateList? c = null;
                 if (_conlistcache.TryGetValue(objtype, out c))
                 {
                     if (c != null) // kludge : non capacity lists
@@ -427,7 +425,7 @@ namespace DuraIT.FastBinaryJson.Internal
                         DynamicMethod dynMethod = new DynamicMethod("_fcil", objtype, new Type[] { typeof(int) }, true);
                         ILGenerator ilGen = dynMethod.GetILGenerator();
                         ilGen.Emit(OpCodes.Ldarg_0);
-                        ilGen.Emit(OpCodes.Newobj, objtype.GetConstructor(new Type[] { typeof(int) }));
+                        ilGen.Emit(OpCodes.Newobj, objtype.GetConstructor(new Type[] { typeof(int) })!);
                         ilGen.Emit(OpCodes.Ret);
                         c = (CreateList)dynMethod.CreateDelegate(typeof(CreateList));
                         _conlistcache.Add(objtype, c);
@@ -451,10 +449,10 @@ namespace DuraIT.FastBinaryJson.Internal
         {
             try
             {
-                CreateObject c = null;
+                CreateObject? c = null;
                 if (_constrcache.TryGetValue(objtype, out c))
                 {
-                    return c();
+                    return c!();
                 }
                 else
                 {
@@ -462,7 +460,7 @@ namespace DuraIT.FastBinaryJson.Internal
                     {
                         DynamicMethod dynMethod = new DynamicMethod("_fcic", objtype, null, true);
                         ILGenerator ilGen = dynMethod.GetILGenerator();
-                        ilGen.Emit(OpCodes.Newobj, objtype.GetConstructor(Type.EmptyTypes));
+                        ilGen.Emit(OpCodes.Newobj, objtype.GetConstructor(Type.EmptyTypes)!);
                         ilGen.Emit(OpCodes.Ret);
                         c = (CreateObject)dynMethod.CreateDelegate(typeof(CreateObject));
                         _constrcache.Add(objtype, c);
@@ -529,11 +527,11 @@ namespace DuraIT.FastBinaryJson.Internal
             return (GenericSetter)dynamicSet.CreateDelegate(typeof(GenericSetter));
         }
 
-        internal static FieldInfo GetGetterBackingField(PropertyInfo autoProperty)
+        internal static FieldInfo? GetGetterBackingField(PropertyInfo autoProperty)
         {
             var getMethod = autoProperty.GetGetMethod();
             // Restrict operation to auto properties to avoid risking errors if a getter does not contain exactly one field read instruction (such as with calculated properties).
-            if (!getMethod.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false)) return null;
+            if (!getMethod!.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false)) return null;
 
             var byteCode = getMethod.GetMethodBody()?.GetILAsByteArray() ?? new byte[0];
             //var byteCode = getMethod.GetMethodBody().GetILAsByteArray();
@@ -569,9 +567,9 @@ namespace DuraIT.FastBinaryJson.Internal
             return null;
         }
 
-        internal static GenericSetter CreateSetMethod(Type type, PropertyInfo propertyInfo, bool ShowReadOnlyProperties)
+        internal static GenericSetter? CreateSetMethod(Type type, PropertyInfo propertyInfo, bool ShowReadOnlyProperties)
         {
-            MethodInfo setMethod = propertyInfo.GetSetMethod(ShowReadOnlyProperties);
+            MethodInfo? setMethod = propertyInfo.GetSetMethod(ShowReadOnlyProperties);
             if (setMethod == null)
             {
                 if (!ShowReadOnlyProperties) return null;
@@ -607,7 +605,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 if (!setMethod.IsStatic)
                 {
                     il.Emit(OpCodes.Ldarg_0);
-                    il.Emit(OpCodes.Castclass, propertyInfo.DeclaringType);
+                    il.Emit(OpCodes.Castclass, propertyInfo.DeclaringType!);
                     il.Emit(OpCodes.Ldarg_1);
                     if (propertyInfo.PropertyType.IsClass)
                         il.Emit(OpCodes.Castclass, propertyInfo.PropertyType);
@@ -663,9 +661,9 @@ namespace DuraIT.FastBinaryJson.Internal
             return (GenericGetter)dynamicGet.CreateDelegate(typeof(GenericGetter));
         }
 
-        internal static GenericGetter CreateGetMethod(Type type, PropertyInfo propertyInfo)
+        internal static GenericGetter? CreateGetMethod(Type type, PropertyInfo propertyInfo)
         {
-            MethodInfo getMethod = propertyInfo.GetGetMethod();
+            MethodInfo? getMethod = propertyInfo.GetGetMethod();
             if (getMethod == null)
                 return null;
 
@@ -689,7 +687,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 if (!getMethod.IsStatic)
                 {
                     il.Emit(OpCodes.Ldarg_0);
-                    il.Emit(OpCodes.Castclass, propertyInfo.DeclaringType);
+                    il.Emit(OpCodes.Castclass, propertyInfo.DeclaringType!);
                     il.EmitCall(OpCodes.Callvirt, getMethod, null);
                 }
                 else
@@ -706,9 +704,9 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Getters[] GetGetters(Type type, /*bool ShowReadOnlyProperties,*/ List<Type> IgnoreAttributes)
         {
-            Getters[] val = null;
+            Getters[]? val = null;
             if (_getterscache.TryGetValue(type, out val))
-                return val;
+                return val!;
 
             var bf = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
             //if (ShowReadOnlyProperties)
@@ -738,7 +736,7 @@ namespace DuraIT.FastBinaryJson.Internal
                     if (found)
                         continue;
                 }
-                string mName = null;
+                string? mName = null;
                 var att = p.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
@@ -751,7 +749,7 @@ namespace DuraIT.FastBinaryJson.Internal
                         }
                     }
                 }
-                GenericGetter g = CreateGetMethod(type, p);
+                GenericGetter? g = CreateGetMethod(type, p);
                 if (g != null)
                     getters.Add(new Getters { Getter = g, Name = p.Name, lcName = p.Name.ToLowerInvariant(), memberName = mName, ReadOnly = read_only });
             }
@@ -776,7 +774,7 @@ namespace DuraIT.FastBinaryJson.Internal
                     if (found)
                         continue;
                 }
-                string mName = null;
+                string? mName = null;
                 var att = f.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
