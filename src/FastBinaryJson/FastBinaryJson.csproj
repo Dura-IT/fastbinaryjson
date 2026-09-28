@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net4.0</TargetFrameworks>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Version>0.1.0</Version>
+
+    <!--
+      AssemblyName is set explicitly and must stay different from upstream's 'fastBinaryJSON'.
+      The namespace is deliberately unchanged, so anyone referencing this package alongside
+      Mehdi Gholam's original would otherwise get duplicate type definitions. The project name
+      alone is not enough - 'FastBinaryJson' differs from 'fastBinaryJSON' by case only.
+    -->
+    <AssemblyName>DuraIT.FastBinaryJson</AssemblyName>
+    <PackageId>DuraIT.FastBinaryJson</PackageId>
+    <!-- The namespace stays lowercase-camel on purpose: it is the drop-in compatibility guarantee. -->
+    <RootNamespace>fastBinaryJSON</RootNamespace>
+
+    <Authors>Ben de Bruijn</Authors>
+    <Company>Durable IT Solutions</Company>
+    <Copyright>© 2010-2019 Mehdi Gholam, © 2026 Durable IT Solutions</Copyright>
+    <Description>Binary JSON serializer for .NET with attribute-free runtime polymorphism. Maintained fork of mgholam/fastBinaryJSON, wire-format compatible with it.</Description>
+    <PackageTags>json;binary;serialization;serializer;polymorphic;fastbinaryjson</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Dura-IT/fastbinaryjson</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Dura-IT/fastbinaryjson</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)../../artifacts/packages/</PackageOutputPath>
+  </PropertyGroup>
+
+  <!--
+    Both properties below were previously scoped to 'Debug|AnyCPU' only, which made Release
+    uncompilable (10x CS0227) and, had it compiled, would have dropped every NET4 block -
+    including [DataMember(Name=...)] support, which changes serialized output.
+    Hoisted to project level so Debug and Release compile identical source.
+  -->
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);NET4</DefineConstants>
+  </PropertyGroup>
+
+  <!--
+    README.md is packed so nuget.org shows it. It is plain Markdown with absolute links on
+    purpose: nuget.org escapes raw HTML and does not resolve relative links.
+  -->
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="$(MSBuildProjectName).UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.3.0" />
+  </ItemGroup>
+
+</Project>
