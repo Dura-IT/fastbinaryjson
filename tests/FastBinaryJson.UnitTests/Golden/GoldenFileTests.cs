@@ -5,7 +5,7 @@ using System.Text;
 
 using AwesomeAssertions;
 
-using fastBinaryJSON;
+using DuraIT.FastBinaryJson;
 
 using NUnit.Framework;
 

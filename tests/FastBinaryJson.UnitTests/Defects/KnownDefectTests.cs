@@ -4,7 +4,7 @@ using System.Net;
 
 using AwesomeAssertions;
 
-using fastBinaryJSON;
+using DuraIT.FastBinaryJson;
 
 using NUnit.Framework;
 

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace fastJSON
+namespace DuraIT.FastBinaryJson.Internal
 {
     internal sealed class SafeDictionary<TKey, TValue>
     {

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace fastBinaryJSON
+namespace DuraIT.FastBinaryJson
 {
     public sealed class DatasetSchema
     {

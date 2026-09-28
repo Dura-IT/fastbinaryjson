@@ -4,7 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Dynamic;
 
-namespace fastBinaryJSON
+namespace DuraIT.FastBinaryJson
 {
     internal class DynamicJson : DynamicObject, IEnumerable
     {
@@ -13,7 +13,7 @@ namespace fastBinaryJSON
 
         public DynamicJson(byte[] json)
         {
-            var parse = fastBinaryJSON.BJSON.Parse(json);
+            var parse = BJSON.Parse(json);
 
             if (parse is IDictionary<string, object>)
                 _dictionary = (IDictionary<string, object>)parse;

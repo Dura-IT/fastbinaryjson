@@ -1,4 +1,4 @@
-﻿using fastBinaryJSON;
+﻿using DuraIT.FastBinaryJson;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using System;
@@ -579,7 +579,7 @@ public class tests
         byte[] b = BJSON.ToBJSON(
             obj,
             new BJSONParameters { UseExtensions = false, EnableAnonymousTypes = true });
-        dynamic d = fastBinaryJSON.BJSON.ToDynamic(b);
+        dynamic d = BJSON.ToDynamic(b);
         var ss = d.Name;
         var oo = d.Age;
         var dob = d.dob;
@@ -724,7 +724,7 @@ public class tests
     public static void NonDefaultConstructor()
     {
         var o = new nondefaultctor(10);
-        //fastBinaryJSON.BJSON.Parameters.ParametricConstructorOverride = true;
+        //BJSON.Parameters.ParametricConstructorOverride = true;
         var s = BJSON.ToBJSON(o);
         //Console.WriteLine(s);
         var obj = BJSON.ToObject<nondefaultctor>(s, new BJSONParameters { ParametricConstructorOverride = true });
@@ -734,7 +734,7 @@ public class tests
         var obj2 = BJSON.ToObject<List<nondefaultctor>>(s, new BJSONParameters { ParametricConstructorOverride = true });
         ClassicAssert.AreEqual(3, obj2.Count);
         ClassicAssert.AreEqual(10, obj2[1].age);
-        //fastBinaryJSON.BJSON.Parameters.ParametricConstructorOverride = false;
+        //BJSON.Parameters.ParametricConstructorOverride = false;
     }
 
     public class o1
@@ -1593,9 +1593,9 @@ public class tests
             Items = new KeyAndValue<string, Version>[] { new KeyAndValue<string, Version> { Key = "Test", Value = new Version() } }
         };
 
-        var bjson = fastBinaryJSON.BJSON.ToBJSON(input);
+        var bjson = BJSON.ToBJSON(input);
 
-        var output = fastBinaryJSON.BJSON.ToObject<CommandSendInfo>(bjson);
+        var output = BJSON.ToObject<CommandSendInfo>(bjson);
 
         ClassicAssert.AreEqual("Test", output.Items[0].Key);
     }

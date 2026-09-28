@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Collections.Specialized;
-using fastJSON;
+using DuraIT.FastBinaryJson.Internal;
 
-namespace fastBinaryJSON
+namespace DuraIT.FastBinaryJson
 {
     public sealed class TOKENS
     {

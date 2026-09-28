@@ -28,10 +28,19 @@ Data written by the original keeps reading back, and that is enforced by tests r
 
 ## Compatibility
 
-The wire format is unchanged, and the golden fixtures are what keep it that way.
+The wire format is unchanged, and the golden fixtures are what keep it that way. Bytes written by
+the original read back through this package, and bytes written here read back through the original.
 
-The assembly name is `DuraIT.FastBinaryJson`, deliberately different from the original, so this
-package can sit in the same project as `fastBinaryJSON` without duplicate type definitions.
+**Source compatibility costs one line.** The namespace is `DuraIT.FastBinaryJson`, matching the
+assembly and package name; upstream's was `fastBinaryJSON`. Migrating is a `using` swap per file and
+nothing else. Internal machinery lives in `DuraIT.FastBinaryJson.Internal`.
+
+**Stored data is not affected by that rename.** The `$type` entries in a payload carry the assembly
+qualified names of *your* types, never the serializer's, so renaming this library's namespace cannot
+invalidate anything already on disk. None of the 16 golden fixtures reference this assembly at all.
+
+Assembly name and namespace both differ from the original, so this package and `fastBinaryJSON` can
+sit in the same project with no duplicate type definitions and no ambiguity.
 
 `netstandard2.0` is a permanent target, not a leftover: the people with stored data are exactly the
 ones who cannot move runtime quickly.
@@ -39,6 +48,8 @@ ones who cannot move runtime quickly.
 ## Usage
 
 ```csharp
+using DuraIT.FastBinaryJson;
+
 byte[] bytes = BJSON.ToBJSON(myObject);
 MyType back = BJSON.ToObject<MyType>(bytes);
 ```

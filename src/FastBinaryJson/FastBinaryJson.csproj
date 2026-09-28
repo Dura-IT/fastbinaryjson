@@ -6,15 +6,22 @@
     <Version>0.1.0</Version>
 
     <!--
-      AssemblyName is set explicitly and must stay different from upstream's 'fastBinaryJSON'.
-      The namespace is deliberately unchanged, so anyone referencing this package alongside
-      Mehdi Gholam's original would otherwise get duplicate type definitions. The project name
-      alone is not enough - 'FastBinaryJson' differs from 'fastBinaryJSON' by case only.
+      AssemblyName must stay different from upstream's 'fastBinaryJSON'; the project name alone
+      is not enough, since 'FastBinaryJson' differs from it by case only. Since the namespace
+      rename the namespaces differ too, so referencing this package alongside Mehdi Gholam's
+      original no longer produces duplicate type definitions at all.
     -->
     <AssemblyName>DuraIT.FastBinaryJson</AssemblyName>
     <PackageId>DuraIT.FastBinaryJson</PackageId>
-    <!-- The namespace stays lowercase-camel on purpose: it is the drop-in compatibility guarantee. -->
-    <RootNamespace>fastBinaryJSON</RootNamespace>
+    <!--
+      Namespace matches assembly and package. It was 'fastBinaryJSON' until 2026-09-28, kept
+      there as a claimed drop-in guarantee; that reasoning does not hold - $type carries the
+      CONSUMER's assembly-qualified type names, never the library's, so the namespace has no
+      bearing on stored bytes, and none of the 16 golden fixtures reference this assembly.
+      Internal machinery lives in DuraIT.FastBinaryJson.Internal, under Internal/ so that
+      namespace follows folder.
+    -->
+    <RootNamespace>DuraIT.FastBinaryJson</RootNamespace>
 
     <Authors>Ben de Bruijn</Authors>
     <Company>Durable IT Solutions</Company>

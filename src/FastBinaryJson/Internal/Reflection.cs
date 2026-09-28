@@ -11,7 +11,7 @@ using System.Linq;
 using System.Data;
 using System.Collections.Specialized;
 
-namespace fastJSON
+namespace DuraIT.FastBinaryJson.Internal
 {
     public struct Getters
     {

@@ -29,7 +29,7 @@ namespace FastBinaryJson.Benchmarks.Benchmarks
         }
 
         [IterationSetup]
-        public void ClearCache() => global::fastBinaryJSON.BJSON.ClearReflectionCache();
+        public void ClearCache() => global::DuraIT.FastBinaryJson.BJSON.ClearReflectionCache();
 
         [Benchmark(Description = "First serialize after cache clear")]
         public byte[] ColdSerialize() => _payload.Serialize(_arm);

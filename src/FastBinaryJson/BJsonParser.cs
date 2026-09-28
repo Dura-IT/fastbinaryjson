@@ -1,8 +1,8 @@
-using fastJSON;
+using DuraIT.FastBinaryJson.Internal;
 using System;
 using System.Collections.Generic;
 
-namespace fastBinaryJSON
+namespace DuraIT.FastBinaryJson
 {
     internal sealed class BJsonParser
     {
