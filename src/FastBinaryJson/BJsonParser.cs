@@ -147,6 +147,8 @@ namespace DuraIT.FastBinaryJson
                     return ParseByte();
                 case TOKENS.SBYTE:
                     return ParseSByte();
+                case TOKENS.DATETIMEOFFSET:
+                    return ParseDateTimeOffset();
                 case TOKENS.BYTEARRAY:
                     return ParseByteArray();
                 case TOKENS.CHAR:
@@ -382,6 +384,16 @@ namespace DuraIT.FastBinaryJson
                 dt = dt.ToLocalTime(); // to local time
 
             return dt;
+        }
+
+        private DateTimeOffset ParseDateTimeOffset()
+        {
+            long ticks = Helper.ToInt64(_json, _index);
+            _index += 8;
+            short offsetMinutes = Helper.ToInt16(_json, _index);
+            _index += 2;
+
+            return new DateTimeOffset(ticks, TimeSpan.FromMinutes(offsetMinutes));
         }
 
         private byte[] ParseByteArray()

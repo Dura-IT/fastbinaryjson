@@ -29,45 +29,6 @@ namespace FastBinaryJson.UnitTests.Defects
     [TestOf(typeof(BJSON))]
     public sealed class KnownDefectTests
     {
-        #region DateTimeOffset
-
-        /*
-         * DEFECT: DateTimeOffset cannot be serialized at all.
-         *
-         * TOKENS.DATETIMEOFFSET = 27 is declared in BJSON.cs and is never written or read anywhere
-         * in the library - it is a dead token. BJsonSerializer.WriteValue has no DateTimeOffset
-         * branch, so the value falls through to WriteObject, which emits a dynamic getter over
-         * DateTimeOffset's members and produces invalid IL.
-         *
-         * Effect: InvalidProgramException from generated code, not a clean "unsupported type"
-         * error. Registering a custom type is the only way to store a DateTimeOffset today, which
-         * is what the ported `datetimeoff` test does - and why that test passes while this fails.
-         *
-         * A user-defined struct serializes fine, so this is specific to DateTimeOffset rather than
-         * a general problem with structs.
-         */
-        [Test]
-        public void DateTimeOffset_Property_ThrowsInvalidProgramException()
-        {
-            OffsetHolder value = new OffsetHolder { Value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)) };
-
-            Action write = () => BJSON.ToBJSON(value);
-
-            write.Should().Throw<InvalidProgramException>("WriteValue has no DateTimeOffset branch and the emitted getter is invalid");
-        }
-
-        [Test]
-        public void PlainStruct_Property_SerializesFine()
-        {
-            StructHolder value = new StructHolder { Value = new PlainStruct { Number = 1, Text = "x" } };
-
-            Action write = () => BJSON.ToBJSON(value);
-
-            write.Should().NotThrow("the DateTimeOffset failure is specific to that type, not to structs");
-        }
-
-        #endregion
-
         #region UTC date-time round trip
 
         /*
@@ -137,23 +98,6 @@ namespace FastBinaryJson.UnitTests.Defects
         }
 
         #endregion
-
-        private sealed class OffsetHolder
-        {
-            public DateTimeOffset Value { get; set; }
-        }
-
-        private struct PlainStruct
-        {
-            public int Number { get; set; }
-
-            public string Text { get; set; }
-        }
-
-        private sealed class StructHolder
-        {
-            public PlainStruct Value { get; set; }
-        }
 
         private sealed class AddressHolder
         {

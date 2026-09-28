@@ -198,6 +198,23 @@ namespace DuraIT.FastBinaryJson.Internal
             }
         }
 
+        /// <summary>
+        /// Forgets every registered custom type.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately not folded into ClearReflectionCache, which consumers call to drop cached
+        /// reflection: dropping their registrations as a side effect of that would be a behaviour
+        /// change. This exists so a test that registers a type can undo it - registration is
+        /// process-wide and there was previously no way back, which made every custom-type test
+        /// dependent on the order NUnit happened to run the fixtures in.
+        /// </remarks>
+        internal void ClearCustomTypes()
+        {
+            _customSerializer = new SafeDictionary<Type, Serialize>();
+            _customDeserializer = new SafeDictionary<Type, Deserialize>();
+            ResetPropertyCache();
+        }
+
         internal bool IsTypeRegistered(Type t)
         {
             if (_customSerializer.Count() == 0)

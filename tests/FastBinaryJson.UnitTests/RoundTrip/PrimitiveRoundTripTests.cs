@@ -149,6 +149,38 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             parsed.Should().Be((byte)214);
         }
 
+        /// <summary>
+        /// A user-defined struct round-trips, which is what made DateTimeOffset's failure specific.
+        /// </summary>
+        /// <remarks>
+        /// Carried over from the DateTimeOffset characterization tests, where it existed to show
+        /// that the InvalidProgramException was about that one type and not about structs in general.
+        /// It asserted only that writing did not throw; it now asserts the round trip, which is what
+        /// it was always standing in for.
+        /// </remarks>
+        [Test]
+        public void UserDefinedStruct_TypedProperty_RoundTrips()
+        {
+            StructHolder source = new StructHolder { Value = new PlainStruct { Number = 1, Text = "x" } };
+
+            StructHolder restored = BJSON.ToObject<StructHolder>(BJSON.ToBJSON(source))!;
+
+            restored.Value.Number.Should().Be(1);
+            restored.Value.Text.Should().Be("x");
+        }
+
+        private struct PlainStruct
+        {
+            public int Number { get; set; }
+
+            public string Text { get; set; }
+        }
+
+        private sealed class StructHolder
+        {
+            public PlainStruct Value { get; set; }
+        }
+
         private sealed class CharHolder
         {
             public char Value { get; set; }

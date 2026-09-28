@@ -169,6 +169,18 @@ namespace DuraIT.FastBinaryJson
             else if (Reflection.Instance.IsTypeRegistered(obj.GetType()))
                 WriteCustom(obj);
 
+            /*
+             * Deliberately AFTER the custom-type check rather than up with the other primitives.
+             *
+             * Registering a custom type was the only way to store a DateTimeOffset before this
+             * branch existed, so anyone who stores one today has a registration and their stored
+             * data is a string. Letting the native form win would change their bytes on the next
+             * write, and would break their reads outright: a property whose declared type is
+             * registered is classified Custom, and that path casts the parsed value to string.
+             */
+            else if (obj is DateTimeOffset)
+                WriteDateTimeOffset((DateTimeOffset)obj);
+
             else
                 WriteObject(obj);
         }
@@ -406,6 +418,26 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(TOKENS.DATETIME);
             byte[] b = Helper.GetBytes(dt.Ticks, false);
             _output.Write(b, 0, b.Length);
+        }
+
+        /// <summary>
+        /// Writes a DateTimeOffset as raw clock ticks plus its offset in whole minutes.
+        /// </summary>
+        /// <remarks>
+        /// TOKENS.DATETIMEOFFSET was declared by upstream and never written, so this fills in a dead
+        /// token and no existing stream is affected.
+        ///
+        /// UseUTCDateTime is not consulted. It exists to decide which clock a DateTime means, and a
+        /// DateTimeOffset already carries that answer - normalizing it would discard the offset the
+        /// caller chose. The offset is signed and written as two bytes, which covers the whole
+        /// permitted range of -14:00 to +14:00 with room to spare.
+        /// </remarks>
+        private void WriteDateTimeOffset(DateTimeOffset value)
+        {
+            _output.WriteByte(TOKENS.DATETIMEOFFSET);
+            byte[] ticks = Helper.GetBytes(value.Ticks, false);
+            _output.Write(ticks, 0, ticks.Length);
+            _output.Write(Helper.GetBytes((int)value.Offset.TotalMinutes, false), 0, 2);
         }
 
         private DatasetSchema? GetSchema(DataTable? ds)

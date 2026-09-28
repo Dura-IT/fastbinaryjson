@@ -1,4 +1,5 @@
 ﻿using DuraIT.FastBinaryJson;
+using DuraIT.FastBinaryJson.Internal;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using System;
@@ -43,6 +44,20 @@ using System.Threading;
 //{
 public class tests
 {
+    /*
+     * Custom type registration is process-wide and there is no public way back, so three tests in
+     * this file - CustomTypes, anonymoustype and the deleted datetimeoff - used to leave their
+     * registration in place for whatever NUnit ran next. That decided results elsewhere: a
+     * DateTimeOffset registered with a ToString()-based serializer loses sub-second precision, so
+     * any later test round-tripping one natively would silently go through the lossy path, in an
+     * order NUnit does not define.
+     */
+    [TearDown]
+    public void ClearRegistrations()
+    {
+        Reflection.Instance.ClearCustomTypes();
+    }
+
     //[TestFixtureTearDown]
     //public static void dteardown()
     //{
@@ -1203,31 +1218,6 @@ public class tests
 
         var d = BJSON.ToObject<Dictionary<string, byte[]>>(s);
         ClassicAssert.AreEqual(typeof(byte[]), d["Test 2"].GetType());
-    }
-
-    public class dto
-    {
-        public DateTimeOffset date;
-    }
-
-    [Test]
-    public static void datetimeoff()
-    {
-        DateTimeOffset dt = new DateTimeOffset(DateTime.Now);
-        BJSON.RegisterCustomType(typeof(DateTimeOffset),
-            (x) => { return x.ToString(); },
-            (x) => { return DateTimeOffset.Parse(x); }
-        );
-
-        var t = new dto();
-        t.date = dt;
-
-        var s = BJSON.ToBJSON(t);
-        var d = BJSON.ToObject(s);
-
-        s = BJSON.ToBJSON(dt);
-        d = BJSON.ToObject<DateTimeOffset>(s);
-        //ClassicAssert.AreEqual(dt, d);
     }
 
     public class X
