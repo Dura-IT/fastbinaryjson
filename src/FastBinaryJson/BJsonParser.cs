@@ -1,4 +1,4 @@
-using DuraIT.FastBinaryJson.Internal;
+﻿using DuraIT.FastBinaryJson.Internal;
 using System;
 using System.Collections.Generic;
 
@@ -237,11 +237,17 @@ namespace DuraIT.FastBinaryJson
             return s;
         }
 
+        /*
+         * WriteChar writes the char as an Int16, and this returned that Int16 uncast, so no char
+         * ever survived a round trip: a typed property threw InvalidCastException and an untyped
+         * read silently yielded a boxed Int16. The cast back is the whole fix - the written bytes
+         * were always correct, so nothing about the wire format moves here.
+         */
         private object ParseChar()
         {
             short u = Helper.ToInt16(_json, _index);
             _index += 2;
-            return u;
+            return unchecked((char)u);
         }
 
         private Guid ParseGuid()

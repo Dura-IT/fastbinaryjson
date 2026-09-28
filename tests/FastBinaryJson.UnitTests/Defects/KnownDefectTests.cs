@@ -32,7 +32,7 @@ namespace FastBinaryJson.UnitTests.Defects
         #region parser returns the wrong CLR type
 
         /*
-         * DEFECT: char and sbyte do not survive a round trip.
+         * DEFECT: sbyte does not survive a round trip.
          *
          * Reflection.myPropInfoType has members for Int, Long, String, Bool, DateTime, Enum and
          * Guid only. Every other primitive falls to Unknown, and an Unknown value is assigned to
@@ -40,39 +40,17 @@ namespace FastBinaryJson.UnitTests.Defects
          * back the same CLR type the serializer was given, which holds for short, ushort, uint,
          * ulong, float, double, decimal and TimeSpan.
          *
-         * It fails in exactly the two places where the parser returns a different type:
+         * WriteSByte writes TOKENS.BYTE after casting to byte, so sbyte and byte are
+         * indistinguishable on the wire and ParseByte returns byte.
          *
-         *   char  - WriteChar writes TOKENS.CHAR and the value as Int16, correctly, but ParseChar
-         *           returns that Int16 without casting back to char.
-         *   sbyte - WriteSByte writes TOKENS.BYTE after casting to byte, so sbyte and byte are
-         *           indistinguishable on the wire, and ParseByte returns byte.
+         * Effect: assigning to a typed sbyte property throws; reading an untyped graph silently
+         * yields the wrong type, and a negative value wraps, with no error at all.
          *
-         * Effect: assigning to a typed char or sbyte property throws; reading an untyped graph
-         * silently yields the wrong type with no error at all.
+         * char had the same shape and is FIXED - see PrimitiveRoundTripTests. It differed in one
+         * way that decided the fix: WriteChar already wrote the value correctly, so casting back in
+         * ParseChar was enough and no byte moved. sbyte cannot be repaired that way, because the
+         * information is not on the wire to begin with.
          */
-        [Test]
-        public void Char_TypedProperty_ThrowsOnDeserialize()
-        {
-            byte[] bytes = BJSON.ToBJSON(new CharHolder { Value = 'Z' });
-
-            Action read = () => BJSON.ToObject<CharHolder>(bytes);
-
-            read.Should()
-                .Throw<InvalidCastException>("ParseChar returns Int16 and myPropInfoType has no Char member")
-                .WithMessage("*System.Int16*System.Char*");
-        }
-
-        [Test]
-        public void Char_Untyped_SilentlyBecomesInt16()
-        {
-            byte[] bytes = BJSON.ToBJSON('Z');
-
-            object? parsed = BJSON.Parse(bytes);
-
-            parsed.Should().BeOfType<short>("ParseChar never casts back to char");
-            parsed.Should().Be((short)'Z');
-        }
-
         [Test]
         public void SByte_TypedProperty_ThrowsOnDeserialize()
         {
@@ -264,11 +242,6 @@ namespace FastBinaryJson.UnitTests.Defects
         }
 
         #endregion
-
-        private sealed class CharHolder
-        {
-            public char Value { get; set; }
-        }
 
         private sealed class SByteHolder
         {
