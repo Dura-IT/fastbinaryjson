@@ -135,10 +135,8 @@ namespace DuraIT.FastBinaryJson
 
             else if (obj is TimeSpan)
                 WriteTimeSpan((TimeSpan)obj);
-#if NET4
             else if (obj is System.Dynamic.ExpandoObject)
                 WriteStringDictionary((IDictionary<string, object>)obj);
-#endif
 
             else if (obj is IDictionary && obj.GetType().IsGenericType && obj.GetType().GetGenericArguments()[0] == typeof(string))
                 WriteStringDictionary((IDictionary)obj);

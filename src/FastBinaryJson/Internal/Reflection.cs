@@ -5,9 +5,7 @@ using System.Reflection;
 using System.Collections;
 using System.Text;
 using System.Runtime.Serialization;
-#if NET4
 using System.Linq;
-#endif
 using System.Data;
 using System.Collections.Specialized;
 
@@ -54,9 +52,7 @@ namespace DuraIT.FastBinaryJson.Internal
         public Reflection.GenericGetter getter;
         public Type[] GenericTypes;
         public string Name;
-#if NET4
         public string memberName;
-#endif
         public myPropInfoType Type;
         public bool CanWrite;
 
@@ -249,7 +245,6 @@ namespace DuraIT.FastBinaryJson.Internal
                     if (d.setter != null)
                         d.CanWrite = true;
                     d.getter = Reflection.CreateGetMethod(type, p);
-#if NET4
                     var att = p.GetCustomAttributes(true);
                     foreach (var at in att)
                     {
@@ -263,7 +258,6 @@ namespace DuraIT.FastBinaryJson.Internal
                     if (d.memberName != null)
                         sd.Add(d.memberName, d);
                     else
-#endif
                     sd.Add(p.Name.ToLowerInvariant(), d);
                 }
                 FieldInfo[] fi = type.GetFields(bf);
@@ -277,7 +271,6 @@ namespace DuraIT.FastBinaryJson.Internal
                         if (d.setter != null)
                             d.CanWrite = true;
                         d.getter = Reflection.CreateGetField(type, f);
-#if NET4
                         var att = f.GetCustomAttributes(true);
                         foreach (var at in att)
                         {
@@ -291,7 +284,6 @@ namespace DuraIT.FastBinaryJson.Internal
                         if (d.memberName != null)
                             sd.Add(d.memberName, d);
                         else
-#endif
                         sd.Add(f.Name.ToLowerInvariant(), d);
                     }
                 }
@@ -397,7 +389,6 @@ namespace DuraIT.FastBinaryJson.Internal
                 }
 
                 Type t = Type.GetType(typename);
-#if NET4
                 if (RDBMode)
                 {
                     if (t == null) // RaptorDB : loading runtime assemblies
@@ -408,7 +399,6 @@ namespace DuraIT.FastBinaryJson.Internal
                         }, null, true);
                     }
                 }
-#endif
                 _typecache.Add(typename, t);
                 return t;
             }
@@ -749,7 +739,6 @@ namespace DuraIT.FastBinaryJson.Internal
                         continue;
                 }
                 string mName = null;
-#if NET4
                 var att = p.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
@@ -762,7 +751,6 @@ namespace DuraIT.FastBinaryJson.Internal
                         }
                     }
                 }
-#endif
                 GenericGetter g = CreateGetMethod(type, p);
                 if (g != null)
                     getters.Add(new Getters { Getter = g, Name = p.Name, lcName = p.Name.ToLowerInvariant(), memberName = mName, ReadOnly = read_only });
@@ -789,7 +777,6 @@ namespace DuraIT.FastBinaryJson.Internal
                         continue;
                 }
                 string mName = null;
-#if NET4
                 var att = f.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
@@ -802,7 +789,6 @@ namespace DuraIT.FastBinaryJson.Internal
                         }
                     }
                 }
-#endif
                 if (f.IsLiteral == false)
                 {
                     GenericGetter g = CreateGetField(type, f);

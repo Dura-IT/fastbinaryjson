@@ -195,7 +195,7 @@ namespace DuraIT.FastBinaryJson
 
         private object ParseTypedArray(byte token)
         {
-            typedarray ar = new typedarray();
+            TypedArray ar = new TypedArray();
             if (token == TOKENS.ARRAY_TYPED)
             {
                 if (_v1_4TA)

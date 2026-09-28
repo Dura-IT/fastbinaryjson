@@ -1,5 +1,4 @@
-﻿#if NET4
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Dynamic;
@@ -17,8 +16,8 @@ namespace DuraIT.FastBinaryJson
 
             if (parse is IDictionary<string, object>)
                 _dictionary = (IDictionary<string, object>)parse;
-            else if (parse is typedarray)
-                _list = ((typedarray)parse).data;
+            else if (parse is TypedArray)
+                _list = ((TypedArray)parse).data;
             else
                 _list = (List<object>)parse;
         }
@@ -80,4 +79,3 @@ namespace DuraIT.FastBinaryJson
         }
     }
 }
-#endif

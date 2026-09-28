@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Data;
 using System.IO;
-using System.Collections.Specialized;
 using DuraIT.FastBinaryJson.Internal;
 
 namespace DuraIT.FastBinaryJson
@@ -44,74 +44,83 @@ namespace DuraIT.FastBinaryJson
         public const byte NAME_UNI = 32;
     }
 
-    public class typedarray
+    public class TypedArray
     {
         public string typename;
         public int count;
         public List<object> data = new List<object>();
     }
 
-
-
     public sealed class BJSONParameters
     {
-        /// <summary> 
+        /// <summary>
         /// Optimize the schema for Datasets (default = True)
         /// </summary>
         public bool UseOptimizedDatasetSchema = true;
+
         /// <summary>
         /// Serialize readonly properties (default = False)
         /// </summary>
         public bool ShowReadOnlyProperties = false;
+
         /// <summary>
         /// Use global types $types for more compact size when using a lot of classes (default = True)
         /// </summary>
         public bool UsingGlobalTypes = true;
+
         /// <summary>
         /// Use Unicode strings = T (faster), Use UTF8 strings = F (smaller) (default = True)
         /// </summary>
         public bool UseUnicodeStrings = true;
+
         /// <summary>
         /// Serialize Null values to the output (default = False)
         /// </summary>
         public bool SerializeNulls = false;
+
         /// <summary>
         /// Enable fastBinaryJSON extensions $types, $type, $map (default = True)
         /// </summary>
         public bool UseExtensions = true;
+
         /// <summary>
-        /// Anonymous types have read only properties 
+        /// Anonymous types have read only properties
         /// </summary>
         public bool EnableAnonymousTypes = false;
+
         /// <summary>
         /// Use the UTC date format (default = False)
         /// </summary>
         public bool UseUTCDateTime = false;
+
         /// <summary>
         /// Ignore attributes to check for (default : XmlIgnoreAttribute, NonSerialized)
         /// </summary>
         public List<Type> IgnoreAttributes = new List<Type> { typeof(System.Xml.Serialization.XmlIgnoreAttribute), typeof(NonSerializedAttribute) };
+
         /// <summary>
         /// If you have parametric and no default constructor for you classes (default = False)
-        /// 
+        ///
         /// IMPORTANT NOTE : If True then all initial values within the class will be ignored and will be not set
         /// </summary>
         public bool ParametricConstructorOverride = false;
+
         /// <summary>
         /// Maximum depth the serializer will go to to avoid loops (default = 20 levels)
         /// </summary>
         public short SerializerMaxDepth = 20;
+
         /// <summary>
         /// Use typed arrays t[] into object = t[] not object[] (default = true)
         /// </summary>
         public bool UseTypedArrays = true;
+
         /// <summary>
         /// Backward compatible Typed array type name as UTF8 (default = false -> fast v1.5 unicode)
         /// </summary>
         public bool v1_4TypedArray = false;
 
         //public bool OptimizeSize = false;
-
 
         public void FixValues()
         {
@@ -138,9 +147,8 @@ namespace DuraIT.FastBinaryJson
                 UseTypedArrays = UseTypedArrays,
                 UseExtensions = UseExtensions,
                 UseUTCDateTime = UseUTCDateTime,
-                v1_4TypedArray = v1_4TypedArray//,
+                v1_4TypedArray = v1_4TypedArray, //,
                 //OptimizeSize = OptimizeSize
-
             };
         }
     }
@@ -151,6 +159,7 @@ namespace DuraIT.FastBinaryJson
         /// Globally set-able parameters for controlling the serializer
         /// </summary>
         public static BJSONParameters Parameters = new BJSONParameters();
+
         /// <summary>
         /// Parse a json and generate a Dictionary&lt;string,object&gt; or List&lt;object&gt; structure
         /// </summary>
@@ -160,7 +169,7 @@ namespace DuraIT.FastBinaryJson
         {
             return new BJsonParser(json, Parameters.UseUTCDateTime, Parameters.v1_4TypedArray).Decode();
         }
-#if NET4
+
         /// <summary>
         /// Create a .net4 dynamic object from the binary json byte array
         /// </summary>
@@ -170,7 +179,7 @@ namespace DuraIT.FastBinaryJson
         {
             return new DynamicJson(json);
         }
-#endif
+
         /// <summary>
         /// Register custom type handlers for your own types not natively handled by fastBinaryJSON
         /// </summary>
@@ -181,6 +190,7 @@ namespace DuraIT.FastBinaryJson
         {
             Reflection.Instance.RegisterCustomType(type, serializer, deserializer);
         }
+
         /// <summary>
         /// Create a binary json representation for an object
         /// </summary>
@@ -190,6 +200,7 @@ namespace DuraIT.FastBinaryJson
         {
             return ToBJSON(obj, Parameters);
         }
+
         /// <summary>
         /// Create a binary json representation for an object with parameter override on this call
         /// </summary>
@@ -204,14 +215,19 @@ namespace DuraIT.FastBinaryJson
             if (obj == null)
                 return new byte[] { TOKENS.NULL };
             if (obj.GetType().IsGenericType)
-                t = Reflection.Instance.GetGenericTypeDefinition(obj.GetType());// obj.GetType().GetGenericTypeDefinition();
+                t = Reflection.Instance.GetGenericTypeDefinition(obj.GetType()); // obj.GetType().GetGenericTypeDefinition();
             if (t == typeof(Dictionary<,>) || t == typeof(List<>))
                 param.UsingGlobalTypes = false;
             // FEATURE : enable extensions when you can deserialize anon types
-            if (param.EnableAnonymousTypes) { param.UseExtensions = false; param.UsingGlobalTypes = false; }
+            if (param.EnableAnonymousTypes)
+            {
+                param.UseExtensions = false;
+                param.UsingGlobalTypes = false;
+            }
 
             return new BJSONSerializer(param).ConvertToBJSON(obj);
         }
+
         /// <summary>
         /// Fill a given object with the binary json represenation
         /// </summary>
@@ -220,8 +236,9 @@ namespace DuraIT.FastBinaryJson
         /// <returns></returns>
         public static object FillObject(object input, byte[] json)
         {
-            return new deserializer(Parameters).FillObject(input, json);
+            return new Deserializer(Parameters).FillObject(input, json);
         }
+
         /// <summary>
         /// Create a generic object from the json
         /// </summary>
@@ -230,8 +247,9 @@ namespace DuraIT.FastBinaryJson
         /// <returns></returns>
         public static T ToObject<T>(byte[] json)
         {
-            return new deserializer(Parameters).ToObject<T>(json);
+            return new Deserializer(Parameters).ToObject<T>(json);
         }
+
         /// <summary>
         /// Create a generic object from the json with parameter override on this call
         /// </summary>
@@ -241,17 +259,19 @@ namespace DuraIT.FastBinaryJson
         /// <returns></returns>
         public static T ToObject<T>(byte[] json, BJSONParameters param)
         {
-            return new deserializer(param).ToObject<T>(json);
+            return new Deserializer(param).ToObject<T>(json);
         }
+
         /// <summary>
-        /// Create an object from the json 
+        /// Create an object from the json
         /// </summary>
         /// <param name="json"></param>
         /// <returns></returns>
         public static object ToObject(byte[] json)
         {
-            return new deserializer(Parameters).ToObject(json, null);
+            return new Deserializer(Parameters).ToObject(json, null);
         }
+
         /// <summary>
         /// Create an object from the json with parameter override on this call
         /// </summary>
@@ -262,8 +282,9 @@ namespace DuraIT.FastBinaryJson
         {
             param.FixValues();
             param = param.MakeCopy();
-            return new deserializer(param).ToObject(json, null);
+            return new Deserializer(param).ToObject(json, null);
         }
+
         /// <summary>
         /// Create a typed object from the json
         /// </summary>
@@ -272,8 +293,9 @@ namespace DuraIT.FastBinaryJson
         /// <returns></returns>
         public static object ToObject(byte[] json, Type type)
         {
-            return new deserializer(Parameters).ToObject(json, type);
+            return new Deserializer(Parameters).ToObject(json, type);
         }
+
         /// <summary>
         /// Clear the internal reflection cache so you can start from new (you will loose performance)
         /// </summary>
@@ -281,6 +303,7 @@ namespace DuraIT.FastBinaryJson
         {
             Reflection.Instance.ClearReflectionCache();
         }
+
         /// <summary>
         /// Deep copy an object i.e. clone to a new object
         /// </summary>
@@ -288,13 +311,13 @@ namespace DuraIT.FastBinaryJson
         /// <returns></returns>
         public static object DeepCopy(object obj)
         {
-            return new deserializer(Parameters).ToObject(ToBJSON(obj));
+            return new Deserializer(Parameters).ToObject(ToBJSON(obj));
         }
     }
 
-    internal class deserializer
+    internal class Deserializer
     {
-        public deserializer(BJSONParameters param)
+        public Deserializer(BJSONParameters param)
         {
             _params = param;
             _params = param.MakeCopy();
@@ -319,19 +342,20 @@ namespace DuraIT.FastBinaryJson
             //_params.FixValues();
             Type t = null;
             if (type != null && type.IsGenericType)
-                t = Reflection.Instance.GetGenericTypeDefinition(type);// type.GetGenericTypeDefinition();
+                t = Reflection.Instance.GetGenericTypeDefinition(type); // type.GetGenericTypeDefinition();
             _globalTypes = _params.UsingGlobalTypes;
             if (t == typeof(Dictionary<,>) || t == typeof(List<>))
                 _globalTypes = false;
 
             var o = new BJsonParser(json, _params.UseUTCDateTime, _params.v1_4TypedArray).Decode();
-            if (type?.IsEnum == true) return CreateEnum(type, o);
+            if (type?.IsEnum == true)
+                return CreateEnum(type, o);
             if (type != null && type == typeof(DataSet))
                 return CreateDataset(o as Dictionary<string, object>, null);
 
             if (type != null && type == typeof(DataTable))
                 return CreateDataTable(o as Dictionary<string, object>, null);
-            if (o is typedarray)
+            if (o is TypedArray)
             {
                 return ParseTypedArray(new Dictionary<string, object>(), o);
             }
@@ -360,7 +384,7 @@ namespace DuraIT.FastBinaryJson
                     {
                         Dictionary<string, object> globals = new Dictionary<string, object>();
                         List<object> op = new List<object>();
-                        // try to get $types 
+                        // try to get $types
                         foreach (var i in l)
                             op.Add(ParseDictionary((Dictionary<string, object>)i, globals, null, null));
                         return op;
@@ -386,7 +410,8 @@ namespace DuraIT.FastBinaryJson
         {
             _params.FixValues();
             Dictionary<string, object> ht = new BJsonParser(json, _params.UseUTCDateTime, _params.v1_4TypedArray).Decode() as Dictionary<string, object>;
-            if (ht == null) return null;
+            if (ht == null)
+                return null;
             return ParseDictionary(ht, null, input.GetType(), input);
         }
 
@@ -412,7 +437,7 @@ namespace DuraIT.FastBinaryJson
 
         private object RootList(object parse, Type type)
         {
-            Type[] gtypes = Reflection.Instance.GetGenericArguments(type);// type.GetGenericArguments();
+            Type[] gtypes = Reflection.Instance.GetGenericArguments(type); // type.GetGenericArguments();
             IList o = (IList)Reflection.Instance.FastCreateList(type, ((IList)parse).Count);
             Dictionary<string, object> globals = new Dictionary<string, object>();
 
@@ -453,19 +478,14 @@ namespace DuraIT.FastBinaryJson
                     object k = kv.Key;
                     if (t2.Name.StartsWith("Dictionary")) // deserialize a dictionary
                         v = RootDictionary(kv.Value, t2);
-
                     else if (kv.Value is Dictionary<string, object>)
                         v = ParseDictionary(kv.Value as Dictionary<string, object>, null, t2, null);
-
                     else if (t2 == typeof(byte[]))
                         v = kv.Value;
-
                     else if (gtypes != null && t2.IsArray)
                         v = CreateArray((List<object>)kv.Value, t2, arraytype, null);
-
                     else if (kv.Value is IList)
                         v = CreateGenericList((List<object>)kv.Value, t2, t1, null);
-
                     else
                         v = kv.Value;
 
@@ -481,6 +501,7 @@ namespace DuraIT.FastBinaryJson
         }
 
         private bool _globalTypes = false;
+
         private object ParseDictionary(Dictionary<string, object> d, Dictionary<string, object> globaltypes, Type type, object input)
         {
             object tn = "";
@@ -513,7 +534,7 @@ namespace DuraIT.FastBinaryJson
             bool found = d.TryGetValue("$type", out tn);
             if (found == false && type == typeof(System.Object))
             {
-                return d;  // CreateDataset(d, globaltypes);
+                return d; // CreateDataset(d, globaltypes);
             }
             if (found)
             {
@@ -534,7 +555,14 @@ namespace DuraIT.FastBinaryJson
             if (o == null)
             {
                 if (_params.ParametricConstructorOverride)
+#if NET10_0_OR_GREATER
+                    // FormatterServices is obsolete (SYSLIB0050) on modern .NET. RuntimeHelpers is
+                    // its documented replacement and behaves identically; it does not exist on
+                    // netstandard2.0, so this is the one genuine TFM conditional in the library.
+                    o = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(type);
+#else
                     o = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(type);
+#endif
                 else
                     o = Reflection.Instance.FastCreateInstance(type);
             }
@@ -547,7 +575,7 @@ namespace DuraIT.FastBinaryJson
                 _cirrev.Add(circount, o);
             }
 
-            Dictionary<string, myPropInfo> props = Reflection.Instance.Getproperties(type, typename, _params.ShowReadOnlyProperties);//, Reflection.Instance.IsTypeRegistered(type));
+            Dictionary<string, myPropInfo> props = Reflection.Instance.Getproperties(type, typename, _params.ShowReadOnlyProperties); //, Reflection.Instance.IsTypeRegistered(type));
             foreach (var kv in d)
             {
                 var n = kv.Key;
@@ -563,7 +591,7 @@ namespace DuraIT.FastBinaryJson
                     if (v != null)
                     {
                         object oset = v;
-                        if (v is typedarray)
+                        if (v is TypedArray)
                         {
                             oset = ParseTypedArray(globaltypes, v);
                         }
@@ -590,27 +618,31 @@ namespace DuraIT.FastBinaryJson
                                 case myPropInfoType.Dictionary:
                                     oset = CreateDictionary((List<object>)v, pi.pt, pi.GenericTypes, globaltypes);
                                     break;
-                                case myPropInfoType.NameValue: oset = CreateNV((Dictionary<string, object>)v); break;
-                                case myPropInfoType.StringDictionary: oset = CreateSD((Dictionary<string, object>)v); break;
+                                case myPropInfoType.NameValue:
+                                    oset = CreateNV((Dictionary<string, object>)v);
+                                    break;
+                                case myPropInfoType.StringDictionary:
+                                    oset = CreateSD((Dictionary<string, object>)v);
+                                    break;
                                 case myPropInfoType.Array:
                                     oset = CreateArray((List<object>)v, pi.pt, pi.bt, globaltypes);
                                     break;
                                 default:
+                                {
+                                    if (pi.IsGenericType && pi.IsValueType == false)
+                                        oset = CreateGenericList((List<object>)v, pi.pt, pi.bt, globaltypes);
+                                    else if ((pi.IsClass || pi.IsStruct || pi.IsInterface) && v is Dictionary<string, object>)
                                     {
-                                        if (pi.IsGenericType && pi.IsValueType == false)
-                                            oset = CreateGenericList((List<object>)v, pi.pt, pi.bt, globaltypes);
-                                        else if ((pi.IsClass || pi.IsStruct || pi.IsInterface) && v is Dictionary<string, object>)
-                                        {
-                                            var oo = (Dictionary<string, object>)v;
-                                            if (oo.ContainsKey("$schema"))
-                                                oset = CreateDataset(oo, globaltypes);
-                                            else
-                                                oset = ParseDictionary(oo, globaltypes, pi.pt, input);
-                                        }
-                                        else if (v is List<object>)
-                                            oset = CreateArray((List<object>)v, pi.pt, typeof(object), globaltypes);
-                                        break;
+                                        var oo = (Dictionary<string, object>)v;
+                                        if (oo.ContainsKey("$schema"))
+                                            oset = CreateDataset(oo, globaltypes);
+                                        else
+                                            oset = ParseDictionary(oo, globaltypes, pi.pt, input);
                                     }
+                                    else if (v is List<object>)
+                                        oset = CreateArray((List<object>)v, pi.pt, typeof(object), globaltypes);
+                                    break;
+                                }
                             }
                         }
                         o = pi.setter(o, oset);
@@ -623,7 +655,7 @@ namespace DuraIT.FastBinaryJson
         private object ParseTypedArray(Dictionary<string, object> globaltypes, object v)
         {
             object oset;
-            var ta = (typedarray)v;
+            var ta = (TypedArray)v;
             var t = Reflection.Instance.GetTypeFromCache(ta.typename, true);
             IList a = Array.CreateInstance(t, ta.count);
             int i = 0;
@@ -632,7 +664,7 @@ namespace DuraIT.FastBinaryJson
                 object oo = null;
                 if (dd == null)
                     oo = null;
-                else if (dd is typedarray)
+                else if (dd is TypedArray)
                     oo = ParseTypedArray(globaltypes, dd);
                 else if (dd is Dictionary<string, object>)
                     oo = ParseDictionary((Dictionary<string, object>)dd, globaltypes, t, null);
@@ -680,7 +712,7 @@ namespace DuraIT.FastBinaryJson
             Array col = Array.CreateInstance(bt, data.Count);
             var arraytype = bt.GetElementType();
             // create an array of objects
-            for (int i = 0; i < data.Count; i++)// each (object ob in data)
+            for (int i = 0; i < data.Count; i++) // each (object ob in data)
             {
                 object ob = data[i];
                 if (ob == null)
@@ -708,7 +740,6 @@ namespace DuraIT.FastBinaryJson
                 {
                     if (ob is IDictionary)
                         col.Add(ParseDictionary((Dictionary<string, object>)ob, globalTypes, bt, null));
-
                     else if (ob is List<object>)
                     {
                         if (bt.IsGenericType)
@@ -716,8 +747,8 @@ namespace DuraIT.FastBinaryJson
                         else
                             col.Add(((List<object>)ob).ToArray());
                     }
-                    else if (ob is typedarray)
-                        col.Add(((typedarray)ob).data.ToArray());
+                    else if (ob is TypedArray)
+                        col.Add(((TypedArray)ob).data.ToArray());
                     else
                         col.Add(ob);
                 }
@@ -747,7 +778,6 @@ namespace DuraIT.FastBinaryJson
 
                 if (values.Value is Dictionary<string, object>)
                     val = ParseDictionary((Dictionary<string, object>)values.Value, globalTypes, t2, null);
-
                 else if (types != null && t2.IsArray)
                 {
                     if (values.Value is Array)
@@ -757,7 +787,6 @@ namespace DuraIT.FastBinaryJson
                 }
                 else if (values.Value is IList)
                     val = CreateGenericList((List<object>)values.Value, t2, generictype, globalTypes);
-
                 else
                     val = values.Value;
 
@@ -788,7 +817,6 @@ namespace DuraIT.FastBinaryJson
 
                 if (typeof(IDictionary).IsAssignableFrom(t2))
                     val = RootDictionary(val, t2);
-
                 else if (val is Dictionary<string, object>)
                     val = ParseDictionary((Dictionary<string, object>)val, globalTypes, t2, null);
 
@@ -826,10 +854,12 @@ namespace DuraIT.FastBinaryJson
 
             foreach (KeyValuePair<string, object> pair in reader)
             {
-                if (pair.Key == "$type" || pair.Key == "$schema") continue;
+                if (pair.Key == "$type" || pair.Key == "$schema")
+                    continue;
 
                 List<object> rows = (List<object>)pair.Value;
-                if (rows == null) continue;
+                if (rows == null)
+                    continue;
 
                 DataTable dt = ds.Tables[pair.Key];
                 ReadDataTable(rows, dt);
@@ -896,5 +926,4 @@ namespace DuraIT.FastBinaryJson
             return dt;
         }
     }
-
 }
