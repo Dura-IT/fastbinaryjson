@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Net;
 
 using AwesomeAssertions;
 
@@ -66,43 +65,6 @@ namespace FastBinaryJson.UnitTests.Defects
         }
 
         #endregion
-
-        #region custom type registration
-
-        /*
-         * DEFECT: a registered custom type does not apply to subclasses.
-         *
-         * Reflection.IsTypeRegistered does an exact-type dictionary lookup on obj.GetType(), so a
-         * registration for a base type is skipped for any derived instance and serialization falls
-         * through to reflection.
-         *
-         * This is not academic. IPAddress.Loopback on .NET returns the private subclass
-         * System.Net.IPAddress+ReadOnlyIPAddress, so the single most obvious way to obtain an
-         * IPAddress misses a registration for typeof(IPAddress). Reflection then reaches
-         * IPAddress.ScopeId, which throws SocketException for any IPv4 address.
-         *
-         * On .NET Framework 4.0, where upstream was written, Loopback was a plain IPAddress and
-         * the exact match held - which is why the upstream test never caught this.
-         */
-        [Test]
-        public void CustomType_AppliesToExactTypeOnly()
-        {
-            BJSON.RegisterCustomType(typeof(IPAddress), x => x.ToString()!, x => IPAddress.Parse(x));
-
-            Action exact = () => BJSON.ToBJSON(new AddressHolder { Value = new IPAddress(new byte[] { 127, 0, 0, 1 }) });
-            Action derived = () => BJSON.ToBJSON(new AddressHolder { Value = IPAddress.Loopback });
-
-            IPAddress.Loopback.GetType().Should().NotBe(typeof(IPAddress), "Loopback is a private ReadOnlyIPAddress subclass on .NET");
-            exact.Should().NotThrow();
-            derived.Should().Throw<System.Net.Sockets.SocketException>("the registration is skipped and reflection reaches ScopeId");
-        }
-
-        #endregion
-
-        private sealed class AddressHolder
-        {
-            public IPAddress Value { get; set; } = null!;
-        }
 
         private sealed class ClockHolder
         {

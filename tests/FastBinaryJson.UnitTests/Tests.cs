@@ -1076,15 +1076,14 @@ public class tests
     public static void CustomTypes()
     {
         var ip = new ctype();
-        // Was `System.Net.IPAddress.Loopback` upstream. On .NET (Core) that static returns a
-        // private subclass, System.Net.IPAddress+ReadOnlyIPAddress, where on .NET Framework 4.0
-        // it returned a plain IPAddress. IsTypeRegistered matches the exact runtime type, so the
-        // custom type registered below no longer applies, serialization falls through to
-        // reflection, and reflection reaches IPAddress.ScopeId, which throws SocketException for
-        // any IPv4 address. Constructing the address directly restores the type the test was
-        // written against. The exact-match gap itself is a real library limitation, recorded
-        // separately - it is not fixed here.
-        ip.ip = new System.Net.IPAddress(new byte[] { 127, 0, 0, 1 });
+        // Back to upstream's `IPAddress.Loopback`. It had to be replaced with a directly
+        // constructed address for a while: on .NET that static returns a private
+        // System.Net.IPAddress+ReadOnlyIPAddress subclass, and registration used to match the exact
+        // runtime type, so the registration below was skipped and reflection reached
+        // IPAddress.ScopeId, which throws SocketException for any IPv4 address. Registration now
+        // resolves through the base chain, so the original line works again - see
+        // RoundTrip.CustomTypeTests.
+        ip.ip = System.Net.IPAddress.Loopback;
 
         BJSON.RegisterCustomType(typeof(System.Net.IPAddress),
             (x) => { return x.ToString(); },

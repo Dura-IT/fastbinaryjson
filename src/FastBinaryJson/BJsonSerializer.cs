@@ -365,7 +365,7 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteCustom(object obj)
         {
-            Reflection.Instance._customSerializer.TryGetValue(obj.GetType(), out Reflection.Serialize? s);
+            Reflection.Instance.TryGetCustomSerializer(obj.GetType(), out Reflection.Serialize? s);
             WriteString(s!(obj));
         }
 

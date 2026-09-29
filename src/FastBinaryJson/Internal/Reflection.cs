@@ -181,9 +181,20 @@ namespace DuraIT.FastBinaryJson.Internal
         internal SafeDictionary<Type, Serialize> _customSerializer = new SafeDictionary<Type, Serialize>();
         internal SafeDictionary<Type, Deserialize> _customDeserializer = new SafeDictionary<Type, Deserialize>();
 
+        /*
+         * Resolution results per exact type, misses included, so the base-chain walk below is paid
+         * once per type instead of on every value written.
+         *
+         * This matters on the hot path rather than in theory: IsTypeRegistered is consulted for
+         * every object that reaches the fallback in WriteValue, so without a cache a deep hierarchy
+         * with any registration present would walk its whole chain per object, every time.
+         */
+        private SafeDictionary<Type, Serialize?> _serializerForType = new SafeDictionary<Type, Serialize?>();
+        private SafeDictionary<Type, Deserialize?> _deserializerForType = new SafeDictionary<Type, Deserialize?>();
+
         internal object CreateCustom(string v, Type type)
         {
-            _customDeserializer.TryGetValue(type, out Deserialize? d);
+            TryGetCustomDeserializer(type, out Deserialize? d);
             return d!(v);
         }
 
@@ -193,9 +204,71 @@ namespace DuraIT.FastBinaryJson.Internal
             {
                 _customSerializer.Add(type, serializer);
                 _customDeserializer.Add(type, deserializer);
+                // A new registration can shadow a base one and can turn an earlier miss into a hit,
+                // so the resolved results are no longer trustworthy.
+                _serializerForType = new SafeDictionary<Type, Serialize?>();
+                _deserializerForType = new SafeDictionary<Type, Deserialize?>();
                 // reset property cache
                 Instance.ResetPropertyCache();
             }
+        }
+
+        internal bool TryGetCustomSerializer(Type t, out Serialize? serializer)
+        {
+            serializer = null;
+            if (_customSerializer.Count() == 0)
+                return false;
+
+            if (_serializerForType.TryGetValue(t, out serializer) == false)
+            {
+                serializer = Resolve(t, _customSerializer);
+                _serializerForType.Add(t, serializer);
+            }
+
+            return serializer != null;
+        }
+
+        internal bool TryGetCustomDeserializer(Type t, out Deserialize? deserializer)
+        {
+            deserializer = null;
+            if (_customDeserializer.Count() == 0)
+                return false;
+
+            if (_deserializerForType.TryGetValue(t, out deserializer) == false)
+            {
+                deserializer = Resolve(t, _customDeserializer);
+                _deserializerForType.Add(t, deserializer);
+            }
+
+            return deserializer != null;
+        }
+
+        /// <summary>
+        /// Finds the registration for <paramref name="t"/> or, failing that, for its nearest
+        /// registered base type.
+        /// </summary>
+        /// <remarks>
+        /// Upstream matched the exact runtime type only, which silently skipped every derived
+        /// instance - including the framework's own, since IPAddress.Loopback returns a private
+        /// ReadOnlyIPAddress subclass on .NET.
+        ///
+        /// Base classes only. Interfaces are not walked: a type can implement several registered
+        /// interfaces with no defensible way to choose between them, and the exact match never
+        /// covered them either. Walking stops naturally at object, which nothing sane registers.
+        /// </remarks>
+        private static TRegistration? Resolve<TRegistration>(Type t, SafeDictionary<Type, TRegistration> registrations)
+            where TRegistration : class
+        {
+            Type? candidate = t;
+            while (candidate != null)
+            {
+                if (registrations.TryGetValue(candidate, out TRegistration? found))
+                    return found;
+
+                candidate = candidate.BaseType;
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -212,14 +285,14 @@ namespace DuraIT.FastBinaryJson.Internal
         {
             _customSerializer = new SafeDictionary<Type, Serialize>();
             _customDeserializer = new SafeDictionary<Type, Deserialize>();
+            _serializerForType = new SafeDictionary<Type, Serialize?>();
+            _deserializerForType = new SafeDictionary<Type, Deserialize?>();
             ResetPropertyCache();
         }
 
         internal bool IsTypeRegistered(Type t)
         {
-            if (_customSerializer.Count() == 0)
-                return false;
-            return _customSerializer.TryGetValue(t, out _);
+            return TryGetCustomSerializer(t, out _);
         }
         #endregion
 
