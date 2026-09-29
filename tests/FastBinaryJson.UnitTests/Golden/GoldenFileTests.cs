@@ -103,15 +103,11 @@ namespace FastBinaryJson.UnitTests.Golden
 
             yield return GoldenCase.For("dictionary-int-key", GoldenCorpus.BuildIntKeyedDictionary, Defaults);
 
-            // Bytes only: UseUTCDateTime routes the value through ToUniversalTime on write and
-            // ToLocalTime on read, so the round-tripped value depends on the machine's time zone
-            // even though the bytes do not. The read-back asymmetry is asserted for real in
-            // KnownDefectTests.UtcDateTime_RoundTrip_ReturnsLocalTime; here it is bytes only.
-            yield return GoldenCase.For(
-                "utc-datetime",
-                GoldenCorpus.BuildUtcClock,
-                () => With(p => p.UseUTCDateTime = true),
-                bytesOnlyReason: "round-tripped value is time-zone dependent, characterized in KnownDefectTests");
+            // Was bytes only until the UseUTCDateTime read path stopped converting: write sent the
+            // value through ToUniversalTime and read sent it through ToLocalTime, so the restored
+            // value depended on the reading machine's time zone even though the bytes did not. The
+            // read-back is asserted for real now, on every platform the matrix runs.
+            yield return GoldenCase.For("utc-datetime", GoldenCorpus.BuildUtcClock, () => With(p => p.UseUTCDateTime = true));
         }
 
         /// <summary>

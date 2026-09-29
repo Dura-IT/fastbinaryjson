@@ -374,16 +374,22 @@ namespace DuraIT.FastBinaryJson
             return new decimal(i);
         }
 
+        /*
+         * This used to call ToLocalTime while the write path called ToUniversalTime, so a value
+         * written as Utc came back as Local, shifted by the READING machine's offset. The bytes were
+         * always correct and machine independent; the asymmetry made the restored value depend on
+         * where it was read. Under TZ=UTC the two cancelled out, which is how it went unnoticed.
+         *
+         * Labelling the ticks instead of converting them is what makes the round trip symmetric. No
+         * byte changes - this is a read-side fix - but a caller using UseUTCDateTime now receives
+         * the instant that was written rather than a local rendering of it.
+         */
         private DateTime ParseDateTime()
         {
             long l = Helper.ToInt64(_json, _index);
             _index += 8;
 
-            DateTime dt = new DateTime(l);
-            if (_useUTC)
-                dt = dt.ToLocalTime(); // to local time
-
-            return dt;
+            return _useUTC ? new DateTime(l, DateTimeKind.Utc) : new DateTime(l);
         }
 
         private DateTimeOffset ParseDateTimeOffset()

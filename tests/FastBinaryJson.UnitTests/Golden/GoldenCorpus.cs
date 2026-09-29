@@ -156,10 +156,11 @@ namespace FastBinaryJson.UnitTests.Golden
     /*
      * char, sbyte and DateTimeOffset are deliberately absent.
      *
-     * char and sbyte serialize correctly but cannot be read back into a property of their own
-     * type; DateTimeOffset cannot be serialized at all. All three are pinned by KnownDefectTests
-     * instead, so that this corpus stays a record of the format as it actually works. Add them
-     * here as part of whichever change fixes them.
+     * They were excluded while broken - char and sbyte could not be read back into a property of
+     * their own type, and DateTimeOffset could not be serialized at all - so that this corpus
+     * stayed a record of the format as it actually worked. All three are fixed now and covered by
+     * RoundTrip tests, but they are still absent here: adding them mints new golden bytes, which is
+     * a separate change from fixing the behaviour. That is the outstanding follow-up.
      */
     internal sealed class Primitives
     {

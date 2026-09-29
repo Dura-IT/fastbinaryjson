@@ -11,8 +11,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
     /*
      * Round-trip tests for the primitives upstream could not restore.
      *
-     * These replace characterization tests that asserted the broken behaviour; KnownDefectTests
-     * says why a red test there is good news and what to do about it.
+     * These replaced characterization tests that asserted the broken behaviour. That file is gone:
+     * once every defect it pinned was fixed, there was nothing left for it to hold.
      *
      * The typed and the untyped read path are asserted separately on purpose. A typed property can
      * be repaired by converting at assignment time, so a green typed test says nothing about what
