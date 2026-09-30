@@ -277,10 +277,16 @@ namespace DuraIT.FastBinaryJson
 
         private Guid ParseGuid()
         {
+#if NET10_0_OR_GREATER
+            Guid g = new Guid(new ReadOnlySpan<byte>(_json, _index, 16));
+            _index += 16;
+            return g;
+#else
             byte[] b = new byte[16];
             Buffer.BlockCopy(_json, _index, b, 0, 16);
             _index += 16;
             return new Guid(b);
+#endif
         }
 
         private float ParseFloat()
@@ -361,7 +367,11 @@ namespace DuraIT.FastBinaryJson
 
         private decimal ParseDecimal()
         {
+#if NET10_0_OR_GREATER
+            Span<int> i = stackalloc int[4];
+#else
             int[] i = new int[4];
+#endif
             i[0] = Helper.ToInt32(_json, _index);
             _index += 4;
             i[1] = Helper.ToInt32(_json, _index);

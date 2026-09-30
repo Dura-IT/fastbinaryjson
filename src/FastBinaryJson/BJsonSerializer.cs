@@ -1,13 +1,25 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Collections.Specialized;
 using DuraIT.FastBinaryJson.Internal;
+#if NET10_0_OR_GREATER
+using System.Buffers;
+using System.Runtime.InteropServices;
+#endif
 
 namespace DuraIT.FastBinaryJson
 {
+    /*
+     * On net10.0 the fixed-size writes go through stackalloc and strings are written without an
+     * intermediate array per value. netstandard2.0 keeps upstream's byte[] path verbatim. Both
+     * write the same bytes in the same (native) order - the golden files and the netstandard2.0
+     * test project hold that, so a divergence fails on one target rather than going unnoticed.
+     *
+     * The split lives in the small raw-write and Encode helpers at the bottom, not in the callers.
+     */
     internal sealed class BJSONSerializer : IDisposable
     {
         private MemoryStream _output = new MemoryStream();
@@ -18,6 +30,10 @@ namespace DuraIT.FastBinaryJson
         private Dictionary<string, int> _globalTypes = new Dictionary<string, int>();
         private Dictionary<object, int> _cirobj = new Dictionary<object, int>();
         private BJSONParameters _params;
+#if NET10_0_OR_GREATER
+        // Rented once per serialization and reused for every UTF-8 string; returned in ConvertToBJSON.
+        private byte[]? _utf8Scratch;
+#endif
 
         private void Dispose(bool disposing)
         {
@@ -26,6 +42,7 @@ namespace DuraIT.FastBinaryJson
                 // dispose managed resources
                 _output.Close();
                 //_before.Close();
+                ReturnScratch();
             }
             // free native resources
         }
@@ -44,23 +61,31 @@ namespace DuraIT.FastBinaryJson
 
         internal byte[] ConvertToBJSON(object obj)
         {
-            WriteValue(obj);
-
-            // add $types
-            if (_params.UsingGlobalTypes && _globalTypes != null && _globalTypes.Count > 0)
+            // The caller does not dispose this instance, so the pooled scratch is returned here.
+            try
             {
-                var pointer = (int)_output.Length;
-                WriteName("$types");
-                WriteColon();
-                WriteTypes(_globalTypes);
-                //var i = _output.Length;
-                _output.Seek(_typespointer, SeekOrigin.Begin);
-                _output.Write(Helper.GetBytes(pointer, false), 0, 4);
+                WriteValue(obj);
+
+                // add $types
+                if (_params.UsingGlobalTypes && _globalTypes != null && _globalTypes.Count > 0)
+                {
+                    var pointer = (int)_output.Length;
+                    WriteName("$types");
+                    WriteColon();
+                    WriteTypes(_globalTypes);
+                    //var i = _output.Length;
+                    _output.Seek(_typespointer, SeekOrigin.Begin);
+                    WriteInt32Raw(pointer);
+
+                    return _output.ToArray();
+                }
 
                 return _output.ToArray();
             }
-
-            return _output.ToArray();
+            finally
+            {
+                ReturnScratch();
+            }
         }
 
         private void WriteTypes(Dictionary<string, int> dic)
@@ -194,8 +219,7 @@ namespace DuraIT.FastBinaryJson
         private void WriteTimeSpan(TimeSpan obj)
         {
             _output.WriteByte(TOKENS.TIMESPAN);
-            byte[] b = Helper.GetBytes(obj.Ticks, false);
-            _output.Write(b, 0, b.Length);
+            WriteInt64Raw(obj.Ticks);
         }
 
         private void WriteTypedArray(ICollection array)
@@ -208,26 +232,22 @@ namespace DuraIT.FastBinaryJson
                 //if (t.GetElementType().IsClass)
                 {
                     token = false;
-                    byte[] b;
-                    // array type name
-                    if (_params.v1_4TypedArray)
-                        b = Reflection.UTF8GetBytes(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!));
-                    else
-                        b = Reflection.UnicodeGetBytes(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!));
+                    // array type name - byte[] on netstandard2.0, a span on net10.0
+                    var b = Encode(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!), unicode: !_params.v1_4TypedArray);
                     if (b.Length < 256)
                     {
                         _output.WriteByte(TOKENS.ARRAY_TYPED);
                         _output.WriteByte((byte)b.Length);
-                        _output.Write(b, 0, b.Length);
+                        WriteBytesRaw(b);
                     }
                     else
                     {
                         _output.WriteByte(TOKENS.ARRAY_TYPED_LONG);
-                        _output.Write(Helper.GetBytes(b.Length, false), 0, 2);
-                        _output.Write(b, 0, b.Length);
+                        WriteInt16Raw(unchecked((short)b.Length));
+                        WriteBytesRaw(b);
                     }
                     // array count
-                    _output.Write(Helper.GetBytes(array.Count, false), 0, 4); //count
+                    WriteInt32Raw(array.Count);
                 }
             }
             if (token)
@@ -281,27 +301,35 @@ namespace DuraIT.FastBinaryJson
         private void WriteUShort(ushort p)
         {
             _output.WriteByte(TOKENS.USHORT);
-            _output.Write(Helper.GetBytes(p, false), 0, 2);
+            WriteInt16Raw(unchecked((short)p));
         }
 
         private void WriteShort(short p)
         {
             _output.WriteByte(TOKENS.SHORT);
-            _output.Write(Helper.GetBytes(p, false), 0, 2);
+            WriteInt16Raw(p);
         }
 
         private void WriteFloat(float p)
         {
             _output.WriteByte(TOKENS.FLOAT);
+#if NET10_0_OR_GREATER
+            WriteInt32Raw(BitConverter.SingleToInt32Bits(p));
+#else
             byte[] b = BitConverter.GetBytes(p);
             _output.Write(b, 0, b.Length);
+#endif
         }
 
         private void WriteDouble(double p)
         {
             _output.WriteByte(TOKENS.DOUBLE);
+#if NET10_0_OR_GREATER
+            WriteInt64Raw(BitConverter.DoubleToInt64Bits(p));
+#else
             var b = BitConverter.GetBytes(p);
             _output.Write(b, 0, b.Length);
+#endif
         }
 
         private void WriteByte(byte p)
@@ -313,39 +341,44 @@ namespace DuraIT.FastBinaryJson
         private void WriteDecimal(decimal p)
         {
             _output.WriteByte(TOKENS.DECIMAL);
+#if NET10_0_OR_GREATER
+            Span<int> b = stackalloc int[4];
+            decimal.GetBits(p, b);
+#else
             var b = decimal.GetBits(p);
+#endif
             foreach (var c in b)
-                _output.Write(Helper.GetBytes(c, false), 0, 4);
+                WriteInt32Raw(c);
         }
 
         private void WriteULong(ulong p)
         {
             _output.WriteByte(TOKENS.ULONG);
-            _output.Write(Helper.GetBytes((long)p, false), 0, 8);
+            WriteInt64Raw(unchecked((long)p));
         }
 
         private void WriteUInt(uint p)
         {
             _output.WriteByte(TOKENS.UINT);
-            _output.Write(Helper.GetBytes(p, false), 0, 4);
+            WriteInt32Raw(unchecked((int)p));
         }
 
         private void WriteLong(long p)
         {
             _output.WriteByte(TOKENS.LONG);
-            _output.Write(Helper.GetBytes(p, false), 0, 8);
+            WriteInt64Raw(p);
         }
 
         private void WriteChar(char p)
         {
             _output.WriteByte(TOKENS.CHAR);
-            _output.Write(Helper.GetBytes((short)p, false), 0, 2);
+            WriteInt16Raw(unchecked((short)p));
         }
 
         private void WriteBytes(byte[] p)
         {
             _output.WriteByte(TOKENS.BYTEARRAY);
-            _output.Write(Helper.GetBytes(p.Length, false), 0, 4);
+            WriteInt32Raw(p.Length);
             _output.Write(p, 0, p.Length);
         }
 
@@ -400,13 +433,19 @@ namespace DuraIT.FastBinaryJson
             //    }
             //}
             _output.WriteByte(TOKENS.INT);
-            _output.Write(Helper.GetBytes(i, false), 0, 4);
+            WriteInt32Raw(i);
         }
 
         private void WriteGuid(Guid g)
         {
             _output.WriteByte(TOKENS.GUID);
+#if NET10_0_OR_GREATER
+            Span<byte> b = stackalloc byte[16];
+            g.TryWriteBytes(b);
+            _output.Write(b);
+#else
             _output.Write(g.ToByteArray(), 0, 16);
+#endif
         }
 
         private void WriteDateTime(DateTime dateTime)
@@ -416,8 +455,7 @@ namespace DuraIT.FastBinaryJson
                 dt = dateTime.ToUniversalTime();
 
             _output.WriteByte(TOKENS.DATETIME);
-            byte[] b = Helper.GetBytes(dt.Ticks, false);
-            _output.Write(b, 0, b.Length);
+            WriteInt64Raw(dt.Ticks);
         }
 
         /// <summary>
@@ -435,9 +473,8 @@ namespace DuraIT.FastBinaryJson
         private void WriteDateTimeOffset(DateTimeOffset value)
         {
             _output.WriteByte(TOKENS.DATETIMEOFFSET);
-            byte[] ticks = Helper.GetBytes(value.Ticks, false);
-            _output.Write(ticks, 0, ticks.Length);
-            _output.Write(Helper.GetBytes((int)value.Offset.TotalMinutes, false), 0, 2);
+            WriteInt64Raw(value.Ticks);
+            WriteInt16Raw(unchecked((short)(int)value.Offset.TotalMinutes));
         }
 
         private DatasetSchema? GetSchema(DataTable? ds)
@@ -578,7 +615,7 @@ namespace DuraIT.FastBinaryJson
                     // write pointer to $types position
                     _output.WriteByte(TOKENS.TYPES_POINTER);
                     _typespointer = (int)_output.Length; // place holder
-                    _output.Write(new byte[4], 0, 4); // zero pointer for now
+                    WriteInt32Raw(0); // zero pointer for now
                                                       //_output = new MemoryStream();
                     _TypesWritten = true;
                 }
@@ -725,14 +762,6 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(TOKENS.ARRAY_END);
         }
 
-        private void WriteName(string s)
-        {
-            if (_params.UseUnicodeStrings == false)
-                WriteNameBytes(Reflection.UTF8GetBytes(s), TOKENS.NAME, TOKENS.NAME_LONG);
-            else
-                WriteNameBytes(Reflection.UnicodeGetBytes(s), TOKENS.NAME_UNI, TOKENS.NAME_UNI_LONG);
-        }
-
         /// <summary>
         /// Writes an encoded name, choosing the single-byte or the four-byte length form.
         /// </summary>
@@ -742,37 +771,119 @@ namespace DuraIT.FastBinaryJson
         /// is kept for everything below that threshold, unchanged, which is what leaves every name
         /// that already worked byte-identical.
         /// </remarks>
-        private void WriteNameBytes(byte[] b, byte shortToken, byte longToken)
+        private void WriteName(string s)
         {
+            bool unicode = _params.UseUnicodeStrings;
+            // byte[] on netstandard2.0, a span on net10.0
+            var b = Encode(s, unicode);
             if (b.Length < 256)
             {
-                _output.WriteByte(shortToken);
+                _output.WriteByte(unicode ? TOKENS.NAME_UNI : TOKENS.NAME);
                 _output.WriteByte((byte)b.Length);
             }
             else
             {
-                _output.WriteByte(longToken);
-                _output.Write(Helper.GetBytes(b.Length, false), 0, 4);
+                _output.WriteByte(unicode ? TOKENS.NAME_UNI_LONG : TOKENS.NAME_LONG);
+                WriteInt32Raw(b.Length);
             }
 
-            _output.Write(b, 0, b.Length);
+            WriteBytesRaw(b);
         }
 
         private void WriteString(string s)
         {
-            byte[] b;
-            if (_params.UseUnicodeStrings)
-            {
-                _output.WriteByte(TOKENS.UNICODE_STRING);
-                b = Reflection.UnicodeGetBytes(s);
-            }
-            else
-            {
-                _output.WriteByte(TOKENS.STRING);
-                b = Reflection.UTF8GetBytes(s);
-            }
-            _output.Write(Helper.GetBytes(b.Length, false), 0, 4);
-            _output.Write(b, 0, b.Length);
+            bool unicode = _params.UseUnicodeStrings;
+            _output.WriteByte(unicode ? TOKENS.UNICODE_STRING : TOKENS.STRING);
+            var b = Encode(s, unicode);
+            WriteInt32Raw(b.Length);
+            WriteBytesRaw(b);
         }
+
+        #region Raw writes
+
+        /*
+         * Native byte order on both targets, exactly as Helper.GetBytes wrote it. Not
+         * BinaryPrimitives.WriteXxxLittleEndian: that would only differ on big-endian hardware, but
+         * byte-identical to upstream is the rule, not "identical where it happens to matter".
+         */
+        private void WriteInt16Raw(short value)
+        {
+#if NET10_0_OR_GREATER
+            Span<byte> buffer = stackalloc byte[sizeof(short)];
+            MemoryMarshal.Write(buffer, in value);
+            _output.Write(buffer);
+#else
+            _output.Write(Helper.GetBytes(value, false), 0, 2);
+#endif
+        }
+
+        private void WriteInt32Raw(int value)
+        {
+#if NET10_0_OR_GREATER
+            Span<byte> buffer = stackalloc byte[sizeof(int)];
+            MemoryMarshal.Write(buffer, in value);
+            _output.Write(buffer);
+#else
+            _output.Write(Helper.GetBytes(value, false), 0, 4);
+#endif
+        }
+
+        private void WriteInt64Raw(long value)
+        {
+#if NET10_0_OR_GREATER
+            Span<byte> buffer = stackalloc byte[sizeof(long)];
+            MemoryMarshal.Write(buffer, in value);
+            _output.Write(buffer);
+#else
+            _output.Write(Helper.GetBytes(value, false), 0, 8);
+#endif
+        }
+
+#if NET10_0_OR_GREATER
+        /// <summary>
+        /// Encodes a string without allocating: UTF-16 is the string's own memory, UTF-8 lands in
+        /// the pooled scratch buffer.
+        /// </summary>
+        /// <remarks>
+        /// The UTF-8 span points into <see cref="_utf8Scratch"/>, so it is only valid until the next
+        /// call. Every caller writes it out immediately.
+        /// </remarks>
+        private ReadOnlySpan<byte> Encode(string s, bool unicode)
+        {
+            // The same bytes UnicodeGetBytes copied out of the string, without the copy.
+            if (unicode)
+                return MemoryMarshal.AsBytes(s.AsSpan());
+
+            int length = Reflection.UTF8GetByteCount(s);
+            if (_utf8Scratch is null || _utf8Scratch.Length < length)
+            {
+                ReturnScratch();
+                _utf8Scratch = ArrayPool<byte>.Shared.Rent(Math.Max(length, 256));
+            }
+
+            int written = Reflection.UTF8GetBytes(s, _utf8Scratch);
+            return new ReadOnlySpan<byte>(_utf8Scratch, 0, written);
+        }
+
+        private void WriteBytesRaw(ReadOnlySpan<byte> bytes) => _output.Write(bytes);
+
+        private void ReturnScratch()
+        {
+            if (_utf8Scratch is null)
+                return;
+
+            ArrayPool<byte>.Shared.Return(_utf8Scratch);
+            _utf8Scratch = null;
+        }
+#else
+        private static byte[] Encode(string s, bool unicode) => unicode ? Reflection.UnicodeGetBytes(s) : Reflection.UTF8GetBytes(s);
+
+        private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes, 0, bytes.Length);
+
+        // Nothing is pooled on this target.
+        private void ReturnScratch() { }
+#endif
+
+        #endregion
     }
 }
