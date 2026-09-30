@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -662,8 +662,15 @@ namespace DuraIT.FastBinaryJson
                                         var oo = (Dictionary<string, object>)v;
                                         if (oo.ContainsKey("$schema"))
                                             oset = CreateDataset(oo, globaltypes);
+                                        /*
+                                         * null, not `input`: that is the ROOT instance FillObject was
+                                         * given, and passing it down made every nested member be
+                                         * filled into the root - its setters then threw
+                                         * InvalidCastException. Nested members get a new instance,
+                                         * the same as ToObject gives them.
+                                         */
                                         else
-                                            oset = ParseDictionary(oo, globaltypes, pi.pt, input);
+                                            oset = ParseDictionary(oo, globaltypes, pi.pt, null);
                                     }
                                     else if (v is List<object>)
                                         oset = CreateArray((List<object>)v, pi.pt, typeof(object), globaltypes);
