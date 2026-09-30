@@ -348,6 +348,17 @@ namespace DuraIT.FastBinaryJson
 
         private BJSONParameters _params;
         private Dictionary<object, int> _circobj = new Dictionary<object, int>();
+
+        /// <summary>
+        /// Read typed ToObject calls with <see cref="TypedReader"/> instead of the two-step path.
+        /// </summary>
+        internal bool OneStep { get; set; }
+
+        /// <summary>
+        /// How many objects TypedReader handed back to the two-step path. Diagnostic only - lets the
+        /// tests prove the reader did the work instead of quietly falling back every time.
+        /// </summary>
+        internal int OneStepFallbacks { get; set; }
         private Dictionary<int, object> _cirrev = new Dictionary<int, object>();
 
         public T? ToObject<T>(byte[] json)
@@ -369,6 +380,9 @@ namespace DuraIT.FastBinaryJson
             _globalTypes = _params.UsingGlobalTypes;
             if (t == typeof(Dictionary<,>) || t == typeof(List<>))
                 _globalTypes = false;
+
+            if (OneStep && type != null && TypedReader.TryRead(this, json, type, t, out object? read))
+                return read;
 
             var o = new BJsonParser(json, _params.UseUTCDateTime, _params.v1_4TypedArray).Decode();
             if (type?.IsEnum == true)
@@ -525,7 +539,77 @@ namespace DuraIT.FastBinaryJson
 
         private bool _globalTypes = false;
 
-        private object? ParseDictionary(Dictionary<string, object>? d, Dictionary<string, object>? globaltypes, Type? type, object? input)
+        #region Shared with TypedReader
+
+        /*
+         * Pieces of ParseDictionary that TypedReader has to perform identically - extracted rather
+         * than duplicated, so the two paths cannot drift apart.
+         */
+
+        internal BJSONParameters Parameters => _params;
+
+        internal object CreateInstance(Type type)
+        {
+            if (_params.ParametricConstructorOverride)
+#if NET10_0_OR_GREATER
+                // FormatterServices is obsolete (SYSLIB0050) on modern .NET. RuntimeHelpers is
+                // its documented replacement and behaves identically; it does not exist on
+                // netstandard2.0, so this is the one genuine TFM conditional in the library.
+                return System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(type);
+#else
+                return System.Runtime.Serialization.FormatterServices.GetUninitializedObject(type);
+#endif
+
+            return Reflection.Instance.FastCreateInstance(type);
+        }
+
+        /// <summary>
+        /// Numbers an instance for $i references, in creation order - unless an equal instance is
+        /// already numbered.
+        /// </summary>
+        internal void RegisterCircular(object o)
+        {
+            if (_circobj.ContainsKey(o))
+                return;
+
+            int circount = _circobj.Count + 1;
+            _circobj.Add(o, circount);
+            _cirrev.Add(circount, o);
+        }
+
+        internal int CircularCount => _circobj.Count;
+
+        /// <summary>
+        /// Forgets every instance numbered after <paramref name="count"/>, so a subtree TypedReader
+        /// abandons for the two-step path is numbered again, in the same order, when that path runs.
+        /// </summary>
+        internal void UndoCircular(int count)
+        {
+            for (int id = _circobj.Count; id > count; id--)
+            {
+                object o = _cirrev[id];
+                _cirrev.Remove(id);
+                _circobj.Remove(o);
+            }
+        }
+
+        internal object? ResolveCircular(object id)
+        {
+            _cirrev.TryGetValue((int)id, out object? v);
+            return v;
+        }
+
+        internal static Type? ResolveType(object tn, Dictionary<string, object>? globaltypes)
+        {
+            if (globaltypes != null && globaltypes.TryGetValue((string)tn, out object? tname))
+                tn = tname;
+
+            return Reflection.Instance.GetTypeFromCache((string)tn, true);
+        }
+
+        #endregion
+
+        internal object? ParseDictionary(Dictionary<string, object>? d, Dictionary<string, object>? globaltypes, Type? type, object? input)
         {
             object? tn = "";
             if (type == typeof(NameValueCollection))
@@ -534,11 +618,7 @@ namespace DuraIT.FastBinaryJson
                 return CreateSD(d!);
 
             if (d!.TryGetValue("$i", out tn))
-            {
-                object? v = null;
-                _cirrev.TryGetValue((int)tn!, out v);
-                return v;
-            }
+                return ResolveCircular(tn!);
 
             if (d!.TryGetValue("$types", out tn))
             {
@@ -559,44 +639,16 @@ namespace DuraIT.FastBinaryJson
             {
                 return d; // CreateDataset(d, globaltypes);
             }
+            // _globalTypes is always true here when globaltypes is non-null - set just above.
             if (found)
-            {
-                if (_globalTypes && globaltypes != null)
-                {
-                    object? tname = "";
-                    if (globaltypes != null && globaltypes.TryGetValue((string)tn!, out tname))
-                        tn = tname;
-                }
-                type = Reflection.Instance.GetTypeFromCache((string)tn!, true);
-            }
+                type = ResolveType(tn!, _globalTypes ? globaltypes : null);
 
             if (type == null)
                 throw new Exception("Cannot determine type");
 
             string typename = type.FullName!;
-            object? o = input;
-            if (o == null)
-            {
-                if (_params.ParametricConstructorOverride)
-#if NET10_0_OR_GREATER
-                    // FormatterServices is obsolete (SYSLIB0050) on modern .NET. RuntimeHelpers is
-                    // its documented replacement and behaves identically; it does not exist on
-                    // netstandard2.0, so this is the one genuine TFM conditional in the library.
-                    o = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(type);
-#else
-                    o = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(type);
-#endif
-                else
-                    o = Reflection.Instance.FastCreateInstance(type);
-            }
-
-            int circount = 0;
-            if (_circobj.TryGetValue(o, out circount) == false)
-            {
-                circount = _circobj.Count + 1;
-                _circobj.Add(o, circount);
-                _cirrev.Add(circount, o);
-            }
+            object? o = input ?? CreateInstance(type);
+            RegisterCircular(o);
 
             WireNameMap props = Reflection.Instance.GetWireNameMap(type, typename, _params.ShowReadOnlyProperties); //, Reflection.Instance.IsTypeRegistered(type));
             foreach (var kv in d!)

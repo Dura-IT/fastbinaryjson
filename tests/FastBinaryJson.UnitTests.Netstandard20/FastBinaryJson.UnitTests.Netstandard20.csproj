@@ -59,6 +59,14 @@
     <Compile Remove="../FastBinaryJson.UnitTests/Internal/NameCacheTests.cs" />
   </ItemGroup>
 
+  <!--
+    The benchmark corpus, compiled in as-is so the reader equivalence tests run the exact payloads
+    the benchmarks measure. Linked, not referenced: its types must not become golden-fixture types.
+  -->
+  <ItemGroup>
+    <Compile Include="../../benchmarks/FastBinaryJson.Benchmarks/Corpus/*.cs" LinkBase="BenchmarkCorpus" />
+  </ItemGroup>
+
   <!-- SetTargetFramework is what pins this copy to the older asset. -->
   <ItemGroup>
     <ProjectReference Include="../../src/FastBinaryJson/FastBinaryJson.csproj"

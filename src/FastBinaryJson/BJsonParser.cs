@@ -56,22 +56,9 @@ namespace DuraIT.FastBinaryJson
         private bool readkeyvalue(Dictionary<string, object> dic, ref byte t)
         {
             bool breakparse;
-            string key = "";
-            //if (t != TOKENS.NAME)
-            if (t == TOKENS.NAME)
-                key = ParseName();
-            else if (t == TOKENS.NAME_UNI)
-                key = ParseName2();
-            else if (t == TOKENS.NAME_LONG)
-                key = ParseLongName(false);
-            else if (t == TOKENS.NAME_UNI_LONG)
-                key = ParseLongName(true);
-            else
-                throw new Exception("excpecting a name field");
+            string key = ReadName(t);
 
-            t = GetToken();
-            if (t != TOKENS.COLON)
-                throw new Exception("expecting a colon");
+            ReadColon();
             object? val = ParseValue(out breakparse);
 
             if (breakparse == false)
@@ -79,6 +66,66 @@ namespace DuraIT.FastBinaryJson
 
             return breakparse;
         }
+
+        #region Positional reads for TypedReader
+
+        /*
+         * TypedReader walks the same bytes without building the dictionary graph, and uses these to
+         * read everything it does not construct itself - so a name, a scalar or a materialised
+         * subtree is produced by exactly the code the two-step path runs.
+         */
+
+        internal int Index
+        {
+            get => _index;
+            set => _index = value;
+        }
+
+        internal byte PeekToken() => _json[_index];
+
+        internal byte ReadToken() => GetToken();
+
+        internal string ReadName(byte token)
+        {
+            if (token == TOKENS.NAME)
+                return ParseName();
+            if (token == TOKENS.NAME_UNI)
+                return ParseName2();
+            if (token == TOKENS.NAME_LONG)
+                return ParseLongName(false);
+            if (token == TOKENS.NAME_UNI_LONG)
+                return ParseLongName(true);
+
+            throw new Exception("excpecting a name field");
+        }
+
+        internal void ReadColon()
+        {
+            if (GetToken() != TOKENS.COLON)
+                throw new Exception("expecting a colon");
+        }
+
+        /// <summary>
+        /// Reads one value, materialising it as the two-step path does when it is an object or array.
+        /// </summary>
+        internal object? ReadValue(out bool breakparse) => ParseValue(out breakparse);
+
+        /// <summary>
+        /// Follows a TYPES_POINTER (its token already read) and returns the $types table, leaving the
+        /// index just past the pointer - the same jump ParseObject makes.
+        /// </summary>
+        internal Dictionary<string, object> ReadTypesTable()
+        {
+            Dictionary<string, object> dic = new Dictionary<string, object>();
+            int savedindex = _index;
+            _index = ParseInt();
+            byte t = GetToken();
+            readkeyvalue(dic, ref t);
+            _index = savedindex + 4;
+            return dic;
+        }
+
+        #endregion
 
         private string ParseName2() // unicode byte len string -> <128 len chars
         {
