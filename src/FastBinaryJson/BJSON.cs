@@ -352,7 +352,13 @@ namespace DuraIT.FastBinaryJson
         /// <summary>
         /// Read typed ToObject calls with <see cref="TypedReader"/> instead of the two-step path.
         /// </summary>
-        internal bool OneStep { get; set; }
+        /// <remarks>
+        /// On by default since ReaderEquivalenceTests proved it matches the two-step path on every
+        /// golden case, the benchmark corpus under six parameter sets and seeded damaged input. Parse,
+        /// ToDynamic, untyped ToObject, DeepCopy and FillObject never take this branch. Off only in
+        /// tests, to run the two-step path as the reference.
+        /// </remarks>
+        internal bool OneStep { get; set; } = true;
 
         /// <summary>
         /// How many objects TypedReader handed back to the two-step path. Diagnostic only - lets the
