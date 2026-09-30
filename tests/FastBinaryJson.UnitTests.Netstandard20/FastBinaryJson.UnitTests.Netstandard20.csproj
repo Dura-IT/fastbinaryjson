@@ -50,6 +50,12 @@
     <Compile Include="../FastBinaryJson.UnitTests/**/*.cs"
              Exclude="../FastBinaryJson.UnitTests/bin/**;../FastBinaryJson.UnitTests/obj/**"
              LinkBase="Linked" />
+    <!--
+      Tests of net10.0-only library internals. This project compiles as net10.0 itself, so an
+      #if in the test file would not keep them out; the types do not exist in the netstandard2.0
+      asset it references.
+    -->
+    <Compile Remove="../FastBinaryJson.UnitTests/Internal/PooledByteBufferTests.cs" />
   </ItemGroup>
 
   <!-- SetTargetFramework is what pins this copy to the older asset. -->

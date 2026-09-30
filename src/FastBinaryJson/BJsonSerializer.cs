@@ -13,16 +13,21 @@ using System.Runtime.InteropServices;
 namespace DuraIT.FastBinaryJson
 {
     /*
-     * On net10.0 the fixed-size writes go through stackalloc and strings are written without an
-     * intermediate array per value. netstandard2.0 keeps upstream's byte[] path verbatim. Both
-     * write the same bytes in the same (native) order - the golden files and the netstandard2.0
-     * test project hold that, so a divergence fails on one target rather than going unnoticed.
+     * On net10.0 the fixed-size writes go through stackalloc, strings are written without an
+     * intermediate array per value, and the output is a pooled buffer rather than a MemoryStream.
+     * netstandard2.0 keeps upstream's byte[] and MemoryStream path. Both write the same bytes in
+     * the same (native) order - the golden files and the netstandard2.0 test project hold that,
+     * so a divergence fails on one target rather than going unnoticed.
      *
      * The split lives in the small raw-write and Encode helpers at the bottom, not in the callers.
      */
     internal sealed class BJSONSerializer : IDisposable
     {
-        private MemoryStream _output = new MemoryStream();
+#if NET10_0_OR_GREATER
+        private readonly PooledByteBuffer _output = new PooledByteBuffer();
+#else
+        private readonly MemoryStream _output = new MemoryStream();
+#endif
         //private MemoryStream _before = new MemoryStream();
         private int _typespointer = 0;
         private int _MAX_DEPTH = 20;
@@ -31,7 +36,7 @@ namespace DuraIT.FastBinaryJson
         private Dictionary<object, int> _cirobj = new Dictionary<object, int>();
         private BJSONParameters _params;
 #if NET10_0_OR_GREATER
-        // Rented once per serialization and reused for every UTF-8 string; returned in ConvertToBJSON.
+        // Rented once per serialization and reused for every UTF-8 string; returned in ReleasePooled.
         private byte[]? _utf8Scratch;
 #endif
 
@@ -40,9 +45,9 @@ namespace DuraIT.FastBinaryJson
             if (disposing)
             {
                 // dispose managed resources
-                _output.Close();
+                _output.Dispose();
                 //_before.Close();
-                ReturnScratch();
+                ReleasePooled();
             }
             // free native resources
         }
@@ -61,7 +66,8 @@ namespace DuraIT.FastBinaryJson
 
         internal byte[] ConvertToBJSON(object obj)
         {
-            // The caller does not dispose this instance, so the pooled scratch is returned here.
+            // The caller does not dispose this instance, so pooled buffers are returned here.
+            // ToArray runs in the return expressions, before the finally.
             try
             {
                 WriteValue(obj);
@@ -74,8 +80,7 @@ namespace DuraIT.FastBinaryJson
                     WriteColon();
                     WriteTypes(_globalTypes);
                     //var i = _output.Length;
-                    _output.Seek(_typespointer, SeekOrigin.Begin);
-                    WriteInt32Raw(pointer);
+                    PatchInt32(_typespointer, pointer);
 
                     return _output.ToArray();
                 }
@@ -84,7 +89,7 @@ namespace DuraIT.FastBinaryJson
             }
             finally
             {
-                ReturnScratch();
+                ReleasePooled();
             }
         }
 
@@ -379,7 +384,7 @@ namespace DuraIT.FastBinaryJson
         {
             _output.WriteByte(TOKENS.BYTEARRAY);
             WriteInt32Raw(p.Length);
-            _output.Write(p, 0, p.Length);
+            WriteBytesRaw(p);
         }
 
         private void WriteBool(bool p)
@@ -839,6 +844,17 @@ namespace DuraIT.FastBinaryJson
 #endif
         }
 
+        // Overwrites four bytes written earlier - the $types pointer placeholder.
+        private void PatchInt32(int position, int value)
+        {
+#if NET10_0_OR_GREATER
+            _output.WriteInt32At(position, value);
+#else
+            _output.Seek(position, SeekOrigin.Begin);
+            WriteInt32Raw(value);
+#endif
+        }
+
 #if NET10_0_OR_GREATER
         /// <summary>
         /// Encodes a string without allocating: UTF-16 is the string's own memory, UTF-8 lands in
@@ -857,7 +873,7 @@ namespace DuraIT.FastBinaryJson
             int length = Reflection.UTF8GetByteCount(s);
             if (_utf8Scratch is null || _utf8Scratch.Length < length)
             {
-                ReturnScratch();
+                ReturnUtf8Scratch();
                 _utf8Scratch = ArrayPool<byte>.Shared.Rent(Math.Max(length, 256));
             }
 
@@ -867,7 +883,14 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteBytesRaw(ReadOnlySpan<byte> bytes) => _output.Write(bytes);
 
-        private void ReturnScratch()
+        // Idempotent: called from ConvertToBJSON's finally and again from Dispose.
+        private void ReleasePooled()
+        {
+            _output.Dispose();
+            ReturnUtf8Scratch();
+        }
+
+        private void ReturnUtf8Scratch()
         {
             if (_utf8Scratch is null)
                 return;
@@ -881,7 +904,7 @@ namespace DuraIT.FastBinaryJson
         private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes, 0, bytes.Length);
 
         // Nothing is pooled on this target.
-        private void ReturnScratch() { }
+        private void ReleasePooled() { }
 #endif
 
         #endregion
