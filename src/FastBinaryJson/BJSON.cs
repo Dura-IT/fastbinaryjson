@@ -598,14 +598,12 @@ namespace DuraIT.FastBinaryJson
                 _cirrev.Add(circount, o);
             }
 
-            Dictionary<string, myPropInfo> props = Reflection.Instance.Getproperties(type, typename, _params.ShowReadOnlyProperties); //, Reflection.Instance.IsTypeRegistered(type));
+            WireNameMap props = Reflection.Instance.GetWireNameMap(type, typename, _params.ShowReadOnlyProperties); //, Reflection.Instance.IsTypeRegistered(type));
             foreach (var kv in d!)
             {
-                var n = kv.Key;
                 var v = kv.Value;
-                string name = n.ToLowerInvariant();
-                myPropInfo? pi;
-                if (props.TryGetValue(name, out pi) == false)
+                myPropInfo? pi = props.Find(kv.Key);
+                if (pi == null)
                     continue;
                 if (pi.CanWrite)
                 {

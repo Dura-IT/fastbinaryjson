@@ -83,7 +83,11 @@ namespace DuraIT.FastBinaryJson
         private string ParseName2() // unicode byte len string -> <128 len chars
         {
             byte c = _json[_index++];
+#if NET10_0_OR_GREATER
+            string s = NameCache.FromUtf16(_json, _index, c);
+#else
             string s = Reflection.UnicodeGetString(_json, _index, c);
+#endif
             _index += c;
             return s;
         }
@@ -91,7 +95,11 @@ namespace DuraIT.FastBinaryJson
         private string ParseName()
         {
             byte c = _json[_index++];
+#if NET10_0_OR_GREATER
+            string s = NameCache.FromUtf8(_json, _index, c);
+#else
             string s = Reflection.UTF8GetString(_json, _index, c);
+#endif
             _index += c;
             return s;
         }

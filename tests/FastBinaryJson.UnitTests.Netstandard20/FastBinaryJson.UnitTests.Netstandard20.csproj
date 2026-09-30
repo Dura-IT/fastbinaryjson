@@ -56,6 +56,7 @@
       asset it references.
     -->
     <Compile Remove="../FastBinaryJson.UnitTests/Internal/PooledByteBufferTests.cs" />
+    <Compile Remove="../FastBinaryJson.UnitTests/Internal/NameCacheTests.cs" />
   </ItemGroup>
 
   <!-- SetTargetFramework is what pins this copy to the older asset. -->

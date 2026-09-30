@@ -104,6 +104,8 @@ namespace DuraIT.FastBinaryJson.Internal
         private SafeDictionary<Type, CreateList?> _conlistcache = new SafeDictionary<Type, CreateList?>(10);
         private SafeDictionary<Type, Getters[]> _getterscache = new SafeDictionary<Type, Getters[]>(10);
         private SafeDictionary<string, Dictionary<string, myPropInfo>> _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>(10);
+        // Companion of _propertycache, same key, reset wherever it is.
+        private SafeDictionary<string, WireNameMap> _wirenamecache = new SafeDictionary<string, WireNameMap>(10);
         private SafeDictionary<Type, Type[]> _genericTypes = new SafeDictionary<Type, Type[]>(10);
         private SafeDictionary<Type, Type> _genericTypeDef = new SafeDictionary<Type, Type>(10);
         private static SafeDictionary<short, OpCode>? _opCodes;
@@ -151,6 +153,8 @@ namespace DuraIT.FastBinaryJson.Internal
         internal static int UTF8GetByteCount(string str) => utf8.GetByteCount(str);
 
         internal static int UTF8GetBytes(string str, Span<byte> destination) => utf8.GetBytes(str, destination);
+
+        internal static int UTF8GetChars(ReadOnlySpan<byte> bytes, Span<char> destination) => utf8.GetChars(bytes, destination);
 #endif
 
         public static string UTF8GetString(byte[] bytes, int offset, int len)
@@ -422,6 +426,16 @@ namespace DuraIT.FastBinaryJson.Internal
 
             sd.Add(d.memberName.ToLowerInvariant(), d);
             aliases.Add(new KeyValuePair<string, myPropInfo>(lowerName, d));
+        }
+
+        internal WireNameMap GetWireNameMap(Type type, string typename, bool ShowReadOnlyProperties)
+        {
+            if (_wirenamecache.TryGetValue(typename, out WireNameMap? map))
+                return map!;
+
+            map = new WireNameMap(Getproperties(type, typename, ShowReadOnlyProperties));
+            _wirenamecache.Add(typename, map);
+            return map;
         }
 
         private myPropInfo CreateMyProp(Type t, string name)
@@ -954,6 +968,7 @@ namespace DuraIT.FastBinaryJson.Internal
         internal void ResetPropertyCache()
         {
             _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>();
+            _wirenamecache = new SafeDictionary<string, WireNameMap>();
         }
 
         internal void ClearReflectionCache()
@@ -963,6 +978,7 @@ namespace DuraIT.FastBinaryJson.Internal
             _constrcache = new SafeDictionary<Type, CreateObject>(10);
             _getterscache = new SafeDictionary<Type, Getters[]>(10);
             _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>(10);
+            _wirenamecache = new SafeDictionary<string, WireNameMap>(10);
             _genericTypes = new SafeDictionary<Type, Type[]>(10);
             _genericTypeDef = new SafeDictionary<Type, Type>(10);
         }
