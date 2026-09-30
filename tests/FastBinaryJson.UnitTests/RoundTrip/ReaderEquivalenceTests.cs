@@ -51,6 +51,76 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 oneStep.Fallbacks.Should().Be(0, "writer output of a standard shape must not need the two-step path");
         }
 
+        /// <summary>
+        /// Damaged input, from real writer output with seeded single-byte replacements and
+        /// truncations: both paths throw, or both produce the same graph.
+        /// </summary>
+        /// <remarks>
+        /// The one accepted difference is a key repeated within an object, which damage can produce by
+        /// turning one name into another: the parser throws on it and the reader lets the last win.
+        /// Typed arrays are written off, because a damaged element count makes both paths try to
+        /// allocate an array of that size - slow and memory hungry, and not a reader question.
+        /// </remarks>
+        [TestCaseSource(nameof(MutationSources))]
+        public void ToObject_DamagedInput_BothThrowOrBothMatch(EquivalenceCase source)
+        {
+            byte[] original = BJSON.ToBJSON(source.Build(), source.Parameters());
+            Random random = new Random(20260930 + original.Length);
+            int succeeded = 0;
+
+            for (int i = 0; i < 400; i++)
+            {
+                byte[] damaged = i % 5 == 4
+                    ? original.Take(random.Next(1, original.Length)).ToArray()
+                    : Replace(original, random.Next(original.Length), (byte)random.Next(256));
+
+                Outcome twoStep = Read(damaged, source, oneStep: false);
+                Outcome oneStep = Read(damaged, source, oneStep: true);
+                string context = "mutation " + i;
+
+                if (twoStep.Error != null)
+                {
+                    if (oneStep.Error == null && IsDuplicateKey(twoStep.Error))
+                        continue;
+
+                    oneStep.Error.Should().NotBeNull("{0}: the two-step path threw {1}", context, twoStep.Error.GetType().Name);
+                    continue;
+                }
+
+                oneStep.Error.Should().BeNull("{0}: the two-step path succeeded", context);
+                oneStep.Value.Should().BeEquivalentTo(twoStep.Value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering().IgnoringCyclicReferences(), context);
+                AssertSameShape(twoStep.Value, oneStep.Value, context, new HashSet<object>(ReferenceEqualityComparer.Instance));
+                succeeded++;
+            }
+
+            succeeded.Should().BeGreaterThan(0, "some damage (a changed digit, a changed character) still decodes, and those are the cases that compare graphs");
+        }
+
+        public static IEnumerable<EquivalenceCase> MutationSources()
+        {
+            Func<BJSONParameters> untyped = () => new BJSONParameters { UseTypedArrays = false };
+            yield return new EquivalenceCase("primitives", GoldenCorpus.BuildPrimitives, untyped, typeof(Primitives));
+            yield return new EquivalenceCase("invoice", GoldenCorpus.BuildInvoice, untyped, typeof(Invoice));
+            yield return new EquivalenceCase("shapes", GoldenCorpus.BuildShapes, untyped, typeof(ShapeBox));
+            yield return new EquivalenceCase("shared-reference", GoldenCorpus.BuildSharedReference, untyped, typeof(ReferenceBox));
+            yield return new EquivalenceCase("order", PayloadFactory.CreateNestedOrder, untyped, typeof(Order));
+            yield return new EquivalenceCase("kitchen-sink", EqKitchenSink.Build, untyped, typeof(EqKitchenSink));
+            yield return new EquivalenceCase("root-node-list", BuildNodeList, untyped, typeof(List<EqNode?>));
+            yield return new EquivalenceCase("root-polymorphic-list", BuildPolymorphicList, untyped, typeof(List<EqBase>));
+        }
+
+        private static byte[] Replace(byte[] original, int index, byte value)
+        {
+            byte[] copy = (byte[])original.Clone();
+            copy[index] = value;
+            return copy;
+        }
+
+        private static bool IsDuplicateKey(Exception error)
+        {
+            return error is ArgumentException && error.Message.Contains("same key", StringComparison.Ordinal);
+        }
+
         [Test]
         public void ToObject_SharedReference_IsOneInstanceOnBothPaths()
         {
