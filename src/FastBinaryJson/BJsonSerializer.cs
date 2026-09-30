@@ -666,7 +666,9 @@ namespace DuraIT.FastBinaryJson
                 {
                     if (append)
                         WriteComma();
-                    WritePair(p.Name, o);
+                    // The DataMember name when there is one - the reader has expected it since upstream
+                    // v1.4.23, but no writer ever wrote it until this fork.
+                    WritePair(p.memberName ?? p.Name, o);
                     append = true;
                 }
             }

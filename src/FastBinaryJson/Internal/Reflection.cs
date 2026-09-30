@@ -342,6 +342,15 @@ namespace DuraIT.FastBinaryJson.Internal
             else
             {
                 sd = new Dictionary<string, myPropInfo>(10);
+                /*
+                 * Keys are lowercased because ParseDictionary lowercases every wire key before the
+                 * lookup. A [DataMember(Name = ...)] member is keyed under that name, and also under
+                 * its C# name as an alias: the writer only started writing DataMember names in this
+                 * fork, so everything stored before that carries the C# name. Aliases go in after
+                 * every primary key and only where the key is still free, so an alias can never take
+                 * a name that belongs to another member.
+                 */
+                List<KeyValuePair<string, myPropInfo>> aliases = new List<KeyValuePair<string, myPropInfo>>();
                 var bf = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
                 PropertyInfo[] pr = type.GetProperties(bf);
                 foreach (PropertyInfo p in pr)
@@ -364,10 +373,7 @@ namespace DuraIT.FastBinaryJson.Internal
                                 d.memberName = dm.Name;
                         }
                     }
-                    if (d.memberName != null)
-                        sd.Add(d.memberName, d);
-                    else
-                    sd.Add(p.Name.ToLowerInvariant(), d);
+                    AddMemberKeys(sd, aliases, d, p.Name);
                 }
                 FieldInfo[] fi = type.GetFields(bf);
                 foreach (FieldInfo f in fi)
@@ -390,16 +396,32 @@ namespace DuraIT.FastBinaryJson.Internal
                                     d.memberName = dm.Name;
                             }
                         }
-                        if (d.memberName != null)
-                            sd.Add(d.memberName, d);
-                        else
-                        sd.Add(f.Name.ToLowerInvariant(), d);
+                        AddMemberKeys(sd, aliases, d, f.Name);
                     }
+                }
+
+                foreach (KeyValuePair<string, myPropInfo> alias in aliases)
+                {
+                    if (sd.ContainsKey(alias.Key) == false)
+                        sd.Add(alias.Key, alias.Value);
                 }
 
                 _propertycache.Add(typename, sd);
                 return sd;
             }
+        }
+
+        private static void AddMemberKeys(Dictionary<string, myPropInfo> sd, List<KeyValuePair<string, myPropInfo>> aliases, myPropInfo d, string name)
+        {
+            string lowerName = name.ToLowerInvariant();
+            if (d.memberName == null)
+            {
+                sd.Add(lowerName, d);
+                return;
+            }
+
+            sd.Add(d.memberName.ToLowerInvariant(), d);
+            aliases.Add(new KeyValuePair<string, myPropInfo>(lowerName, d));
         }
 
         private myPropInfo CreateMyProp(Type t, string name)
