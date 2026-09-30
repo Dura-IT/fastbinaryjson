@@ -605,82 +605,72 @@ namespace DuraIT.FastBinaryJson
                 myPropInfo? pi = props.Find(kv.Key);
                 if (pi == null)
                     continue;
-                if (pi.CanWrite)
-                {
-                    //object v = d[n];
-
-                    if (v != null)
-                    {
-                        object? oset = v;
-                        if (v is TypedArray)
-                        {
-                            oset = ParseTypedArray(globaltypes, v);
-                        }
-                        else
-                        {
-                            switch (pi.Type)
-                            {
-                                case myPropInfoType.DataSet:
-                                    oset = CreateDataset((Dictionary<string, object>)v, globaltypes);
-                                    break;
-                                case myPropInfoType.DataTable:
-                                    oset = CreateDataTable((Dictionary<string, object>)v, globaltypes);
-                                    break;
-                                case myPropInfoType.Custom:
-                                    oset = Reflection.Instance.CreateCustom((string)v, pi.pt);
-                                    break;
-                                case myPropInfoType.Enum:
-                                    oset = CreateEnum(pi.pt, v);
-                                    break;
-                                case myPropInfoType.SByte:
-                                    oset = CreateSByte(v);
-                                    break;
-                                case myPropInfoType.StringKeyDictionary:
-                                    oset = CreateStringKeyDictionary((Dictionary<string, object>)v, pi.pt, pi.GenericTypes, globaltypes);
-                                    break;
-                                case myPropInfoType.Hashtable:
-                                case myPropInfoType.Dictionary:
-                                    oset = CreateDictionary((List<object>)v, pi.pt, pi.GenericTypes, globaltypes);
-                                    break;
-                                case myPropInfoType.NameValue:
-                                    oset = CreateNV((Dictionary<string, object>)v);
-                                    break;
-                                case myPropInfoType.StringDictionary:
-                                    oset = CreateSD((Dictionary<string, object>)v);
-                                    break;
-                                case myPropInfoType.Array:
-                                    oset = CreateArray((List<object>)v, pi.pt, pi.bt, globaltypes);
-                                    break;
-                                default:
-                                {
-                                    if (pi.IsGenericType && pi.IsValueType == false)
-                                        oset = CreateGenericList((List<object>)v, pi.pt, pi.bt, globaltypes);
-                                    else if ((pi.IsClass || pi.IsStruct || pi.IsInterface) && v is Dictionary<string, object>)
-                                    {
-                                        var oo = (Dictionary<string, object>)v;
-                                        if (oo.ContainsKey("$schema"))
-                                            oset = CreateDataset(oo, globaltypes);
-                                        /*
-                                         * null, not `input`: that is the ROOT instance FillObject was
-                                         * given, and passing it down made every nested member be
-                                         * filled into the root - its setters then threw
-                                         * InvalidCastException. Nested members get a new instance,
-                                         * the same as ToObject gives them.
-                                         */
-                                        else
-                                            oset = ParseDictionary(oo, globaltypes, pi.pt, null);
-                                    }
-                                    else if (v is List<object>)
-                                        oset = CreateArray((List<object>)v, pi.pt, typeof(object), globaltypes);
-                                    break;
-                                }
-                            }
-                        }
-                        o = pi.setter!(o!, oset!);
-                    }
-                }
+                if (pi.CanWrite && v != null)
+                    o = pi.setter!(o!, ConvertValue(pi, v, globaltypes)!);
             }
             return o;
+        }
+
+        /// <summary>
+        /// Converts a value as the parser produced it into what the member's setter takes.
+        /// </summary>
+        /// <remarks>
+        /// Shared by the two-step path (ParseDictionary) and the one-step TypedReader, so both apply
+        /// exactly the same conversion rules - the reader only decides which values it can read
+        /// directly and hands every other one here, already materialised by the parser.
+        /// </remarks>
+        internal object? ConvertValue(myPropInfo pi, object v, Dictionary<string, object>? globaltypes)
+        {
+            if (v is TypedArray)
+                return ParseTypedArray(globaltypes, v);
+
+            switch (pi.Type)
+            {
+                case myPropInfoType.DataSet:
+                    return CreateDataset((Dictionary<string, object>)v, globaltypes);
+                case myPropInfoType.DataTable:
+                    return CreateDataTable((Dictionary<string, object>)v, globaltypes);
+                case myPropInfoType.Custom:
+                    return Reflection.Instance.CreateCustom((string)v, pi.pt);
+                case myPropInfoType.Enum:
+                    return CreateEnum(pi.pt, v);
+                case myPropInfoType.SByte:
+                    return CreateSByte(v);
+                case myPropInfoType.StringKeyDictionary:
+                    return CreateStringKeyDictionary((Dictionary<string, object>)v, pi.pt, pi.GenericTypes, globaltypes);
+                case myPropInfoType.Hashtable:
+                case myPropInfoType.Dictionary:
+                    return CreateDictionary((List<object>)v, pi.pt, pi.GenericTypes, globaltypes);
+                case myPropInfoType.NameValue:
+                    return CreateNV((Dictionary<string, object>)v);
+                case myPropInfoType.StringDictionary:
+                    return CreateSD((Dictionary<string, object>)v);
+                case myPropInfoType.Array:
+                    return CreateArray((List<object>)v, pi.pt, pi.bt, globaltypes);
+            }
+
+            if (pi.IsGenericType && pi.IsValueType == false)
+                return CreateGenericList((List<object>)v, pi.pt, pi.bt, globaltypes);
+
+            if ((pi.IsClass || pi.IsStruct || pi.IsInterface) && v is Dictionary<string, object>)
+            {
+                var oo = (Dictionary<string, object>)v;
+                if (oo.ContainsKey("$schema"))
+                    return CreateDataset(oo, globaltypes);
+
+                /*
+                 * null, not the caller's `input`: that is the ROOT instance FillObject was given, and
+                 * passing it down made every nested member be filled into the root - its setters then
+                 * threw InvalidCastException. Nested members get a new instance, the same as ToObject
+                 * gives them.
+                 */
+                return ParseDictionary(oo, globaltypes, pi.pt, null);
+            }
+
+            if (v is List<object>)
+                return CreateArray((List<object>)v, pi.pt, typeof(object), globaltypes);
+
+            return v;
         }
 
         /// <summary>
