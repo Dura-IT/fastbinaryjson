@@ -180,6 +180,11 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public unsafe static string UnicodeGetString(byte[] bytes, int offset, int buflen)
         {
+            // The string is built straight from the pointer, so nothing else bounds this read: a
+            // length running past the payload used to return the memory after the array as text.
+            if (offset < 0 || buflen < 0 || offset > bytes.Length - buflen)
+                throw new ArgumentOutOfRangeException(nameof(buflen));
+
             string str = "";
             fixed (byte* bptr = bytes)
             {

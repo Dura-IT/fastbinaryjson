@@ -471,6 +471,9 @@ namespace DuraIT.FastBinaryJson
         {
             int c = Helper.ToInt32(_json, _index);
             _index += 4;
+            // Checked before allocating: a crafted length would otherwise allocate up to 2 GB first.
+            if (c < 0 || c > _json.Length - _index)
+                throw new ArgumentOutOfRangeException(nameof(c), "Byte array length runs past the end of the payload.");
             byte[] b = new byte[c];
             Buffer.BlockCopy(_json, _index, b, 0, c);
             _index += c;

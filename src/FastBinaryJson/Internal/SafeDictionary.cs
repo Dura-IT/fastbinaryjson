@@ -80,6 +80,7 @@ namespace DuraIT.FastBinaryJson.Internal
 
         internal static unsafe int ToInt32(byte[] value, int startIndex)
         {
+            CheckRange(value, startIndex, sizeof(int));
             fixed (byte* numRef = &(value[startIndex]))
             {
                 return *((int*)numRef);
@@ -100,6 +101,7 @@ namespace DuraIT.FastBinaryJson.Internal
 
         internal static unsafe long ToInt64(byte[] value, int startIndex)
         {
+            CheckRange(value, startIndex, sizeof(long));
             fixed (byte* numRef = &(value[startIndex]))
             {
                 return *(((long*)numRef));
@@ -120,10 +122,22 @@ namespace DuraIT.FastBinaryJson.Internal
 
         internal static unsafe short ToInt16(byte[] value, int startIndex)
         {
+            CheckRange(value, startIndex, sizeof(short));
             fixed (byte* numRef = &(value[startIndex]))
             {
                 return *(((short*)numRef));
             }
+        }
+
+        /*
+         * The pointer reads above cover `size` bytes, but taking &value[startIndex] only checks the
+         * first. Without this, a value cut short at the end of the payload read past the array and
+         * returned whatever memory followed as data.
+         */
+        private static void CheckRange(byte[] value, int startIndex, int size)
+        {
+            if (startIndex < 0 || startIndex > value.Length - size)
+                throw new ArgumentOutOfRangeException(nameof(startIndex));
         }
 
         internal static unsafe byte[] GetBytes(long num, bool reverse)
