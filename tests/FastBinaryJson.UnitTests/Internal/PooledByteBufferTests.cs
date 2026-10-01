@@ -73,6 +73,39 @@ namespace FastBinaryJson.UnitTests.Internal
         }
 
         [Test]
+        public void WriteByte_AfterDispose_ThrowsObjectDisposed()
+        {
+            PooledByteBuffer buffer = new PooledByteBuffer();
+            buffer.Dispose();
+
+            FluentActions.Invoking(() => buffer.WriteByte(1)).Should().Throw<ObjectDisposedException>();
+        }
+
+        [Test]
+        public void Write_AfterDispose_ThrowsObjectDisposed()
+        {
+            PooledByteBuffer buffer = new PooledByteBuffer();
+            buffer.Dispose();
+
+            FluentActions.Invoking(() => buffer.Write(new byte[] { 1, 2 })).Should().Throw<ObjectDisposedException>();
+        }
+
+        /// <summary>
+        /// A write that exactly fills the buffer stays on the fast path; the next byte must grow it.
+        /// </summary>
+        [Test]
+        public void Write_ExactlyFillingThenOneMore_KeepsEveryByte()
+        {
+            using PooledByteBuffer buffer = new PooledByteBuffer();
+            byte[] fill = Enumerable.Range(0, buffer.GetSpan(1).Length).Select(i => (byte)i).ToArray();
+
+            buffer.Write(fill);
+            buffer.WriteByte(255);
+
+            buffer.ToArray().Should().Equal(fill.Concat(new byte[] { 255 }));
+        }
+
+        [Test]
         public void GetSpan_AfterDispose_ThrowsObjectDisposed()
         {
             PooledByteBuffer buffer = new PooledByteBuffer();

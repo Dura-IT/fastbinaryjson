@@ -1,6 +1,7 @@
 #if NET10_0_OR_GREATER
 using System;
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace DuraIT.FastBinaryJson.Internal
@@ -31,13 +32,55 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public int Length => _length;
 
+        /*
+         * WriteByte and Write run once per token, length and value - thousands of times per call.
+         * They used to go straight through EnsureCapacity, which the JIT does not inline (it rents
+         * and throws), so every single byte paid a call. The common case - room left - is now
+         * inlined and growth moved out to the *Slow methods. Measured 2026-10-01: Serialize -7% to
+         * -30% depending on the payload, most on UTF-16 output; this was also the GuidDense UTF-16
+         * regression step 1 introduced, since MemoryStream's WriteByte had no such call.
+         *
+         * A null buffer (disposed) takes the slow path, whose EnsureCapacity throws as before.
+         */
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteByte(byte value)
+        {
+            byte[]? buffer = _buffer;
+            int length = _length;
+            if (buffer is not null && (uint)length < (uint)buffer.Length)
+            {
+                buffer[length] = value;
+                _length = length + 1;
+                return;
+            }
+
+            WriteByteSlow(value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Write(ReadOnlySpan<byte> bytes)
+        {
+            byte[]? buffer = _buffer;
+            int length = _length;
+            if (buffer is not null && bytes.Length <= buffer.Length - length)
+            {
+                bytes.CopyTo(new Span<byte>(buffer, length, bytes.Length));
+                _length = length + bytes.Length;
+                return;
+            }
+
+            WriteSlow(bytes);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void WriteByteSlow(byte value)
         {
             byte[] buffer = EnsureCapacity(1);
             buffer[_length++] = value;
         }
 
-        public void Write(ReadOnlySpan<byte> bytes)
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void WriteSlow(ReadOnlySpan<byte> bytes)
         {
             byte[] buffer = EnsureCapacity(bytes.Length);
             bytes.CopyTo(buffer.AsSpan(_length));
