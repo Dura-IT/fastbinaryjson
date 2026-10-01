@@ -17,6 +17,7 @@ namespace FastBinaryJson.Benchmarks
             {
                 case "validate":
                     Reports.PrintCompatibilityMatrix(payloads, arms);
+                    Reports.PrintUpstreamIdentity(payloads);
                     return 0;
 
                 case "sizes":

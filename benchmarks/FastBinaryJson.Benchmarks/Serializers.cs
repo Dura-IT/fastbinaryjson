@@ -46,6 +46,31 @@ namespace FastBinaryJson.Benchmarks
     }
 
     /// <summary>
+    /// Upstream fastBinaryJSON 1.6.1 from nuget.org, configured exactly like
+    /// <see cref="FastBinaryJsonArm"/> so the two differ only in implementation.
+    /// </summary>
+    public sealed class UpstreamFastBinaryJsonArm : ISerializerArm
+    {
+        private readonly global::fastBinaryJSON.BJSONParameters _parameters;
+        private readonly string _name;
+
+        public UpstreamFastBinaryJsonArm(bool useUnicodeStrings)
+        {
+            _name = useUnicodeStrings ? "upstream 1.6.1 (UTF-16)" : "upstream 1.6.1 (UTF-8)";
+            _parameters = new global::fastBinaryJSON.BJSONParameters
+            {
+                UseUnicodeStrings = useUnicodeStrings,
+            };
+        }
+
+        public string Name => _name;
+
+        public byte[] Serialize<T>(T value) => global::fastBinaryJSON.BJSON.ToBJSON(value!, _parameters);
+
+        public T Deserialize<T>(byte[] bytes) => global::fastBinaryJSON.BJSON.ToObject<T>(bytes, _parameters)!;
+    }
+
+    /// <summary>
     /// System.Text.Json at defaults - the in-box text baseline every reader will compare against.
     /// </summary>
     public sealed class SystemTextJsonArm : ISerializerArm

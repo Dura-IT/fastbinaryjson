@@ -26,7 +26,7 @@ namespace FastBinaryJson.Benchmarks.Benchmarks
         [Params("FlatPrimitives", "NestedOrder", "LargeCollection", "GuidDense")]
         public string Payload { get; set; } = string.Empty;
 
-        [Params("fbj-utf16", "fbj-utf8", "stj", "msgpack")]
+        [Params("fbj-utf16", "fbj-utf8", "upstream-utf16", "upstream-utf8", "stj", "msgpack")]
         public string Arm { get; set; } = string.Empty;
 
         [GlobalSetup]
