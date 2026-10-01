@@ -13,7 +13,9 @@ namespace DuraIT.FastBinaryJson.Internal
     /// MemoryStream doubles by allocating, and every buffer past 85 KB lands on the large object
     /// heap, so a large payload left a trail of discarded LOH arrays and gen2 collections behind it.
     /// Renting instead means only the final <see cref="ToArray"/> copy is allocated. Member names
-    /// match MemoryStream's so the serializer's call sites are the same on both targets.
+    /// match MemoryStream's so the serializer's call sites are the same on both targets;
+    /// <see cref="GetSpan"/> and <see cref="Advance"/> are the exception, net10.0-only, and named
+    /// after <see cref="IBufferWriter{T}"/>.
     /// </remarks>
     internal sealed class PooledByteBuffer : IDisposable
     {
@@ -40,6 +42,31 @@ namespace DuraIT.FastBinaryJson.Internal
             byte[] buffer = EnsureCapacity(bytes.Length);
             bytes.CopyTo(buffer.AsSpan(_length));
             _length += bytes.Length;
+        }
+
+        /// <summary>
+        /// Returns the free space after the written bytes, at least <paramref name="sizeHint"/>
+        /// long, to fill and then commit with <see cref="Advance"/>.
+        /// </summary>
+        /// <remarks>
+        /// Only valid until the next write: any write may move the data to a larger array.
+        /// </remarks>
+        public Span<byte> GetSpan(int sizeHint)
+        {
+            byte[] buffer = EnsureCapacity(sizeHint);
+            return buffer.AsSpan(_length);
+        }
+
+        /// <summary>
+        /// Commits <paramref name="count"/> bytes written into the span from <see cref="GetSpan"/>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">If count is negative or past the free space.</exception>
+        public void Advance(int count)
+        {
+            if (count < 0 || count > Buffer.Length - _length)
+                throw new ArgumentOutOfRangeException(nameof(count));
+
+            _length += count;
         }
 
         /// <summary>

@@ -34,6 +34,54 @@ namespace FastBinaryJson.UnitTests.Internal
         }
 
         [Test]
+        public void GetSpan_PastCapacityThenAdvance_KeepsEarlierAndCommittedBytes()
+        {
+            byte[] expected = Enumerable.Range(0, 1003).Select(i => (byte)(i * 7)).ToArray();
+
+            using PooledByteBuffer buffer = new PooledByteBuffer();
+            buffer.Write(expected.AsSpan(0, 3));
+            Span<byte> free = buffer.GetSpan(1000);
+            expected.AsSpan(3).CopyTo(free);
+            buffer.Advance(1000);
+
+            free.Length.Should().BeGreaterThanOrEqualTo(1000);
+            buffer.ToArray().Should().Equal(expected);
+        }
+
+        [Test]
+        public void Advance_Zero_LeavesLengthUnchanged()
+        {
+            using PooledByteBuffer buffer = new PooledByteBuffer();
+            buffer.Write(new byte[5]);
+            buffer.GetSpan(0);
+
+            buffer.Advance(0);
+
+            buffer.Length.Should().Be(5);
+        }
+
+        [TestCase(-1)]
+        [TestCase(1)]
+        public void Advance_OutsideFreeSpace_Throws(int pastFreeSpace)
+        {
+            using PooledByteBuffer buffer = new PooledByteBuffer();
+            int free = buffer.GetSpan(10).Length;
+            int count = pastFreeSpace < 0 ? pastFreeSpace : free + pastFreeSpace;
+
+            FluentActions.Invoking(() => buffer.Advance(count)).Should().Throw<ArgumentOutOfRangeException>();
+            buffer.Length.Should().Be(0);
+        }
+
+        [Test]
+        public void GetSpan_AfterDispose_ThrowsObjectDisposed()
+        {
+            PooledByteBuffer buffer = new PooledByteBuffer();
+            buffer.Dispose();
+
+            FluentActions.Invoking(() => buffer.GetSpan(1)).Should().Throw<ObjectDisposedException>();
+        }
+
+        [Test]
         public void WriteInt32At_WrittenRange_OverwritesInPlace()
         {
             using PooledByteBuffer buffer = new PooledByteBuffer();

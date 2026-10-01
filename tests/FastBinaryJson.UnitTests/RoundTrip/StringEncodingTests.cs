@@ -12,10 +12,10 @@ using NUnit.Framework;
 namespace FastBinaryJson.UnitTests.RoundTrip
 {
     /*
-     * String writes on net10.0 encode UTF-8 into one pooled scratch buffer reused for every string
-     * in a serialization, and write UTF-16 straight from the string's memory. The golden files only
-     * hold short strings, so they never make the scratch grow and never reuse it after it has grown.
-     * These cases do, and pin the output to bytes built independently of the serializer.
+     * String writes on net10.0 count the UTF-8 bytes, write the length header, then encode straight
+     * into the pooled output buffer; UTF-16 is written straight from the string's memory. The
+     * golden files only hold short strings, so they never make the output grow in the middle of a
+     * string. These cases do, and pin the output to bytes built independently of the serializer.
      *
      * The same source compiles into the netstandard2.0 test project, where it pins upstream's
      * byte[] path to the same expectations - so the two targets are held to one answer.
@@ -76,8 +76,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         }
 
         /// <summary>
-        /// Names take the same scratch as values, and long ones take the four-byte length form.
-        /// Interleaving short and long keys with long values reuses the buffer across both paths.
+        /// Names are encoded the same way as values, and long ones take the four-byte length form.
+        /// Interleaving short and long keys with long values grows the output across both paths.
         /// </summary>
         [TestCaseSource(nameof(BothEncodings))]
         public void ToBJSON_LongAndShortKeysInterleaved_RoundTripEachExactly(BJSONParameters parameters)

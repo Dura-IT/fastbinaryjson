@@ -6,15 +6,14 @@ using System.IO;
 using System.Collections.Specialized;
 using DuraIT.FastBinaryJson.Internal;
 #if NET10_0_OR_GREATER
-using System.Buffers;
 using System.Runtime.InteropServices;
 #endif
 
 namespace DuraIT.FastBinaryJson
 {
     /*
-     * On net10.0 the fixed-size writes go through stackalloc, strings are written without an
-     * intermediate array per value, and the output is a pooled buffer rather than a MemoryStream.
+     * On net10.0 the fixed-size writes go through stackalloc, strings are encoded straight into
+     * the output, and the output is a pooled buffer rather than a MemoryStream.
      * netstandard2.0 keeps upstream's byte[] and MemoryStream path. Both write the same bytes in
      * the same (native) order - the golden files and the netstandard2.0 test project hold that,
      * so a divergence fails on one target rather than going unnoticed.
@@ -35,10 +34,6 @@ namespace DuraIT.FastBinaryJson
         private Dictionary<string, int> _globalTypes = new Dictionary<string, int>();
         private Dictionary<object, int> _cirobj = new Dictionary<object, int>();
         private BJSONParameters _params;
-#if NET10_0_OR_GREATER
-        // Rented once per serialization and reused for every UTF-8 string; returned in ReleasePooled.
-        private byte[]? _utf8Scratch;
-#endif
 
         private void Dispose(bool disposing)
         {
@@ -237,7 +232,7 @@ namespace DuraIT.FastBinaryJson
                 //if (t.GetElementType().IsClass)
                 {
                     token = false;
-                    // array type name - byte[] on netstandard2.0, a span on net10.0
+                    // array type name - byte[] on netstandard2.0, a PendingString on net10.0
                     var b = Encode(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!), unicode: !_params.v1_4TypedArray);
                     if (b.Length < 256)
                     {
@@ -781,7 +776,7 @@ namespace DuraIT.FastBinaryJson
         private void WriteName(string s)
         {
             bool unicode = _params.UseUnicodeStrings;
-            // byte[] on netstandard2.0, a span on net10.0
+            // byte[] on netstandard2.0, a PendingString on net10.0
             var b = Encode(s, unicode);
             if (b.Length < 256)
             {
@@ -859,47 +854,45 @@ namespace DuraIT.FastBinaryJson
 
 #if NET10_0_OR_GREATER
         /// <summary>
-        /// Encodes a string without allocating: UTF-16 is the string's own memory, UTF-8 lands in
-        /// the pooled scratch buffer.
+        /// A string whose encoded length is known but whose bytes are not produced yet.
         /// </summary>
         /// <remarks>
-        /// The UTF-8 span points into <see cref="_utf8Scratch"/>, so it is only valid until the next
-        /// call. Every caller writes it out immediately.
+        /// Every caller writes a length header before the bytes, so the length has to come first.
+        /// Carrying it separately lets <see cref="WriteBytesRaw"/> encode straight into the output
+        /// afterwards, instead of encoding into a scratch buffer and copying.
         /// </remarks>
-        private ReadOnlySpan<byte> Encode(string s, bool unicode)
+        private readonly record struct PendingString(string Value, bool Unicode, int Length);
+
+        // Only measures; WriteBytesRaw produces the bytes.
+        private static PendingString Encode(string s, bool unicode) =>
+            new PendingString(s, unicode, unicode ? s.Length * sizeof(char) : Reflection.UTF8GetByteCount(s));
+
+        /// <summary>
+        /// Writes the string's bytes into the output without an intermediate copy.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">If the encoder wrote another length than it counted.</exception>
+        private void WriteBytesRaw(PendingString pending)
         {
             // The same bytes UnicodeGetBytes copied out of the string, without the copy.
-            if (unicode)
-                return MemoryMarshal.AsBytes(s.AsSpan());
-
-            int length = Reflection.UTF8GetByteCount(s);
-            if (_utf8Scratch is null || _utf8Scratch.Length < length)
+            if (pending.Unicode)
             {
-                ReturnUtf8Scratch();
-                _utf8Scratch = ArrayPool<byte>.Shared.Rent(Math.Max(length, 256));
+                _output.Write(MemoryMarshal.AsBytes(pending.Value.AsSpan()));
+                return;
             }
 
-            int written = Reflection.UTF8GetBytes(s, _utf8Scratch);
-            return new ReadOnlySpan<byte>(_utf8Scratch, 0, written);
+            // Counted and encoded by the same encoder instance, so the two cannot disagree; checked
+            // anyway, because the header carrying the count is already written.
+            int written = Reflection.UTF8GetBytes(pending.Value, _output.GetSpan(pending.Length));
+            if (written != pending.Length)
+                throw new InvalidOperationException($"UTF-8 encoder wrote {written} bytes after counting {pending.Length}.");
+
+            _output.Advance(written);
         }
 
         private void WriteBytesRaw(ReadOnlySpan<byte> bytes) => _output.Write(bytes);
 
         // Idempotent: called from ConvertToBJSON's finally and again from Dispose.
-        private void ReleasePooled()
-        {
-            _output.Dispose();
-            ReturnUtf8Scratch();
-        }
-
-        private void ReturnUtf8Scratch()
-        {
-            if (_utf8Scratch is null)
-                return;
-
-            ArrayPool<byte>.Shared.Return(_utf8Scratch);
-            _utf8Scratch = null;
-        }
+        private void ReleasePooled() => _output.Dispose();
 #else
         private static byte[] Encode(string s, bool unicode) => unicode ? Reflection.UnicodeGetBytes(s) : Reflection.UTF8GetBytes(s);
 
