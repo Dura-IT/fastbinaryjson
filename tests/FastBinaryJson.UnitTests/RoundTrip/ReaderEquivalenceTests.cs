@@ -105,6 +105,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             yield return new EquivalenceCase("shared-reference", GoldenCorpus.BuildSharedReference, untyped, typeof(ReferenceBox));
             yield return new EquivalenceCase("order", PayloadFactory.CreateNestedOrder, untyped, typeof(Order));
             yield return new EquivalenceCase("kitchen-sink", EqKitchenSink.Build, untyped, typeof(EqKitchenSink));
+            yield return new EquivalenceCase("typed-members", EqTypedMembers.Build, untyped, typeof(EqTypedMembers));
             yield return new EquivalenceCase("root-node-list", BuildNodeList, untyped, typeof(List<EqNode?>));
             yield return new EquivalenceCase("root-polymorphic-list", BuildPolymorphicList, untyped, typeof(List<EqBase>));
         }
@@ -162,6 +163,53 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             ((EqKitchenSink)oneStep.Value!).Bag.Should().BeAssignableTo<Dictionary<string, object>>();
         }
 
+        /// <summary>
+        /// Equivalence would also hold if every member still went through the boxing setter, so this
+        /// pins that each primitive member was set by the typed path.
+        /// </summary>
+        [Test]
+        public void ToObject_PrimitiveMembers_AreSetWithoutBoxing()
+        {
+            byte[] bytes = BJSON.ToBJSON(EqTypedMembers.Build());
+            Deserializer deserializer = new Deserializer(new BJSONParameters());
+
+            deserializer.ToObject(bytes, typeof(EqTypedMembers));
+
+            deserializer.TypedSets.Should().Be(EqTypedMembers.TypedMemberCount);
+        }
+
+        /// <summary>
+        /// The private setter and the get-only property's backing field take the typed path too.
+        /// </summary>
+        [Test]
+        public void ToObject_ReadOnlyMembers_AreSetWithoutBoxing()
+        {
+            BJSONParameters parameters = new BJSONParameters { ShowReadOnlyProperties = true };
+            Deserializer deserializer = new Deserializer(parameters);
+
+            EqReadOnlyMembers restored = (EqReadOnlyMembers)deserializer.ToObject(BJSON.ToBJSON(EqReadOnlyMembers.Build(), parameters), typeof(EqReadOnlyMembers))!;
+
+            restored.PrivateSet.Should().Be(42);
+            restored.GetOnly.Should().Be(EqReadOnlyMembers.Build().GetOnly);
+            deserializer.TypedSets.Should().Be(2);
+        }
+
+        /// <summary>
+        /// A struct's boxing setter copies the struct out of its box and back per member, so the typed
+        /// path is not offered there - its members must still arrive.
+        /// </summary>
+        [Test]
+        public void ToObject_StructMembers_TakeTheBoxingSetter()
+        {
+            EqPointHolder value = new EqPointHolder { Point = new EqPoint { X = 3, Y = -4 } };
+            Deserializer deserializer = new Deserializer(new BJSONParameters());
+
+            EqPointHolder restored = (EqPointHolder)deserializer.ToObject(BJSON.ToBJSON(value), typeof(EqPointHolder))!;
+
+            restored.Point.Should().Be(new EqPoint { X = 3, Y = -4 });
+            deserializer.TypedSets.Should().Be(0);
+        }
+
         public static IEnumerable<EquivalenceCase> Cases()
         {
             foreach (GoldenCase golden in GoldenFileTests.Cases())
@@ -186,7 +234,16 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 // Upstream never read these: CreateGenericList adds the inner List<object> as is.
                 yield return Case("nested-value-lists", EqNestedLists.Build, name, parameters, false, mustSucceed: false);
                 yield return Case("empty-list", () => new List<EqNode>(), name, parameters, true);
+                yield return Case("typed-members", EqTypedMembers.Build, name, parameters, true);
             }
+
+            Func<BJSONParameters> showReadOnly = () => new BJSONParameters { ShowReadOnlyProperties = true };
+            yield return Case("read-only-members", EqReadOnlyMembers.Build, "show-read-only", showReadOnly, true);
+
+            // No $type, so the declared type decides the members - and their tokens do not match.
+            Func<BJSONParameters> noExtensions = () => new BJSONParameters { UseExtensions = false };
+            yield return new EquivalenceCase("token-wider-than-member/no-extensions", EqWidths.Build, noExtensions, typeof(EqWidened), MustSucceed: false);
+            yield return new EquivalenceCase("token-into-nullable-member/no-extensions", EqWidths.Build, noExtensions, typeof(EqNullableWidths), StandardShape: true);
         }
 
         private static IEnumerable<(string Name, Func<BJSONParameters> Parameters, bool Extensions)> Variants()
@@ -196,6 +253,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             yield return ("no-global-types", () => new BJSONParameters { UsingGlobalTypes = false }, true);
             yield return ("nulls", () => new BJSONParameters { SerializeNulls = true }, true);
             yield return ("untyped-arrays", () => new BJSONParameters { UseTypedArrays = false }, true);
+            yield return ("utc", () => new BJSONParameters { UseUTCDateTime = true }, true);
             yield return ("no-extensions", () => new BJSONParameters { UseExtensions = false }, false);
         }
 
@@ -346,6 +404,11 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public int Y;
     }
 
+    public sealed class EqPointHolder
+    {
+        public EqPoint Point { get; set; }
+    }
+
     public enum EqKind
     {
         None,
@@ -472,5 +535,153 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 Mixed = new List<EqBase> { new EqLeft { Left = 1 }, new EqRight { Right = 2 } },
             };
         }
+    }
+
+    /// <summary>
+    /// Every primitive the reader sets without boxing - as a property, as a nullable property with
+    /// and without a value, and as a field.
+    /// </summary>
+    public sealed class EqTypedMembers
+    {
+        /// <summary>
+        /// Members written with a primitive token at default parameters - each one a typed set.
+        /// </summary>
+        internal const int TypedMemberCount = 22;
+
+        public int CountField;
+
+        public Guid? IdField;
+
+        public int Int32 { get; set; }
+
+        public long Int64 { get; set; }
+
+        public short Int16 { get; set; }
+
+        public ushort UInt16 { get; set; }
+
+        public uint UInt32 { get; set; }
+
+        public ulong UInt64 { get; set; }
+
+        public byte Byte { get; set; }
+
+        public bool Flag { get; set; }
+
+        public bool Off { get; set; }
+
+        public double Double { get; set; }
+
+        public float Single { get; set; }
+
+        public decimal Decimal { get; set; }
+
+        public DateTime When { get; set; }
+
+        public DateTimeOffset At { get; set; }
+
+        public TimeSpan Span { get; set; }
+
+        public Guid Id { get; set; }
+
+        public char Letter { get; set; }
+
+        public int? MaybeInt { get; set; }
+
+        public DateTime? MaybeWhen { get; set; }
+
+        public bool? MaybeFlag { get; set; }
+
+        public long? NoLong { get; set; }
+
+        internal static EqTypedMembers Build()
+        {
+            return new EqTypedMembers
+            {
+                CountField = 3,
+                IdField = new Guid("6f9619ff-8b86-d011-b42d-00c04fc964ff"),
+                Int32 = int.MinValue,
+                Int64 = long.MaxValue,
+                Int16 = -12345,
+                UInt16 = ushort.MaxValue,
+                UInt32 = uint.MaxValue,
+                UInt64 = ulong.MaxValue,
+                Byte = 200,
+                Flag = true,
+                Off = false,
+                Double = -1.5e300,
+                Single = 3.25f,
+                Decimal = -79228162514264337593543950335m,
+                When = new DateTime(2026, 10, 1, 9, 30, 0, DateTimeKind.Utc),
+                At = new DateTimeOffset(2026, 10, 1, 9, 30, 0, TimeSpan.FromHours(-5)),
+                Span = TimeSpan.FromTicks(-123456789),
+                Id = new Guid("0f8fad5b-d9cb-469f-a165-70867728950e"),
+                Letter = 'é',
+                MaybeInt = 7,
+                MaybeWhen = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Local),
+                MaybeFlag = false,
+                NoLong = null,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Members only writable with ShowReadOnlyProperties: a private setter, and a get-only auto
+    /// property set through its backing field.
+    /// </summary>
+    /// <remarks>
+    /// Read only with that parameter on. Getproperties caches by type name alone, so whichever
+    /// parameters a type is first read with stick - this type is never read any other way.
+    /// </remarks>
+    public sealed class EqReadOnlyMembers
+    {
+        public EqReadOnlyMembers()
+        {
+        }
+
+        internal EqReadOnlyMembers(int privateSet, DateTime getOnly)
+        {
+            PrivateSet = privateSet;
+            GetOnly = getOnly;
+        }
+
+        public int PrivateSet { get; private set; }
+
+        public DateTime GetOnly { get; }
+
+        internal static EqReadOnlyMembers Build()
+        {
+            return new EqReadOnlyMembers(42, new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc));
+        }
+    }
+
+    /// <summary>
+    /// Written, then read as <see cref="EqWidened"/> or <see cref="EqNullableWidths"/> without $type,
+    /// so the token on the wire is not the one the reading member's type is written with.
+    /// </summary>
+    public sealed class EqWidths
+    {
+        public int Narrow { get; set; }
+
+        public float Single { get; set; }
+
+        internal static EqWidths Build()
+        {
+            return new EqWidths { Narrow = 5, Single = 1.5f };
+        }
+    }
+
+    public sealed class EqWidened
+    {
+        public long Narrow { get; set; }
+
+        public double Single { get; set; }
+    }
+
+    public sealed class EqNullableWidths
+    {
+        public int? Narrow { get; set; }
+
+        public float? Single { get; set; }
     }
 }

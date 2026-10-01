@@ -365,6 +365,12 @@ namespace DuraIT.FastBinaryJson
         /// tests prove the reader did the work instead of quietly falling back every time.
         /// </summary>
         internal int OneStepFallbacks { get; set; }
+
+        /// <summary>
+        /// How many members TypedReader set without boxing. Diagnostic only, like OneStepFallbacks -
+        /// lets the tests prove the typed path ran rather than everything taking the boxing setter.
+        /// </summary>
+        internal int TypedSets { get; set; }
         private Dictionary<int, object> _cirrev = new Dictionary<int, object>();
 
         public T? ToObject<T>(byte[] json)

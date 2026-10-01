@@ -282,6 +282,9 @@ namespace DuraIT.FastBinaryJson
                 }
             }
 
+            if (pi != null && pi.CanWrite && pi.typedSetter != null && TrySetTyped(o, pi))
+                return o;
+
             object? v = _parser.ReadValue(out bool broke);
             if (broke)
             {
@@ -293,6 +296,86 @@ namespace DuraIT.FastBinaryJson
                 return pi.setter!(o, _deserializer.ConvertValue(pi, v, globaltypes)!);
 
             return o;
+        }
+
+        /// <summary>
+        /// Sets a primitive member straight from its token, without boxing, when the token is the
+        /// one the member's own type is written with. Returns false, having read nothing, otherwise.
+        /// </summary>
+        /// <remarks>
+        /// That token is exactly the case in which the parser produces a value of the member's type,
+        /// ConvertValue hands it through unchanged and the boxing setter's unbox.any succeeds - so
+        /// the result is the same by construction. Every other token (null, another width, a value
+        /// from an older or different writer) takes the boxing path and converts or throws there.
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">If a member carries a token with no reader here.</exception>
+        private bool TrySetTyped(object o, myPropInfo pi)
+        {
+            byte next = _parser.PeekToken();
+            if (next != pi.typedToken && (pi.typedToken != TOKENS.TRUE || next != TOKENS.FALSE))
+                return false;
+
+            _parser.ReadToken();
+            Delegate setter = pi.typedSetter!;
+            switch (next)
+            {
+                case TOKENS.INT:
+                    ((Reflection.TypedSetter<int>)setter)(o, _parser.ParseInt());
+                    break;
+                case TOKENS.LONG:
+                    ((Reflection.TypedSetter<long>)setter)(o, _parser.ParseLong());
+                    break;
+                case TOKENS.TRUE:
+                    ((Reflection.TypedSetter<bool>)setter)(o, true);
+                    break;
+                case TOKENS.FALSE:
+                    ((Reflection.TypedSetter<bool>)setter)(o, false);
+                    break;
+                case TOKENS.DATETIME:
+                    ((Reflection.TypedSetter<DateTime>)setter)(o, _parser.ParseDateTime());
+                    break;
+                case TOKENS.GUID:
+                    ((Reflection.TypedSetter<Guid>)setter)(o, _parser.ParseGuid());
+                    break;
+                case TOKENS.DOUBLE:
+                    ((Reflection.TypedSetter<double>)setter)(o, _parser.ParseDouble());
+                    break;
+                case TOKENS.FLOAT:
+                    ((Reflection.TypedSetter<float>)setter)(o, _parser.ParseFloat());
+                    break;
+                case TOKENS.DECIMAL:
+                    ((Reflection.TypedSetter<decimal>)setter)(o, _parser.ParseDecimal());
+                    break;
+                case TOKENS.SHORT:
+                    ((Reflection.TypedSetter<short>)setter)(o, _parser.ParseShort());
+                    break;
+                case TOKENS.USHORT:
+                    ((Reflection.TypedSetter<ushort>)setter)(o, _parser.ParseUShort());
+                    break;
+                case TOKENS.UINT:
+                    ((Reflection.TypedSetter<uint>)setter)(o, _parser.ParseUint());
+                    break;
+                case TOKENS.ULONG:
+                    ((Reflection.TypedSetter<ulong>)setter)(o, _parser.ParseULong());
+                    break;
+                case TOKENS.BYTE:
+                    ((Reflection.TypedSetter<byte>)setter)(o, _parser.ParseByte());
+                    break;
+                case TOKENS.CHAR:
+                    ((Reflection.TypedSetter<char>)setter)(o, _parser.ParseChar());
+                    break;
+                case TOKENS.TIMESPAN:
+                    ((Reflection.TypedSetter<TimeSpan>)setter)(o, _parser.ParsTimeSpan());
+                    break;
+                case TOKENS.DATETIMEOFFSET:
+                    ((Reflection.TypedSetter<DateTimeOffset>)setter)(o, _parser.ParseDateTimeOffset());
+                    break;
+                default:
+                    throw new InvalidOperationException("No typed reader for token " + next + ".");
+            }
+
+            _deserializer.TypedSets++;
+            return true;
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-﻿using DuraIT.FastBinaryJson.Internal;
+using DuraIT.FastBinaryJson.Internal;
 using System;
 using System.Collections.Generic;
 
@@ -109,6 +109,12 @@ namespace DuraIT.FastBinaryJson
         /// Reads one value, materialising it as the two-step path does when it is an object or array.
         /// </summary>
         internal object? ReadValue(out bool breakparse) => ParseValue(out breakparse);
+
+        /*
+         * The Parse* readers for the primitive tokens are internal for TypedReader, which calls them
+         * after reading the token itself to set a member without boxing. ParseValue boxes the result
+         * of the very same methods, which is what makes the two paths agree by construction.
+         */
 
         /// <summary>
         /// Follows a TYPES_POINTER (its token already read) and returns the $types table, leaving the
@@ -263,7 +269,7 @@ namespace DuraIT.FastBinaryJson
             throw new Exception("Unrecognized token at index = " + _index);
         }
 
-        private TimeSpan ParsTimeSpan()
+        internal TimeSpan ParsTimeSpan()
         {
             long l = Helper.ToInt64(_json, _index);
             _index += 8;
@@ -323,14 +329,14 @@ namespace DuraIT.FastBinaryJson
          * read silently yielded a boxed Int16. The cast back is the whole fix - the written bytes
          * were always correct, so nothing about the wire format moves here.
          */
-        private object ParseChar()
+        internal char ParseChar()
         {
             short u = Helper.ToInt16(_json, _index);
             _index += 2;
             return unchecked((char)u);
         }
 
-        private Guid ParseGuid()
+        internal Guid ParseGuid()
         {
 #if NET10_0_OR_GREATER
             Guid g = new Guid(new ReadOnlySpan<byte>(_json, _index, 16));
@@ -344,56 +350,56 @@ namespace DuraIT.FastBinaryJson
 #endif
         }
 
-        private float ParseFloat()
+        internal float ParseFloat()
         {
             float f = BitConverter.ToSingle(_json, _index);
             _index += 4;
             return f;
         }
 
-        private ushort ParseUShort()
+        internal ushort ParseUShort()
         {
             ushort u = (ushort)Helper.ToInt16(_json, _index);
             _index += 2;
             return u;
         }
 
-        private ulong ParseULong()
+        internal ulong ParseULong()
         {
             ulong u = (ulong)Helper.ToInt64(_json, _index);
             _index += 8;
             return u;
         }
 
-        private uint ParseUint()
+        internal uint ParseUint()
         {
             uint u = (uint)Helper.ToInt32(_json, _index);
             _index += 4;
             return u;
         }
 
-        private short ParseShort()
+        internal short ParseShort()
         {
             short u = (short)Helper.ToInt16(_json, _index);
             _index += 2;
             return u;
         }
 
-        private long ParseLong()
+        internal long ParseLong()
         {
             long u = (long)Helper.ToInt64(_json, _index);
             _index += 8;
             return u;
         }
 
-        private int ParseInt()
+        internal int ParseInt()
         {
             int u = (int)Helper.ToInt32(_json, _index);
             _index += 4;
             return u;
         }
 
-        private double ParseDouble()
+        internal double ParseDouble()
         {
             double d = BitConverter.ToDouble(_json, _index);
             _index += 8;
@@ -420,7 +426,7 @@ namespace DuraIT.FastBinaryJson
             return s;
         }
 
-        private decimal ParseDecimal()
+        internal decimal ParseDecimal()
         {
 #if NET10_0_OR_GREATER
             Span<int> i = stackalloc int[4];
@@ -449,7 +455,7 @@ namespace DuraIT.FastBinaryJson
          * byte changes - this is a read-side fix - but a caller using UseUTCDateTime now receives
          * the instant that was written rather than a local rendering of it.
          */
-        private DateTime ParseDateTime()
+        internal DateTime ParseDateTime()
         {
             long l = Helper.ToInt64(_json, _index);
             _index += 8;
@@ -457,7 +463,7 @@ namespace DuraIT.FastBinaryJson
             return _useUTC ? new DateTime(l, DateTimeKind.Utc) : new DateTime(l);
         }
 
-        private DateTimeOffset ParseDateTimeOffset()
+        internal DateTimeOffset ParseDateTimeOffset()
         {
             long ticks = Helper.ToInt64(_json, _index);
             _index += 8;
@@ -480,7 +486,7 @@ namespace DuraIT.FastBinaryJson
             return b;
         }
 
-        private byte ParseByte()
+        internal byte ParseByte()
         {
             return _json[_index++];
         }

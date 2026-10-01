@@ -72,6 +72,15 @@ namespace DuraIT.FastBinaryJson.Internal
         public bool IsGenericType;
         public bool IsStruct;
         public bool IsInterface;
+
+        /*
+         * The one-step reader's boxing-free setter: a Reflection.TypedSetter<T> for the member's
+         * primitive type T (or T?), and typedToken, the token T is written with. Null on everything
+         * else - non-primitive members, struct targets, static members - which only ever take the
+         * boxing setter. Internal because this class is public and these are not part of it.
+         */
+        internal Delegate? typedSetter;
+        internal byte typedToken;
     }
 
     public sealed class Reflection
@@ -94,6 +103,7 @@ namespace DuraIT.FastBinaryJson.Internal
         public delegate object Deserialize(string data);
 
         public delegate object GenericSetter(object target, object value);
+        internal delegate void TypedSetter<T>(object target, T value);
         public delegate object GenericGetter(object obj);
         private delegate object CreateObject();
         private delegate object CreateList(int capacity);
@@ -370,7 +380,10 @@ namespace DuraIT.FastBinaryJson.Internal
                     myPropInfo d = CreateMyProp(p.PropertyType, p.Name);
                     d.setter = Reflection.CreateSetMethod(type, p, ShowReadOnlyProperties);
                     if (d.setter != null)
+                    {
                         d.CanWrite = true;
+                        AddTypedSetter(d, type, p, ShowReadOnlyProperties);
+                    }
                     d.getter = Reflection.CreateGetMethod(type, p);
                     var att = p.GetCustomAttributes(true);
                     foreach (var at in att)
@@ -393,7 +406,10 @@ namespace DuraIT.FastBinaryJson.Internal
                         if (f.IsInitOnly == false)
                             d.setter = Reflection.CreateSetField(type, f);
                         if (d.setter != null)
+                        {
                             d.CanWrite = true;
+                            AddTypedSetter(d, type, f);
+                        }
                         d.getter = Reflection.CreateGetField(type, f);
                         var att = f.GetCustomAttributes(true);
                         foreach (var at in att)
@@ -639,6 +655,92 @@ namespace DuraIT.FastBinaryJson.Internal
                 throw new Exception(string.Format("Failed to fast create instance for type '{0}' from assembly '{1}'",
                     objtype.FullName, objtype.AssemblyQualifiedName), exc);
             }
+        }
+
+        // Writes through what CreateSetMethod writes through: the set method, or the backing field it falls back to.
+        private static void AddTypedSetter(myPropInfo d, Type type, PropertyInfo property, bool ShowReadOnlyProperties)
+        {
+            MethodInfo? setMethod = property.GetSetMethod(ShowReadOnlyProperties);
+            if (setMethod == null)
+            {
+                FieldInfo? backingField = ShowReadOnlyProperties ? GetGetterBackingField(property) : null;
+                if (backingField != null)
+                    AddTypedSetter(d, type, backingField);
+                return;
+            }
+
+            if (setMethod.IsStatic == false)
+                BuildTypedSetter(d, type, property.PropertyType, property.DeclaringType!, setMethod, null);
+        }
+
+        private static void AddTypedSetter(myPropInfo d, Type type, FieldInfo field)
+        {
+            if (field.IsStatic == false)
+                BuildTypedSetter(d, type, field.FieldType, field.DeclaringType!, null, field);
+        }
+
+        /// <summary>
+        /// Builds the boxing-free setter the one-step reader uses for a primitive member of a class.
+        /// </summary>
+        /// <remarks>
+        /// The IL is the class branch of CreateSetMethod / CreateSetField with the argument typed
+        /// instead of unboxed, plus - for a T? member - the Nullable constructor that unbox.any to T?
+        /// runs implicitly. Struct targets are left out: their boxing setter copies the struct out of
+        /// its box and boxes it again per member, so an unboxed value would save nothing there.
+        /// </remarks>
+        private static void BuildTypedSetter(myPropInfo d, Type type, Type memberType, Type declaringType, MethodInfo? setMethod, FieldInfo? field)
+        {
+            if (type.IsClass == false)
+                return;
+
+            Type? underlying = Nullable.GetUnderlyingType(memberType);
+            Type valueType = underlying ?? memberType;
+            byte token = TypedToken(valueType);
+            if (token == 0)
+                return;
+
+            DynamicMethod method = new DynamicMethod("_cts", typeof(void), new Type[] { typeof(object), valueType }, type, true);
+            ILGenerator il = method.GetILGenerator();
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Castclass, declaringType);
+            il.Emit(OpCodes.Ldarg_1);
+            if (underlying != null)
+                il.Emit(OpCodes.Newobj, memberType.GetConstructor(new Type[] { valueType })!);
+            if (setMethod != null)
+                il.EmitCall(OpCodes.Callvirt, setMethod, null);
+            else
+                il.Emit(OpCodes.Stfld, field!);
+            il.Emit(OpCodes.Ret);
+
+            d.typedSetter = method.CreateDelegate(typeof(TypedSetter<>).MakeGenericType(valueType));
+            d.typedToken = token;
+        }
+
+        /*
+         * The token each primitive is written with, which is the one token the parser turns into
+         * exactly that type. 0 for every type the one-step reader leaves to the boxing setter: sbyte
+         * and enums, because ConvertValue converts them; strings and everything else, because they
+         * are references and were never boxed. bool is keyed on TRUE and stands for FALSE too.
+         */
+        private static byte TypedToken(Type t)
+        {
+            if (t == typeof(int)) return TOKENS.INT;
+            if (t == typeof(long)) return TOKENS.LONG;
+            if (t == typeof(bool)) return TOKENS.TRUE;
+            if (t == typeof(DateTime)) return TOKENS.DATETIME;
+            if (t == typeof(Guid)) return TOKENS.GUID;
+            if (t == typeof(double)) return TOKENS.DOUBLE;
+            if (t == typeof(float)) return TOKENS.FLOAT;
+            if (t == typeof(decimal)) return TOKENS.DECIMAL;
+            if (t == typeof(short)) return TOKENS.SHORT;
+            if (t == typeof(ushort)) return TOKENS.USHORT;
+            if (t == typeof(uint)) return TOKENS.UINT;
+            if (t == typeof(ulong)) return TOKENS.ULONG;
+            if (t == typeof(byte)) return TOKENS.BYTE;
+            if (t == typeof(char)) return TOKENS.CHAR;
+            if (t == typeof(TimeSpan)) return TOKENS.TIMESPAN;
+            if (t == typeof(DateTimeOffset)) return TOKENS.DATETIMEOFFSET;
+            return 0;
         }
 
         internal static GenericSetter CreateSetField(Type type, FieldInfo fieldInfo)
