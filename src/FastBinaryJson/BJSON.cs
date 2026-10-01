@@ -347,7 +347,18 @@ namespace DuraIT.FastBinaryJson
         }
 
         private BJSONParameters _params;
-        private Dictionary<object, int> _circobj = new Dictionary<object, int>();
+
+        /*
+         * $i numbering on read: entry n-1 is the object the writer numbered n. The writer numbers
+         * every object it writes, in preorder, so this holds every object created from a document,
+         * in creation order - by position, never by equality.
+         *
+         * Upstream kept a Dictionary<object, int> next to the reverse map and skipped any new object
+         * that Equals an already numbered one. A new object has no members read yet, so a boxed struct
+         * (all zeros) or a record with value equality could match an earlier one by accident, go
+         * unnumbered, and shift every later $i onto the wrong object (defect 10).
+         */
+        private readonly List<object> _circular = new List<object>();
 
         /// <summary>
         /// Read typed ToObject calls with <see cref="TypedReader"/> instead of the two-step path.
@@ -377,7 +388,6 @@ namespace DuraIT.FastBinaryJson
         /// always 0 on netstandard2.0, which keeps the allocating path.
         /// </summary>
         internal int TypesResolvedInPlace { get; set; }
-        private Dictionary<int, object> _cirrev = new Dictionary<int, object>();
 
         public T? ToObject<T>(byte[] json)
         {
@@ -585,17 +595,26 @@ namespace DuraIT.FastBinaryJson
         /// Numbers an instance for $i references, in creation order - unless an equal instance is
         /// already numbered.
         /// </summary>
-        internal void RegisterCircular(object o)
+        internal int RegisterCircular(object o)
         {
-            if (_circobj.ContainsKey(o))
-                return;
-
-            int circount = _circobj.Count + 1;
-            _circobj.Add(o, circount);
-            _cirrev.Add(circount, o);
+            _circular.Add(o);
+            return _circular.Count;
         }
 
-        internal int CircularCount => _circobj.Count;
+        /// <summary>
+        /// Points $i <paramref name="id"/> at a struct's finished box.
+        /// </summary>
+        /// <remarks>
+        /// A struct's setter returns a new box per member, so the box numbered at creation never sees
+        /// a member value. A later $i to the struct - the writer emits one for a second, equal struct -
+        /// resolved to that empty box and restored all zeros (defect 11).
+        /// </remarks>
+        internal void UpdateCircular(int id, object o)
+        {
+            _circular[id - 1] = o;
+        }
+
+        internal int CircularCount => _circular.Count;
 
         /// <summary>
         /// Forgets every instance numbered after <paramref name="count"/>, so a subtree TypedReader
@@ -603,18 +622,14 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         internal void UndoCircular(int count)
         {
-            for (int id = _circobj.Count; id > count; id--)
-            {
-                object o = _cirrev[id];
-                _cirrev.Remove(id);
-                _circobj.Remove(o);
-            }
+            _circular.RemoveRange(count, _circular.Count - count);
         }
 
+        // An id never numbered resolves to null, as the dictionary lookup it replaces did.
         internal object? ResolveCircular(object id)
         {
-            _cirrev.TryGetValue((int)id, out object? v);
-            return v;
+            int index = (int)id - 1;
+            return index >= 0 && index < _circular.Count ? _circular[index] : null;
         }
 
         internal static Type? ResolveType(object tn, Dictionary<string, object>? globaltypes)
@@ -666,7 +681,7 @@ namespace DuraIT.FastBinaryJson
 
             string typename = type.FullName!;
             object? o = input ?? CreateInstance(type);
-            RegisterCircular(o);
+            int id = RegisterCircular(o);
 
             WireNameMap props = Reflection.Instance.GetWireNameMap(type, typename, _params.ShowReadOnlyProperties); //, Reflection.Instance.IsTypeRegistered(type));
             foreach (var kv in d!)
@@ -678,6 +693,9 @@ namespace DuraIT.FastBinaryJson
                 if (pi.CanWrite && v != null)
                     o = pi.setter!(o!, ConvertValue(pi, v, globaltypes)!);
             }
+
+            if (type.IsValueType)
+                UpdateCircular(id, o!);
             return o;
         }
 

@@ -218,7 +218,7 @@ namespace DuraIT.FastBinaryJson
                 return Abandon(start, circular, sharedTypes, addedTypes);
 
             object o = _deserializer.CreateInstance(type);
-            _deserializer.RegisterCircular(o);
+            int number = _deserializer.RegisterCircular(o);
             WireNameMap members = Reflection.Instance.GetWireNameMap(type, type.FullName!, _deserializer.Parameters.ShowReadOnlyProperties);
 
             if (t == TOKENS.DOC_END)
@@ -249,6 +249,8 @@ namespace DuraIT.FastBinaryJson
                 o = ReadMember(o, members, name, globaltypes, out ended);
             }
 
+            if (type.IsValueType)
+                _deserializer.UpdateCircular(number, o);
             result = o;
             return true;
         }
