@@ -371,6 +371,12 @@ namespace DuraIT.FastBinaryJson
         /// lets the tests prove the typed path ran rather than everything taking the boxing setter.
         /// </summary>
         internal int TypedSets { get; set; }
+
+        /// <summary>
+        /// How many $type values TypedReader resolved without allocating the name. Diagnostic only;
+        /// always 0 on netstandard2.0, which keeps the allocating path.
+        /// </summary>
+        internal int TypesResolvedInPlace { get; set; }
         private Dictionary<int, object> _cirrev = new Dictionary<int, object>();
 
         public T? ToObject<T>(byte[] json)

@@ -190,11 +190,15 @@ namespace DuraIT.FastBinaryJson
 
                 if (name == "$type")
                 {
-                    object? tn = _parser.ReadValue(out bool broke);
-                    if (broke)
-                        return Abandon(start, circular, sharedTypes, addedTypes);
+                    if (TryResolveTypeInPlace(globaltypes, out type) == false)
+                    {
+                        object? tn = _parser.ReadValue(out bool broke);
+                        if (broke)
+                            return Abandon(start, circular, sharedTypes, addedTypes);
 
-                    type = Deserializer.ResolveType(tn!, globaltypes);
+                        type = Deserializer.ResolveType(tn!, globaltypes);
+                    }
+
                     needsDeclaredType = false;
                 }
                 else if (IsSpecialName(name))
@@ -296,6 +300,26 @@ namespace DuraIT.FastBinaryJson
                 return pi.setter!(o, _deserializer.ConvertValue(pi, v, globaltypes)!);
 
             return o;
+        }
+
+        /// <summary>
+        /// Resolves a string $type value without allocating its name. Returns false, having read
+        /// nothing, when the value is not a string the cache can take - the caller reads it as before.
+        /// </summary>
+        private bool TryResolveTypeInPlace(Dictionary<string, object>? globaltypes, out Type? type)
+        {
+#if NET10_0_OR_GREATER
+            // Covers every assembly-qualified name in practice; a longer UTF-8 one takes the old path.
+            Span<char> buffer = stackalloc char[512];
+            if (_parser.TryReadStringChars(buffer, out ReadOnlySpan<char> name))
+            {
+                type = TypeNameCache.Resolve(name, globaltypes);
+                _deserializer.TypesResolvedInPlace++;
+                return true;
+            }
+#endif
+            type = null;
+            return false;
         }
 
         /// <summary>

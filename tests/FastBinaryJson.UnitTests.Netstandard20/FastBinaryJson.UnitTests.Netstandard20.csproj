@@ -57,6 +57,7 @@
     -->
     <Compile Remove="../FastBinaryJson.UnitTests/Internal/PooledByteBufferTests.cs" />
     <Compile Remove="../FastBinaryJson.UnitTests/Internal/NameCacheTests.cs" />
+    <Compile Remove="../FastBinaryJson.UnitTests/Internal/TypeNameCacheTests.cs" />
   </ItemGroup>
 
   <!--

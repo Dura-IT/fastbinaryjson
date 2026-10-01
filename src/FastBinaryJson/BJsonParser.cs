@@ -1,6 +1,9 @@
 using DuraIT.FastBinaryJson.Internal;
 using System;
 using System.Collections.Generic;
+#if NET10_0_OR_GREATER
+using System.Runtime.InteropServices;
+#endif
 
 namespace DuraIT.FastBinaryJson
 {
@@ -109,6 +112,49 @@ namespace DuraIT.FastBinaryJson
         /// Reads one value, materialising it as the two-step path does when it is an object or array.
         /// </summary>
         internal object? ReadValue(out bool breakparse) => ParseValue(out breakparse);
+
+#if NET10_0_OR_GREATER
+        /// <summary>
+        /// Reads a STRING or UNICODE_STRING value as chars without allocating it: UTF-16 in place,
+        /// UTF-8 decoded into <paramref name="buffer"/>. Returns false, having read nothing, for any
+        /// other token or a UTF-8 value that might not fit the buffer.
+        /// </summary>
+        /// <remarks>
+        /// The same bytes ParseUnicodeString and ParseString turn into a string, decoded the same way:
+        /// UTF-16 drops an odd trailing byte exactly as UnicodeGetString does, and UTF-8 goes through
+        /// the same encoder instance.
+        /// </remarks>
+        /// <exception cref="ArgumentOutOfRangeException">If the length runs past the end of the payload.</exception>
+        internal bool TryReadStringChars(Span<char> buffer, out ReadOnlySpan<char> chars)
+        {
+            chars = default;
+            byte token = _json[_index];
+            if (token != TOKENS.STRING && token != TOKENS.UNICODE_STRING)
+                return false;
+
+            int length = Helper.ToInt32(_json, _index + 1);
+            int start = _index + 5;
+            if (length < 0 || start > _json.Length - length)
+                throw new ArgumentOutOfRangeException(nameof(length), "String length runs past the end of the payload.");
+
+            ReadOnlySpan<byte> bytes = new ReadOnlySpan<byte>(_json, start, length);
+            if (token == TOKENS.UNICODE_STRING)
+            {
+                chars = MemoryMarshal.Cast<byte, char>(bytes);
+            }
+            else
+            {
+                // A UTF-8 byte never yields more than one char, so this bounds the decoded length.
+                if (length > buffer.Length)
+                    return false;
+
+                chars = buffer.Slice(0, Reflection.UTF8GetChars(bytes, buffer));
+            }
+
+            _index = start + length;
+            return true;
+        }
+#endif
 
         /*
          * The Parse* readers for the primitive tokens are internal for TypedReader, which calls them
