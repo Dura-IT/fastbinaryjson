@@ -31,9 +31,14 @@ namespace DuraIT.FastBinaryJson
         private int _typespointer = 0;
         private int _MAX_DEPTH = 20;
         int _current_depth = 0;
-        private Dictionary<string, int> _globalTypes = new Dictionary<string, int>();
-        // Created on first use: a root list or dictionary turns global types off and never needs it.
-        private Dictionary<Type, string>? _globalTypeIds;
+        /*
+         * Keyed by Type, not by assembly-qualified name: every object looks itself up here, and the name
+         * key hashed around a hundred characters each time. The table is still written in the same
+         * order, under the same ids, with the same names. Only two distinct types that share a name -
+         * one assembly loaded twice - now get an id each instead of sharing one, and both still read
+         * back as the type that name resolves to.
+         */
+        private Dictionary<Type, int> _globalTypes = new Dictionary<Type, int>();
         /*
          * By identity: $i means "this same instance". Default equality wrote a distinct object that
          * merely compared Equal as a reference to the first one, so an entity with Equals over its Id
@@ -95,7 +100,7 @@ namespace DuraIT.FastBinaryJson
             }
         }
 
-        private void WriteTypes(Dictionary<string, int> dic)
+        private void WriteTypes(Dictionary<Type, int> dic)
         {
             _output.WriteByte(TOKENS.DOC_START);
 
@@ -105,7 +110,7 @@ namespace DuraIT.FastBinaryJson
             {
                 if (pendingSeparator) WriteComma();
 
-                WritePair(entry.Value.ToString(), entry.Key);
+                WritePair(entry.Value.ToString(), Reflection.Instance.GetTypeAssemblyName(entry.Key));
 
                 pendingSeparator = true;
             }
@@ -669,31 +674,16 @@ namespace DuraIT.FastBinaryJson
             _current_depth--;
         }
 
-        /// <summary>
-        /// The $types id for <paramref name="t"/>, as the text written into $type.
-        /// </summary>
-        /// <remarks>
-        /// Looked up by Type first. Keyed only by the assembly-qualified name, every object hashed that
-        /// whole name (around a hundred characters) and formatted its id into a new string. Ids are
-        /// still assigned through <see cref="_globalTypes"/>, so they and the $types table come out
-        /// exactly as before - including two types with one name sharing an id.
-        /// </remarks>
+        // The $types id for t, assigned in first-use order.
         private string GetGlobalTypeId(Type t)
         {
-            _globalTypeIds ??= new Dictionary<Type, string>();
-            if (_globalTypeIds.TryGetValue(t, out string? id))
-                return id;
-
-            string ct = Reflection.Instance.GetTypeAssemblyName(t);
-            if (_globalTypes.TryGetValue(ct, out int dt) == false)
+            if (_globalTypes.TryGetValue(t, out int dt) == false)
             {
                 dt = _globalTypes.Count + 1;
-                _globalTypes.Add(ct, dt);
+                _globalTypes.Add(t, dt);
             }
 
-            id = dt.ToString();
-            _globalTypeIds.Add(t, id);
-            return id;
+            return dt.ToString();
         }
 
         private void WritePairFast(string name, string value)
