@@ -53,6 +53,44 @@ namespace FastBinaryJson.UnitTests.Internal
             map.Find("Name").Should().BeSameAs(Name);
         }
 
+        [Test]
+        public void Remember_Keys_AreKeptInFirstReadOrder()
+        {
+            WireNameMap map = CreateMap();
+
+            map.Remember(new byte[] { 1 }, Name, false);
+            map.Remember(new byte[] { 2 }, Age, false);
+            map.Remember(new byte[] { 3 }, null, true);
+
+            map.Keys.Select(k => k.Raw[0]).Should().Equal((byte)1, (byte)2, (byte)3);
+            map.Keys[1].Member.Should().BeSameAs(Age);
+            map.Keys[2].Special.Should().BeTrue();
+        }
+
+        [Test]
+        public void Remember_PastTheCap_IsIgnored()
+        {
+            WireNameMap map = CreateMap();
+
+            for (int i = 0; i < 500; i++)
+                map.Remember(new byte[] { (byte)i }, null, false);
+
+            map.Keys.Length.Should().Be(32, "two members give the minimum cap of 32");
+        }
+
+        [Test]
+        public void Keys_SnapshotTakenBeforeRemember_IsUnchanged()
+        {
+            WireNameMap map = CreateMap();
+            map.Remember(new byte[] { 1 }, Name, false);
+            WireKey[] snapshot = map.Keys;
+
+            map.Remember(new byte[] { 2 }, Age, false);
+
+            snapshot.Should().HaveCount(1);
+            map.Keys.Should().HaveCount(2);
+        }
+
         private static WireNameMap CreateMap()
         {
             return new WireNameMap(new Dictionary<string, myPropInfo> { ["name"] = Name, ["age"] = Age });

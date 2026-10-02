@@ -27,6 +27,10 @@ namespace DuraIT.FastBinaryJson
     /// </remarks>
     internal sealed class TypedReader
     {
+        // "$type" as each encoding writes it, so the head key of an object is recognised without decoding.
+        private static readonly byte[] TypeKeyUtf16 = Key(TOKENS.NAME_UNI, Reflection.UnicodeGetBytes("$type"));
+        private static readonly byte[] TypeKeyUtf8 = Key(TOKENS.NAME, Reflection.UTF8GetBytes("$type"));
+
         private readonly Deserializer _deserializer;
         private readonly BJsonParser _parser;
 
@@ -170,7 +174,7 @@ namespace DuraIT.FastBinaryJson
             bool needsDeclaredType = true;
             if (t != TOKENS.DOC_END)
             {
-                string name = _parser.ReadName(t);
+                string name = ReadHeadName(t);
                 _parser.ReadColon();
 
                 if (name == "$i")
@@ -220,6 +224,8 @@ namespace DuraIT.FastBinaryJson
             object o = _deserializer.CreateInstance(type);
             int number = _deserializer.RegisterCircular(o);
             WireNameMap members = Reflection.Instance.GetWireNameMap(type, type.FullName!, _deserializer.Parameters.ShowReadOnlyProperties);
+            WireKey[] keys = members.Keys;
+            int hint = 0;
 
             if (t == TOKENS.DOC_END)
             {
@@ -229,7 +235,7 @@ namespace DuraIT.FastBinaryJson
 
             bool ended = false;
             if (firstMember != null)
-                o = ReadMember(o, members, firstMember, globaltypes, out ended);
+                o = ReadMember(o, members.Find(firstMember), globaltypes, out ended);
 
             while (ended == false)
             {
@@ -241,12 +247,12 @@ namespace DuraIT.FastBinaryJson
                 if (t == TOKENS.TYPES_POINTER)
                     return Abandon(start, circular, sharedTypes, addedTypes);
 
-                string name = _parser.ReadName(t);
+                myPropInfo? pi = ReadMemberKey(t, members, keys, ref hint, out bool special);
                 _parser.ReadColon();
-                if (IsSpecialName(name))
+                if (special)
                     return Abandon(start, circular, sharedTypes, addedTypes);
 
-                o = ReadMember(o, members, name, globaltypes, out ended);
+                o = ReadMember(o, pi, globaltypes, out ended);
             }
 
             if (type.IsValueType)
@@ -262,11 +268,9 @@ namespace DuraIT.FastBinaryJson
         /// Set when the value position held a structural token instead - the parser ends the object
         /// there, and so does this.
         /// </param>
-        private object ReadMember(object o, WireNameMap members, string name, Dictionary<string, object>? globaltypes, out bool ended)
+        private object ReadMember(object o, myPropInfo? pi, Dictionary<string, object>? globaltypes, out bool ended)
         {
             ended = false;
-            myPropInfo? pi = members.Find(name);
-
             if (pi != null && pi.CanWrite)
             {
                 byte next = _parser.PeekToken();
@@ -302,6 +306,64 @@ namespace DuraIT.FastBinaryJson
                 return pi.setter!(o, _deserializer.ConvertValue(pi, v, globaltypes)!);
 
             return o;
+        }
+
+        /// <summary>
+        /// Reads the head key of an object, whose token was just read. $type is recognised by its bytes.
+        /// </summary>
+        private string ReadHeadName(byte token)
+        {
+            int keyStart = _parser.Index - 1;
+            if (_parser.TryReadKey(keyStart, TypeKeyUtf16) || _parser.TryReadKey(keyStart, TypeKeyUtf8))
+                return "$type";
+
+            return _parser.ReadName(token);
+        }
+
+        /// <summary>
+        /// Reads a member key whose token was just read: by its bytes when its type has seen it before,
+        /// otherwise by decoding its name, after which it is remembered.
+        /// </summary>
+        /// <remarks>
+        /// The search starts after the previous match, because a type's members arrive in the same
+        /// order every time; a member skipped for being null costs one more comparison, not a miss.
+        /// Equal bytes are the same name, so a remembered key resolves exactly as decoding it does.
+        /// </remarks>
+        private myPropInfo? ReadMemberKey(byte token, WireNameMap members, WireKey[] keys, ref int hint, out bool special)
+        {
+            int keyStart = _parser.Index - 1;
+            for (int i = 0; i < keys.Length; i++)
+            {
+                int index = hint + i;
+                if (index >= keys.Length)
+                    index -= keys.Length;
+
+                WireKey key = keys[index];
+                if (_parser.TryReadKey(keyStart, key.Raw))
+                {
+                    hint = index + 1;
+                    special = key.Special;
+                    return key.Member;
+                }
+            }
+
+            string name = _parser.ReadName(token);
+            special = IsSpecialName(name);
+            myPropInfo? member = special ? null : members.Find(name);
+            // Only the one-byte length forms, so a remembered key never exceeds 257 bytes.
+            if (token == TOKENS.NAME || token == TOKENS.NAME_UNI)
+                members.Remember(_parser.CopyFrom(keyStart), member, special);
+
+            return member;
+        }
+
+        private static byte[] Key(byte token, byte[] name)
+        {
+            byte[] key = new byte[name.Length + 2];
+            key[0] = token;
+            key[1] = (byte)name.Length;
+            Buffer.BlockCopy(name, 0, key, 2, name.Length);
+            return key;
         }
 
         /// <summary>

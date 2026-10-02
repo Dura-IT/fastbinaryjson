@@ -109,6 +109,38 @@ namespace DuraIT.FastBinaryJson
         }
 
         /// <summary>
+        /// Reads the key whose token is at <paramref name="keyStart"/> - already read - when its bytes
+        /// are exactly <paramref name="raw"/>. Returns false, having read nothing more, otherwise.
+        /// </summary>
+        internal bool TryReadKey(int keyStart, byte[] raw)
+        {
+            if (keyStart > _json.Length - raw.Length)
+                return false;
+#if NET10_0_OR_GREATER
+            if (new ReadOnlySpan<byte>(_json, keyStart, raw.Length).SequenceEqual(raw) == false)
+                return false;
+#else
+            for (int i = 0; i < raw.Length; i++)
+            {
+                if (_json[keyStart + i] != raw[i])
+                    return false;
+            }
+#endif
+            _index = keyStart + raw.Length;
+            return true;
+        }
+
+        /// <summary>
+        /// A copy of the bytes from <paramref name="start"/> up to the current index.
+        /// </summary>
+        internal byte[] CopyFrom(int start)
+        {
+            byte[] bytes = new byte[_index - start];
+            Buffer.BlockCopy(_json, start, bytes, 0, bytes.Length);
+            return bytes;
+        }
+
+        /// <summary>
         /// Reads one value, materialising it as the two-step path does when it is an object or array.
         /// </summary>
         internal object? ReadValue(out bool breakparse) => ParseValue(out breakparse);
