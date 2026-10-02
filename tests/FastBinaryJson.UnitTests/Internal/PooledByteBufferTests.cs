@@ -17,6 +17,35 @@ namespace FastBinaryJson.UnitTests.Internal
     [TestOf(typeof(PooledByteBuffer))]
     public sealed class PooledByteBufferTests
     {
+        // Every buffer starts at the length the previous one reached; the growth tests need a small start.
+        [SetUp]
+        public void SetUp()
+        {
+            PooledByteBuffer.ResetSizeHint();
+        }
+
+        [Test]
+        public void Constructor_AfterALargerBuffer_StartsWithRoomForItsLength()
+        {
+            using (PooledByteBuffer first = new PooledByteBuffer())
+                first.Write(new byte[10_000]);
+
+            using PooledByteBuffer next = new PooledByteBuffer();
+
+            next.Capacity.Should().BeGreaterThanOrEqualTo(10_000);
+        }
+
+        [Test]
+        public void Constructor_AfterAHugeBuffer_StartsAtTheCap()
+        {
+            using (PooledByteBuffer first = new PooledByteBuffer())
+                first.Write(new byte[(1 << 21) + 1]);
+
+            using PooledByteBuffer next = new PooledByteBuffer();
+
+            next.Capacity.Should().Be(1 << 20);
+        }
+
         [Test]
         public void Write_BeyondInitialCapacity_KeepsEveryByte()
         {

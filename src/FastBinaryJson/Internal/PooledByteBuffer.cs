@@ -3,6 +3,7 @@ using System;
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace DuraIT.FastBinaryJson.Internal
 {
@@ -20,17 +21,33 @@ namespace DuraIT.FastBinaryJson.Internal
     /// </remarks>
     internal sealed class PooledByteBuffer : IDisposable
     {
-        private const int InitialCapacity = 256;
+        private const int MinimumCapacity = 256;
+        private const int MaximumHint = 1 << 20;
+
+        /*
+         * The length the previous buffer reached, so the next one starts there instead of doubling
+         * up from 256 and copying everything written at every step - for a large payload as much
+         * copying again as the output itself. Capped, so one huge payload does not make every later
+         * call rent a huge array. Shared by all threads: a race only gives a less fitting start size.
+         */
+        private static int _sizeHint;
 
         private byte[]? _buffer;
         private int _length;
 
         public PooledByteBuffer()
         {
-            _buffer = ArrayPool<byte>.Shared.Rent(InitialCapacity);
+            _buffer = ArrayPool<byte>.Shared.Rent(Math.Max(MinimumCapacity, Volatile.Read(ref _sizeHint)));
         }
 
         public int Length => _length;
+
+        /// <summary>
+        /// Forgets the start size, so a test can rely on a buffer starting small and growing.
+        /// </summary>
+        internal static void ResetSizeHint() => Volatile.Write(ref _sizeHint, 0);
+
+        internal int Capacity => Buffer.Length;
 
         /*
          * WriteByte and Write run once per token, length and value - thousands of times per call.
@@ -133,6 +150,7 @@ namespace DuraIT.FastBinaryJson.Internal
             if (_buffer is null)
                 return;
 
+            Volatile.Write(ref _sizeHint, Math.Min(_length, MaximumHint));
             ArrayPool<byte>.Shared.Return(_buffer);
             _buffer = null;
         }
