@@ -632,12 +632,33 @@ namespace DuraIT.FastBinaryJson
             return index >= 0 && index < _circular.Count ? _circular[index] : null;
         }
 
-        internal static Type? ResolveType(object tn, Dictionary<string, object>? globaltypes)
+        internal Type? ResolveType(object tn, Dictionary<string, object>? globaltypes)
         {
-            if (globaltypes != null && globaltypes.TryGetValue((string)tn, out object? tname))
-                tn = tname;
+            if (globaltypes != null && globaltypes.TryGetValue((string)tn, out object? entry))
+                return ResolveGlobalType(entry);
 
             return Reflection.Instance.GetTypeFromCache((string)tn, true);
+        }
+
+        /*
+         * An object's $type is usually an index into $types, and resolving the entry it names hashed
+         * the whole assembly-qualified name again for every object. The last entry is kept with its
+         * type, which covers a collection of one type. Compared by instance: the same entry is the
+         * same name, so the answer is GetTypeFromCache's by construction, and an entry that throws
+         * (denylisted, not a string) is never kept, so it throws every time as before.
+         */
+        private object? _lastTypeEntry;
+        private Type? _lastType;
+
+        internal Type? ResolveGlobalType(object entry)
+        {
+            if (ReferenceEquals(entry, _lastTypeEntry))
+                return _lastType;
+
+            Type? type = Reflection.Instance.GetTypeFromCache((string)entry, true);
+            _lastTypeEntry = entry;
+            _lastType = type;
+            return type;
         }
 
         #endregion

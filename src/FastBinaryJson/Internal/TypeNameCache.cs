@@ -33,14 +33,14 @@ namespace DuraIT.FastBinaryJson.Internal
         /// </summary>
         /// <exception cref="InvalidCastException">If a $types entry for the name is not a string.</exception>
         /// <exception cref="Exception">If the name is on the $type denylist.</exception>
-        public static Type? Resolve(ReadOnlySpan<char> name, Dictionary<string, object>? globaltypes)
+        public static Type? Resolve(ReadOnlySpan<char> name, Dictionary<string, object>? globaltypes, Deserializer deserializer)
         {
             if (globaltypes != null && globaltypes.Count > 0)
             {
                 if (globaltypes.TryGetAlternateLookup(out Dictionary<string, object>.AlternateLookup<ReadOnlySpan<char>> lookup) == false)
-                    return Deserializer.ResolveType(new string(name), globaltypes);
+                    return deserializer.ResolveType(new string(name), globaltypes);
                 if (lookup.TryGetValue(name, out object? mapped))
-                    return Reflection.Instance.GetTypeFromCache((string)mapped, true);
+                    return deserializer.ResolveGlobalType(mapped);
             }
 
             if (ByChars.TryGetValue(name, out Type? cached))

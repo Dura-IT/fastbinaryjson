@@ -196,7 +196,7 @@ namespace DuraIT.FastBinaryJson
                         if (broke)
                             return Abandon(start, circular, sharedTypes, addedTypes);
 
-                        type = Deserializer.ResolveType(tn!, globaltypes);
+                        type = _deserializer.ResolveType(tn!, globaltypes);
                     }
 
                     needsDeclaredType = false;
@@ -315,7 +315,7 @@ namespace DuraIT.FastBinaryJson
             Span<char> buffer = stackalloc char[512];
             if (_parser.TryReadStringChars(buffer, out ReadOnlySpan<char> name))
             {
-                type = TypeNameCache.Resolve(name, globaltypes);
+                type = TypeNameCache.Resolve(name, globaltypes, _deserializer);
                 _deserializer.TypesResolvedInPlace++;
                 return true;
             }

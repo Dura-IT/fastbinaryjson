@@ -28,8 +28,8 @@ namespace FastBinaryJson.UnitTests.Internal
         {
             string name = typeof(EqLeft).AssemblyQualifiedName!;
 
-            Type? first = TypeNameCache.Resolve(name.AsSpan(), null);
-            Type? second = TypeNameCache.Resolve(name.AsSpan(), null);
+            Type? first = TypeNameCache.Resolve(name.AsSpan(), null, NewDeserializer());
+            Type? second = TypeNameCache.Resolve(name.AsSpan(), null, NewDeserializer());
 
             first.Should().Be(typeof(EqLeft));
             second.Should().Be(typeof(EqLeft));
@@ -40,8 +40,8 @@ namespace FastBinaryJson.UnitTests.Internal
         {
             const string Name = "TypeNameCacheProbe.DoesNotExist, NoSuchAssembly";
 
-            TypeNameCache.Resolve(Name.AsSpan(), null).Should().BeNull();
-            TypeNameCache.Resolve(Name.AsSpan(), null).Should().BeNull();
+            TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer()).Should().BeNull();
+            TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer()).Should().BeNull();
         }
 
         [Test]
@@ -49,8 +49,8 @@ namespace FastBinaryJson.UnitTests.Internal
         {
             const string Name = "System.Windows.Data.ObjectDataProvider, TypeNameCacheProbe";
 
-            FluentActions.Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null)).Should().Throw<Exception>().WithMessage("Black list type*");
-            FluentActions.Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null)).Should().Throw<Exception>().WithMessage("Black list type*");
+            FluentActions.Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer())).Should().Throw<Exception>().WithMessage("Black list type*");
+            FluentActions.Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer())).Should().Throw<Exception>().WithMessage("Black list type*");
         }
 
         [Test]
@@ -58,7 +58,7 @@ namespace FastBinaryJson.UnitTests.Internal
         {
             Dictionary<string, object> globaltypes = new Dictionary<string, object> { ["7"] = typeof(EqRight).AssemblyQualifiedName! };
 
-            TypeNameCache.Resolve("7".AsSpan(), globaltypes).Should().Be(typeof(EqRight));
+            TypeNameCache.Resolve("7".AsSpan(), globaltypes, NewDeserializer()).Should().Be(typeof(EqRight));
         }
 
         [Test]
@@ -66,8 +66,37 @@ namespace FastBinaryJson.UnitTests.Internal
         {
             Dictionary<string, object> globaltypes = new Dictionary<string, object> { ["8"] = 8 };
 
-            FluentActions.Invoking(() => TypeNameCache.Resolve("8".AsSpan(), globaltypes)).Should().Throw<InvalidCastException>();
-            FluentActions.Invoking(() => Deserializer.ResolveType("8", globaltypes)).Should().Throw<InvalidCastException>();
+            FluentActions.Invoking(() => TypeNameCache.Resolve("8".AsSpan(), globaltypes, NewDeserializer())).Should().Throw<InvalidCastException>();
+            FluentActions.Invoking(() => NewDeserializer().ResolveType("8", globaltypes)).Should().Throw<InvalidCastException>();
+        }
+
+        /// <summary>
+        /// The deserializer keeps the last $types entry it resolved; alternating entries must still
+        /// each come back as their own type.
+        /// </summary>
+        [Test]
+        public void Resolve_GlobalEntriesAlternating_ResolveEachToItsOwnType()
+        {
+            Dictionary<string, object> globaltypes = new Dictionary<string, object>
+            {
+                ["1"] = typeof(EqLeft).AssemblyQualifiedName!,
+                ["2"] = typeof(EqRight).AssemblyQualifiedName!,
+            };
+            Deserializer deserializer = NewDeserializer();
+
+            Type?[] resolved = { TypeNameCache.Resolve("1".AsSpan(), globaltypes, deserializer), TypeNameCache.Resolve("2".AsSpan(), globaltypes, deserializer), TypeNameCache.Resolve("2".AsSpan(), globaltypes, deserializer), TypeNameCache.Resolve("1".AsSpan(), globaltypes, deserializer) };
+
+            resolved.Should().Equal(typeof(EqLeft), typeof(EqRight), typeof(EqRight), typeof(EqLeft));
+        }
+
+        [Test]
+        public void Resolve_DenylistedGlobalEntry_ThrowsEveryTime()
+        {
+            Dictionary<string, object> globaltypes = new Dictionary<string, object> { ["9"] = "System.Windows.Data.ObjectDataProvider, TypeNameCacheProbe" };
+            Deserializer deserializer = NewDeserializer();
+
+            FluentActions.Invoking(() => TypeNameCache.Resolve("9".AsSpan(), globaltypes, deserializer)).Should().Throw<Exception>().WithMessage("Black list type*");
+            FluentActions.Invoking(() => TypeNameCache.Resolve("9".AsSpan(), globaltypes, deserializer)).Should().Throw<Exception>().WithMessage("Black list type*");
         }
 
         /// <summary>
@@ -86,6 +115,11 @@ namespace FastBinaryJson.UnitTests.Internal
 
             restored.Should().BeEquivalentTo(value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering());
             deserializer.TypesResolvedInPlace.Should().Be(3);
+        }
+
+        private static Deserializer NewDeserializer()
+        {
+            return new Deserializer(new BJSONParameters());
         }
     }
 }
