@@ -655,6 +655,17 @@ namespace DuraIT.FastBinaryJson
             for (int ii = 0; ii < c; ii++)
             {
                 ref Getters p = ref g[ii];
+                if (p.TypedGetter != null && TypedGetters)
+                {
+                    // A primitive is never null, so it is always written - as below, minus the box.
+                    if (append)
+                        WriteComma();
+                    WriteBytesRaw(MemberKey(ref p));
+                    WriteTyped(ref p, obj);
+                    append = true;
+                    continue;
+                }
+
                 var o = p.Getter(obj);
                 if (_params.SerializeNulls == false && (o == null || o is DBNull))
                 {
@@ -672,6 +683,76 @@ namespace DuraIT.FastBinaryJson
             }
             _output.WriteByte(TOKENS.DOC_END);
             _current_depth--;
+        }
+
+        /// <summary>
+        /// Read primitive members through their typed getters instead of the boxing one.
+        /// </summary>
+        /// <remarks>
+        /// Off only in tests, to write with the boxing path as the reference.
+        /// </remarks>
+        internal bool TypedGetters { get; set; } = true;
+
+        /// <summary>
+        /// Writes a primitive member's value without boxing it, with the writer WriteValue picks for it.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">If a getter carries a token with no writer here.</exception>
+        private void WriteTyped(ref Getters p, object obj)
+        {
+            Delegate getter = p.TypedGetter!;
+            switch (p.TypedToken)
+            {
+                case TOKENS.INT:
+                    WriteInt(((Reflection.TypedGetter<int>)getter)(obj));
+                    break;
+                case TOKENS.LONG:
+                    WriteLong(((Reflection.TypedGetter<long>)getter)(obj));
+                    break;
+                case TOKENS.TRUE:
+                    WriteBool(((Reflection.TypedGetter<bool>)getter)(obj));
+                    break;
+                case TOKENS.DATETIME:
+                    WriteDateTime(((Reflection.TypedGetter<DateTime>)getter)(obj));
+                    break;
+                case TOKENS.GUID:
+                    WriteGuid(((Reflection.TypedGetter<Guid>)getter)(obj));
+                    break;
+                case TOKENS.DOUBLE:
+                    WriteDouble(((Reflection.TypedGetter<double>)getter)(obj));
+                    break;
+                case TOKENS.FLOAT:
+                    WriteFloat(((Reflection.TypedGetter<float>)getter)(obj));
+                    break;
+                case TOKENS.DECIMAL:
+                    WriteDecimal(((Reflection.TypedGetter<decimal>)getter)(obj));
+                    break;
+                case TOKENS.SHORT:
+                    WriteShort(((Reflection.TypedGetter<short>)getter)(obj));
+                    break;
+                case TOKENS.USHORT:
+                    WriteUShort(((Reflection.TypedGetter<ushort>)getter)(obj));
+                    break;
+                case TOKENS.UINT:
+                    WriteUInt(((Reflection.TypedGetter<uint>)getter)(obj));
+                    break;
+                case TOKENS.ULONG:
+                    WriteULong(((Reflection.TypedGetter<ulong>)getter)(obj));
+                    break;
+                case TOKENS.BYTE:
+                    WriteByte(((Reflection.TypedGetter<byte>)getter)(obj));
+                    break;
+                case TOKENS.SBYTE:
+                    WriteSByte(((Reflection.TypedGetter<sbyte>)getter)(obj));
+                    break;
+                case TOKENS.CHAR:
+                    WriteChar(((Reflection.TypedGetter<char>)getter)(obj));
+                    break;
+                case TOKENS.TIMESPAN:
+                    WriteTimeSpan(((Reflection.TypedGetter<TimeSpan>)getter)(obj));
+                    break;
+                default:
+                    throw new InvalidOperationException("No typed writer for token " + p.TypedToken + ".");
+            }
         }
 
         /// <summary>

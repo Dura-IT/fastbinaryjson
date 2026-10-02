@@ -26,6 +26,14 @@ namespace DuraIT.FastBinaryJson.Internal
          */
         internal byte[]? KeyUtf16;
         internal byte[]? KeyUtf8;
+
+        /*
+         * The writer's boxing-free getter: a Reflection.TypedGetter<T> for a member whose type is
+         * exactly the primitive T, and TypedToken, the token WriteValue writes T with. Null on every
+         * other member, which keeps the boxing Getter.
+         */
+        internal Delegate? TypedGetter;
+        internal byte TypedToken;
     }
 
     public enum myPropInfoType
@@ -112,6 +120,7 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public delegate object GenericSetter(object target, object value);
         internal delegate void TypedSetter<T>(object target, T value);
+        internal delegate T TypedGetter<T>(object target);
         public delegate object GenericGetter(object obj);
         private delegate object CreateObject();
         private delegate object CreateList(int capacity);
@@ -751,6 +760,52 @@ namespace DuraIT.FastBinaryJson.Internal
             return 0;
         }
 
+        /// <summary>
+        /// Builds the boxing-free getter the writer uses for a primitive member of a class.
+        /// </summary>
+        /// <remarks>
+        /// The class branch of CreateGetMethod / CreateGetField without the box. Struct targets and
+        /// static members keep the boxing getter only, as they do for the typed setters.
+        /// </remarks>
+        private static void BuildTypedGetter(ref Getters getter, Type type, Type memberType, Type declaringType, MethodInfo? getMethod, FieldInfo? field)
+        {
+            if (type.IsClass == false || getMethod?.IsStatic == true || field?.IsStatic == true)
+                return;
+
+            byte token = WrittenToken(memberType);
+            if (token == 0)
+                return;
+
+            DynamicMethod method = new DynamicMethod("_ctg", memberType, new Type[] { typeof(object) }, type, true);
+            ILGenerator il = method.GetILGenerator();
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Castclass, declaringType);
+            if (getMethod != null)
+                il.EmitCall(OpCodes.Callvirt, getMethod, null);
+            else
+                il.Emit(OpCodes.Ldfld, field!);
+            il.Emit(OpCodes.Ret);
+
+            getter.TypedGetter = method.CreateDelegate(typeof(TypedGetter<>).MakeGenericType(memberType));
+            getter.TypedToken = token;
+        }
+
+        /*
+         * The token WriteValue writes a value of exactly this type with. Every type here is matched
+         * by its own branch of WriteValue's chain, ahead of the custom-type check, so a boxed value of
+         * it can only take that branch. 0 for everything else: nullables (they can be null), enums,
+         * strings, and DateTimeOffset, which WriteValue checks after custom types.
+         */
+        private static byte WrittenToken(Type t)
+        {
+            if (t == typeof(sbyte))
+                return TOKENS.SBYTE;
+            if (t == typeof(DateTimeOffset))
+                return 0;
+
+            return TypedToken(t);
+        }
+
         internal static GenericSetter CreateSetField(Type type, FieldInfo fieldInfo)
         {
             Type[] arguments = new Type[2];
@@ -1014,7 +1069,11 @@ namespace DuraIT.FastBinaryJson.Internal
                 }
                 GenericGetter? g = CreateGetMethod(type, p);
                 if (g != null)
-                    getters.Add(new Getters { Getter = g, Name = p.Name, lcName = p.Name.ToLowerInvariant(), memberName = mName, ReadOnly = read_only });
+                {
+                    Getters getter = new Getters { Getter = g, Name = p.Name, lcName = p.Name.ToLowerInvariant(), memberName = mName, ReadOnly = read_only };
+                    BuildTypedGetter(ref getter, type, p.PropertyType, p.DeclaringType!, p.GetGetMethod(), null);
+                    getters.Add(getter);
+                }
             }
 
             FieldInfo[] fi = type.GetFields(bf);
@@ -1054,7 +1113,11 @@ namespace DuraIT.FastBinaryJson.Internal
                 {
                     GenericGetter g = CreateGetField(type, f);
                     if (g != null)
-                        getters.Add(new Getters { Getter = g, Name = f.Name, lcName = f.Name.ToLowerInvariant(), memberName = mName, ReadOnly = read_only });
+                    {
+                        Getters getter = new Getters { Getter = g, Name = f.Name, lcName = f.Name.ToLowerInvariant(), memberName = mName, ReadOnly = read_only };
+                        BuildTypedGetter(ref getter, type, f.FieldType, f.DeclaringType!, null, f);
+                        getters.Add(getter);
+                    }
                 }
             }
             val = getters.ToArray();
