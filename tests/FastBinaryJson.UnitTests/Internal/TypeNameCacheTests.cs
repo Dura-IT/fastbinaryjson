@@ -1,13 +1,9 @@
 using System;
 using System.Collections.Generic;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
 using DuraIT.FastBinaryJson.Internal;
-
 using FastBinaryJson.UnitTests.RoundTrip;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.Internal
@@ -49,8 +45,16 @@ namespace FastBinaryJson.UnitTests.Internal
         {
             const string Name = "System.Windows.Data.ObjectDataProvider, TypeNameCacheProbe";
 
-            FluentActions.Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer())).Should().Throw<Exception>().WithMessage("Black list type*");
-            FluentActions.Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer())).Should().Throw<Exception>().WithMessage("Black list type*");
+            FluentActions
+                .Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer()))
+                .Should()
+                .Throw<Exception>()
+                .WithMessage("Black list type*");
+            FluentActions
+                .Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer()))
+                .Should()
+                .Throw<Exception>()
+                .WithMessage("Black list type*");
         }
 
         [Test]
@@ -84,7 +88,13 @@ namespace FastBinaryJson.UnitTests.Internal
             };
             Deserializer deserializer = NewDeserializer();
 
-            Type?[] resolved = { TypeNameCache.Resolve("1".AsSpan(), globaltypes, deserializer), TypeNameCache.Resolve("2".AsSpan(), globaltypes, deserializer), TypeNameCache.Resolve("2".AsSpan(), globaltypes, deserializer), TypeNameCache.Resolve("1".AsSpan(), globaltypes, deserializer) };
+            Type?[] resolved =
+            {
+                TypeNameCache.Resolve("1".AsSpan(), globaltypes, deserializer),
+                TypeNameCache.Resolve("2".AsSpan(), globaltypes, deserializer),
+                TypeNameCache.Resolve("2".AsSpan(), globaltypes, deserializer),
+                TypeNameCache.Resolve("1".AsSpan(), globaltypes, deserializer),
+            };
 
             resolved.Should().Equal(typeof(EqLeft), typeof(EqRight), typeof(EqRight), typeof(EqLeft));
         }
@@ -95,8 +105,16 @@ namespace FastBinaryJson.UnitTests.Internal
             Dictionary<string, object> globaltypes = new Dictionary<string, object> { ["9"] = "System.Windows.Data.ObjectDataProvider, TypeNameCacheProbe" };
             Deserializer deserializer = NewDeserializer();
 
-            FluentActions.Invoking(() => TypeNameCache.Resolve("9".AsSpan(), globaltypes, deserializer)).Should().Throw<Exception>().WithMessage("Black list type*");
-            FluentActions.Invoking(() => TypeNameCache.Resolve("9".AsSpan(), globaltypes, deserializer)).Should().Throw<Exception>().WithMessage("Black list type*");
+            FluentActions
+                .Invoking(() => TypeNameCache.Resolve("9".AsSpan(), globaltypes, deserializer))
+                .Should()
+                .Throw<Exception>()
+                .WithMessage("Black list type*");
+            FluentActions
+                .Invoking(() => TypeNameCache.Resolve("9".AsSpan(), globaltypes, deserializer))
+                .Should()
+                .Throw<Exception>()
+                .WithMessage("Black list type*");
         }
 
         /// <summary>
@@ -108,7 +126,12 @@ namespace FastBinaryJson.UnitTests.Internal
         public void ToObject_RootListElements_ResolveTypeInPlace(bool unicode)
         {
             BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = unicode };
-            List<EqBase> value = new List<EqBase> { new EqLeft { Left = 1 }, new EqRight { Right = 2 }, new EqLeft { Left = 3 } };
+            List<EqBase> value = new List<EqBase>
+            {
+                new EqLeft { Left = 1 },
+                new EqRight { Right = 2 },
+                new EqLeft { Left = 3 },
+            };
             Deserializer deserializer = new Deserializer(parameters);
 
             List<EqBase> restored = (List<EqBase>)deserializer.ToObject(BJSON.ToBJSON(value, parameters), typeof(List<EqBase>))!;

@@ -1,9 +1,6 @@
 using System.Collections.Generic;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -22,7 +19,14 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void ToObject_RootListWithRuns_TakesRepeatsFromThePreviousElement(bool unicode)
         {
             BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = unicode };
-            List<RepeatBase> value = new List<RepeatBase> { new RepeatA { A = 1 }, new RepeatA { A = 2 }, new RepeatB { B = 3 }, new RepeatB { B = 4 }, new RepeatA { A = 5 } };
+            List<RepeatBase> value = new List<RepeatBase>
+            {
+                new RepeatA { A = 1 },
+                new RepeatA { A = 2 },
+                new RepeatB { B = 3 },
+                new RepeatB { B = 4 },
+                new RepeatA { A = 5 },
+            };
             Deserializer deserializer = new Deserializer(parameters);
 
             List<RepeatBase> restored = (List<RepeatBase>)deserializer.ToObject(BJSON.ToBJSON(value, parameters), typeof(List<RepeatBase>))!;
@@ -40,7 +44,13 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void ToObject_AlternatingTypesOfEqualNameLength_ResolvesEachElement(bool unicode)
         {
             BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = unicode };
-            List<RepeatBase> value = new List<RepeatBase> { new RepeatA { A = 1 }, new RepeatB { B = 2 }, new RepeatA { A = 3 }, new RepeatB { B = 4 } };
+            List<RepeatBase> value = new List<RepeatBase>
+            {
+                new RepeatA { A = 1 },
+                new RepeatB { B = 2 },
+                new RepeatA { A = 3 },
+                new RepeatB { B = 4 },
+            };
             Deserializer deserializer = new Deserializer(parameters);
 
             List<RepeatBase> restored = (List<RepeatBase>)deserializer.ToObject(BJSON.ToBJSON(value, parameters), typeof(List<RepeatBase>))!;
@@ -51,9 +61,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         }
     }
 
-    public abstract class RepeatBase
-    {
-    }
+    public abstract class RepeatBase { }
 
     public sealed class RepeatA : RepeatBase
     {

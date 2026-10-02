@@ -2,11 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -92,8 +89,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
             object? restored = BJSON.Parse(BJSON.ToBJSON(values, parameters));
 
-            restored.Should().BeAssignableTo<Dictionary<string, object>>()
-                .Which.Should().Equal(values.ToDictionary(x => x.Key, x => (object)x.Value));
+            restored.Should().BeAssignableTo<Dictionary<string, object>>().Which.Should().Equal(values.ToDictionary(x => x.Key, x => (object)x.Value));
         }
 
         private static IEnumerable<TestCaseData> BothEncodings()

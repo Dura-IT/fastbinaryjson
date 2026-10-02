@@ -1,11 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson.Internal;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.Internal
@@ -73,11 +70,15 @@ namespace FastBinaryJson.UnitTests.Internal
         {
             SafeDictionary<int, int> dictionary = new SafeDictionary<int, int>();
 
-            Parallel.For(0, 64, worker =>
-            {
-                foreach (int key in Enumerable.Range(0, 1000))
-                    dictionary.Add(key, worker);
-            });
+            Parallel.For(
+                0,
+                64,
+                worker =>
+                {
+                    foreach (int key in Enumerable.Range(0, 1000))
+                        dictionary.Add(key, worker);
+                }
+            );
 
             dictionary.Count().Should().Be(1000);
         }

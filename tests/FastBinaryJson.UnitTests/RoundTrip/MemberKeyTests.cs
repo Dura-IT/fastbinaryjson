@@ -1,9 +1,6 @@
 using System.Collections.Generic;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -26,8 +23,18 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             List<KeyEncodingNode> value = new List<KeyEncodingNode>
             {
-                new KeyEncodingNode { Name = "a", NameAlt = "x", Value = 1 },
-                new KeyEncodingNode { Name = "b", NameAlt = "y", Value = 2 },
+                new KeyEncodingNode
+                {
+                    Name = "a",
+                    NameAlt = "x",
+                    Value = 1,
+                },
+                new KeyEncodingNode
+                {
+                    Name = "b",
+                    NameAlt = "y",
+                    Value = 2,
+                },
             };
 
             foreach (bool unicode in new[] { true, false, true })
@@ -51,11 +58,36 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = unicode };
             List<KeySkipNode> value = new List<KeySkipNode>
             {
-                new KeySkipNode { Name = "a", NameAlt = "x", Value = 1 },
-                new KeySkipNode { Name = null, NameAlt = "y", Value = 2 },
-                new KeySkipNode { Name = "c", NameAlt = null, Value = 3 },
-                new KeySkipNode { Name = null, NameAlt = null, Value = 4 },
-                new KeySkipNode { Name = "e", NameAlt = "z", Value = 5 },
+                new KeySkipNode
+                {
+                    Name = "a",
+                    NameAlt = "x",
+                    Value = 1,
+                },
+                new KeySkipNode
+                {
+                    Name = null,
+                    NameAlt = "y",
+                    Value = 2,
+                },
+                new KeySkipNode
+                {
+                    Name = "c",
+                    NameAlt = null,
+                    Value = 3,
+                },
+                new KeySkipNode
+                {
+                    Name = null,
+                    NameAlt = null,
+                    Value = 4,
+                },
+                new KeySkipNode
+                {
+                    Name = "e",
+                    NameAlt = "z",
+                    Value = 5,
+                },
             };
 
             List<KeySkipNode> restored = BJSON.ToObject<List<KeySkipNode>>(BJSON.ToBJSON(value, parameters), parameters)!;

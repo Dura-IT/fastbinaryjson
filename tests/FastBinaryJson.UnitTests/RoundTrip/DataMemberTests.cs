@@ -1,10 +1,7 @@
 using System.Collections.Generic;
 using System.Runtime.Serialization;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -48,8 +45,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = BJSON.ToBJSON(new AliasedProperty { Value = "kept", Plain = 7 }, new BJSONParameters { UseExtensions = false });
 
-            BJSON.Parse(bytes).Should().BeAssignableTo<Dictionary<string, object>>()
-                .Which.Keys.Should().BeEquivalentTo(new[] { "Alias", "Plain" });
+            BJSON.Parse(bytes).Should().BeAssignableTo<Dictionary<string, object>>().Which.Keys.Should().BeEquivalentTo(new[] { "Alias", "Plain" });
         }
 
         /// <summary>

@@ -32,10 +32,7 @@ namespace FastBinaryJson.Benchmarks
         public FastBinaryJsonArm(bool useUnicodeStrings)
         {
             _name = useUnicodeStrings ? "fastBinaryJSON (UTF-16)" : "fastBinaryJSON (UTF-8)";
-            _parameters = new global::DuraIT.FastBinaryJson.BJSONParameters
-            {
-                UseUnicodeStrings = useUnicodeStrings,
-            };
+            _parameters = new global::DuraIT.FastBinaryJson.BJSONParameters { UseUnicodeStrings = useUnicodeStrings };
         }
 
         public string Name => _name;
@@ -57,10 +54,7 @@ namespace FastBinaryJson.Benchmarks
         public UpstreamFastBinaryJsonArm(bool useUnicodeStrings)
         {
             _name = useUnicodeStrings ? "upstream 1.6.1 (UTF-16)" : "upstream 1.6.1 (UTF-8)";
-            _parameters = new global::fastBinaryJSON.BJSONParameters
-            {
-                UseUnicodeStrings = useUnicodeStrings,
-            };
+            _parameters = new global::fastBinaryJSON.BJSONParameters { UseUnicodeStrings = useUnicodeStrings };
         }
 
         public string Name => _name;

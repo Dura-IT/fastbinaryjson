@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <!--
     The same suite, run a second time against the library's netstandard2.0 asset.
 
@@ -47,9 +46,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../FastBinaryJson.UnitTests/**/*.cs"
-             Exclude="../FastBinaryJson.UnitTests/bin/**;../FastBinaryJson.UnitTests/obj/**"
-             LinkBase="Linked" />
+    <Compile
+      Include="../FastBinaryJson.UnitTests/**/*.cs"
+      Exclude="../FastBinaryJson.UnitTests/bin/**;../FastBinaryJson.UnitTests/obj/**"
+      LinkBase="Linked"
+    />
     <!--
       Tests of net10.0-only library internals. This project compiles as net10.0 itself, so an
       #if in the test file would not keep them out; the types do not exist in the netstandard2.0
@@ -65,13 +66,17 @@
     the benchmarks measure. Linked, not referenced: its types must not become golden-fixture types.
   -->
   <ItemGroup>
-    <Compile Include="../../benchmarks/FastBinaryJson.Benchmarks/Corpus/*.cs" LinkBase="BenchmarkCorpus" />
+    <Compile
+      Include="../../benchmarks/FastBinaryJson.Benchmarks/Corpus/*.cs"
+      LinkBase="BenchmarkCorpus"
+    />
   </ItemGroup>
 
   <!-- SetTargetFramework is what pins this copy to the older asset. -->
   <ItemGroup>
-    <ProjectReference Include="../../src/FastBinaryJson/FastBinaryJson.csproj"
-                      SetTargetFramework="TargetFramework=netstandard2.0" />
+    <ProjectReference
+      Include="../../src/FastBinaryJson/FastBinaryJson.csproj"
+      SetTargetFramework="TargetFramework=netstandard2.0"
+    />
   </ItemGroup>
-
 </Project>

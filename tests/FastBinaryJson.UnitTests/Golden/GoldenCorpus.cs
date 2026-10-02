@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-
 using DuraIT.FastBinaryJson;
 
 namespace FastBinaryJson.UnitTests.Golden
@@ -71,9 +70,24 @@ namespace FastBinaryJson.UnitTests.Golden
                 ShipTo = new Party { Name = "Acme Warehouse", City = "Kerkrade" },
                 Lines = new List<InvoiceLine>
                 {
-                    new InvoiceLine { Sku = "A-1", Quantity = 2, UnitPrice = 9.95m },
-                    new InvoiceLine { Sku = "B-2", Quantity = 10, UnitPrice = 1.05m },
-                    new InvoiceLine { Sku = "C-3", Quantity = 1, UnitPrice = 249.00m },
+                    new InvoiceLine
+                    {
+                        Sku = "A-1",
+                        Quantity = 2,
+                        UnitPrice = 9.95m,
+                    },
+                    new InvoiceLine
+                    {
+                        Sku = "B-2",
+                        Quantity = 10,
+                        UnitPrice = 1.05m,
+                    },
+                    new InvoiceLine
+                    {
+                        Sku = "C-3",
+                        Quantity = 1,
+                        UnitPrice = 249.00m,
+                    },
                 },
             };
         }
@@ -85,7 +99,12 @@ namespace FastBinaryJson.UnitTests.Golden
                 Shapes = new List<Shape>
                 {
                     new Circle { Label = "c1", Radius = 2.5d },
-                    new Rectangle { Label = "r1", Width = 3d, Height = 4d },
+                    new Rectangle
+                    {
+                        Label = "r1",
+                        Width = 3d,
+                        Height = 4d,
+                    },
                     new Circle { Label = "c2", Radius = 0.5d },
                 },
             };
@@ -105,8 +124,14 @@ namespace FastBinaryJson.UnitTests.Golden
         {
             return new Dictionary<string, Party>
             {
-                { "first", new Party { Name = "One", City = "Landgraaf" } },
-                { "second", new Party { Name = "Two", City = "Brunssum" } },
+                {
+                    "first",
+                    new Party { Name = "One", City = "Landgraaf" }
+                },
+                {
+                    "second",
+                    new Party { Name = "Two", City = "Brunssum" }
+                },
             };
         }
 
@@ -114,8 +139,14 @@ namespace FastBinaryJson.UnitTests.Golden
         {
             return new Dictionary<int, Party>
             {
-                { 10, new Party { Name = "Ten", City = "Landgraaf" } },
-                { 20, new Party { Name = "Twenty", City = "Brunssum" } },
+                {
+                    10,
+                    new Party { Name = "Ten", City = "Landgraaf" }
+                },
+                {
+                    20,
+                    new Party { Name = "Twenty", City = "Brunssum" }
+                },
             };
         }
 

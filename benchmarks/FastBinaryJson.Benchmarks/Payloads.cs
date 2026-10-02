@@ -91,11 +91,23 @@ namespace FastBinaryJson.Benchmarks
             {
                 new PayloadCase<FlatPrimitives>("FlatPrimitives", "single flat object, every primitive", PayloadFactory.CreateFlatPrimitives()),
                 new PayloadCase<Order>("NestedOrder", "nested graph, " + PayloadFactory.OrderLineCount + " lines", PayloadFactory.CreateNestedOrder()),
-                new PayloadCase<List<LogEntry>>("LargeCollection", PayloadFactory.LargeCollectionCount + " homogeneous items", PayloadFactory.CreateLargeCollection()),
-                new PayloadCase<List<CorrelationRecord>>("GuidDense", PayloadFactory.CorrelationCount + " records, 8 GUIDs each", PayloadFactory.CreateCorrelationRecords()),
+                new PayloadCase<List<LogEntry>>(
+                    "LargeCollection",
+                    PayloadFactory.LargeCollectionCount + " homogeneous items",
+                    PayloadFactory.CreateLargeCollection()
+                ),
+                new PayloadCase<List<CorrelationRecord>>(
+                    "GuidDense",
+                    PayloadFactory.CorrelationCount + " records, 8 GUIDs each",
+                    PayloadFactory.CreateCorrelationRecords()
+                ),
                 new PayloadCase<ShapeCatalogue>("Polymorphic", PayloadFactory.ShapeCount + " shapes, 3 derived types", PayloadFactory.CreateShapeCatalogue()),
                 new PayloadCase<CharHolder>("CharHolder", "known defect probe, not a shape", PayloadFactory.CreateCharHolder()),
-                new PayloadCase<Dictionary<string, string>>("LongDictionaryKey", "defect probe: dictionary key over 256 encoded bytes", PayloadFactory.CreateLongKeyDictionary()),
+                new PayloadCase<Dictionary<string, string>>(
+                    "LongDictionaryKey",
+                    "defect probe: dictionary key over 256 encoded bytes",
+                    PayloadFactory.CreateLongKeyDictionary()
+                ),
             };
         }
 
@@ -106,13 +118,20 @@ namespace FastBinaryJson.Benchmarks
         {
             switch (key)
             {
-                case "fbj-utf16": return new FastBinaryJsonArm(useUnicodeStrings: true);
-                case "fbj-utf8": return new FastBinaryJsonArm(useUnicodeStrings: false);
-                case "upstream-utf16": return new UpstreamFastBinaryJsonArm(useUnicodeStrings: true);
-                case "upstream-utf8": return new UpstreamFastBinaryJsonArm(useUnicodeStrings: false);
-                case "stj": return new SystemTextJsonArm();
-                case "msgpack": return new MessagePackArm();
-                default: throw new ArgumentOutOfRangeException(nameof(key), key, "Unknown serializer arm.");
+                case "fbj-utf16":
+                    return new FastBinaryJsonArm(useUnicodeStrings: true);
+                case "fbj-utf8":
+                    return new FastBinaryJsonArm(useUnicodeStrings: false);
+                case "upstream-utf16":
+                    return new UpstreamFastBinaryJsonArm(useUnicodeStrings: true);
+                case "upstream-utf8":
+                    return new UpstreamFastBinaryJsonArm(useUnicodeStrings: false);
+                case "stj":
+                    return new SystemTextJsonArm();
+                case "msgpack":
+                    return new MessagePackArm();
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(key), key, "Unknown serializer arm.");
             }
         }
 

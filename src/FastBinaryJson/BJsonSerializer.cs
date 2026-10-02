@@ -1,9 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Data;
 using System.IO;
-using System.Collections.Specialized;
 using DuraIT.FastBinaryJson.Internal;
 #if NET10_0_OR_GREATER
 using System.Runtime.InteropServices;
@@ -27,10 +27,12 @@ namespace DuraIT.FastBinaryJson
 #else
         private readonly MemoryStream _output = new MemoryStream();
 #endif
+
         //private MemoryStream _before = new MemoryStream();
         private int _typespointer = 0;
         private int _MAX_DEPTH = 20;
         int _current_depth = 0;
+
         /*
          * Keyed by Type, not by assembly-qualified name: every object looks itself up here, and the name
          * key hashed around a hundred characters each time. The table is still written in the same
@@ -39,6 +41,7 @@ namespace DuraIT.FastBinaryJson
          * back as the type that name resolves to.
          */
         private Dictionary<Type, int> _globalTypes = new Dictionary<Type, int>();
+
         /*
          * By identity: $i means "this same instance". Default equality wrote a distinct object that
          * merely compared Equal as a reference to the first one, so an entity with Equals over its Id
@@ -108,7 +111,8 @@ namespace DuraIT.FastBinaryJson
 
             foreach (var entry in dic)
             {
-                if (pendingSeparator) WriteComma();
+                if (pendingSeparator)
+                    WriteComma();
 
                 WritePair(entry.Value.ToString(), Reflection.Instance.GetTypeAssemblyName(entry.Key));
 
@@ -121,91 +125,64 @@ namespace DuraIT.FastBinaryJson
         {
             if (obj == null || obj is DBNull)
                 WriteNull();
-
             else if (obj is string)
                 WriteString((string)obj);
-
             else if (obj is char)
                 WriteChar((char)obj);
-
             else if (obj is Guid)
                 WriteGuid((Guid)obj);
-
             else if (obj is bool)
                 WriteBool((bool)obj);
-
             else if (obj is int)
                 WriteInt((int)obj);
-
             else if (obj is uint)
                 WriteUInt((uint)obj);
-
             else if (obj is long)
                 WriteLong((long)obj);
-
             else if (obj is ulong)
                 WriteULong((ulong)obj);
-
             else if (obj is decimal)
                 WriteDecimal((decimal)obj);
-
             else if (obj is sbyte)
                 WriteSByte((sbyte)obj);
-
             else if (obj is byte)
                 WriteByte((byte)obj);
-
             else if (obj is double)
                 WriteDouble((double)obj);
-
             else if (obj is float)
                 WriteFloat((float)obj);
-
             else if (obj is short)
                 WriteShort((short)obj);
-
             else if (obj is ushort)
                 WriteUShort((ushort)obj);
-
             else if (obj is DateTime)
                 WriteDateTime((DateTime)obj);
-
             else if (obj is TimeSpan)
                 WriteTimeSpan((TimeSpan)obj);
             else if (obj is System.Dynamic.ExpandoObject)
                 WriteStringDictionary((IDictionary<string, object>)obj);
-
             else if (obj is IDictionary && obj.GetType().IsGenericType && obj.GetType().GetGenericArguments()[0] == typeof(string))
                 WriteStringDictionary((IDictionary)obj);
-
             else if (obj is IDictionary)
                 WriteDictionary((IDictionary)obj);
             else if (obj is DataSet)
                 WriteDataset((DataSet)obj);
-
             else if (obj is DataTable)
                 WriteDataTable((DataTable)obj);
             else if (obj is byte[])
                 WriteBytes((byte[])obj);
-
             else if (obj is StringDictionary)
                 WriteSD((StringDictionary)obj);
-
             else if (obj is NameValueCollection)
                 WriteNV((NameValueCollection)obj);
-
             else if (_params.UseTypedArrays && obj is Array)
                 WriteTypedArray((ICollection)obj);
-
             else if (obj is IEnumerable)
                 WriteArray((IEnumerable)obj);
-
             else if (obj is Enum)
                 WriteEnum((Enum)obj);
-
             else if (Reflection.Instance.IsTypeRegistered(obj.GetType()))
                 WriteCustom(obj);
-
             /*
              * Deliberately AFTER the custom-type check rather than up with the other primitives.
              *
@@ -217,7 +194,6 @@ namespace DuraIT.FastBinaryJson
              */
             else if (obj is DateTimeOffset)
                 WriteDateTimeOffset((DateTimeOffset)obj);
-
             else
                 WriteObject(obj);
         }
@@ -239,7 +215,7 @@ namespace DuraIT.FastBinaryJson
             bool pendingSeperator = false;
             bool token = true;
             var t = array.GetType();
-            if (t.IsGenericType == false)// != null) // non generic array
+            if (t.IsGenericType == false) // != null) // non generic array
             {
                 //if (t.GetElementType().IsClass)
                 {
@@ -267,7 +243,8 @@ namespace DuraIT.FastBinaryJson
 
             foreach (object obj in array)
             {
-                if (pendingSeperator) WriteComma();
+                if (pendingSeperator)
+                    WriteComma();
 
                 WriteValue(obj);
 
@@ -284,7 +261,8 @@ namespace DuraIT.FastBinaryJson
 
             foreach (string key in nameValueCollection)
             {
-                if (pendingSeparator) _output.WriteByte(TOKENS.COMMA);
+                if (pendingSeparator)
+                    _output.WriteByte(TOKENS.COMMA);
 
                 WritePair(key, nameValueCollection[key]);
 
@@ -301,7 +279,8 @@ namespace DuraIT.FastBinaryJson
 
             foreach (DictionaryEntry entry in stringDictionary)
             {
-                if (pendingSeparator) _output.WriteByte(TOKENS.COMMA);
+                if (pendingSeparator)
+                    _output.WriteByte(TOKENS.COMMA);
 
                 WritePair((string)entry.Key, entry.Value);
 
@@ -407,7 +386,6 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(TOKENS.NULL);
         }
 
-
         private void WriteCustom(object obj)
         {
             Reflection.Instance.TryGetCustomSerializer(obj.GetType(), out Reflection.Serialize? s);
@@ -491,7 +469,8 @@ namespace DuraIT.FastBinaryJson
 
         private DatasetSchema? GetSchema(DataTable? ds)
         {
-            if (ds == null) return null;
+            if (ds == null)
+                return null;
 
             DatasetSchema m = new DatasetSchema();
             m.Info = new List<string>();
@@ -510,7 +489,8 @@ namespace DuraIT.FastBinaryJson
 
         private DatasetSchema? GetSchema(DataSet? ds)
         {
-            if (ds == null) return null;
+            if (ds == null)
+                return null;
 
             DatasetSchema m = new DatasetSchema();
             m.Info = new List<string>();
@@ -549,7 +529,8 @@ namespace DuraIT.FastBinaryJson
             bool tablesep = false;
             foreach (DataTable table in ds.Tables)
             {
-                if (tablesep) WriteComma();
+                if (tablesep)
+                    WriteComma();
                 tablesep = true;
                 WriteDataTableData(table);
             }
@@ -566,14 +547,16 @@ namespace DuraIT.FastBinaryJson
             bool rowseparator = false;
             foreach (DataRow row in table.Rows)
             {
-                if (rowseparator) WriteComma();
+                if (rowseparator)
+                    WriteComma();
                 rowseparator = true;
                 _output.WriteByte(TOKENS.ARRAY_START);
 
                 bool pendingSeperator = false;
                 foreach (DataColumn column in cols)
                 {
-                    if (pendingSeperator) WriteComma();
+                    if (pendingSeperator)
+                        WriteComma();
                     WriteValue(row[column]);
                     pendingSeperator = true;
                 }
@@ -597,6 +580,7 @@ namespace DuraIT.FastBinaryJson
             // end datatable
             _output.WriteByte(TOKENS.DOC_END);
         }
+
         bool _TypesWritten = false;
 
         private void WriteObject(object obj)
@@ -628,12 +612,11 @@ namespace DuraIT.FastBinaryJson
                     _output.WriteByte(TOKENS.TYPES_POINTER);
                     _typespointer = (int)_output.Length; // place holder
                     WriteInt32Raw(0); // zero pointer for now
-                                                      //_output = new MemoryStream();
+                    //_output = new MemoryStream();
                     _TypesWritten = true;
                 }
                 else
                     _output.WriteByte(TOKENS.DOC_START);
-
             }
             _current_depth++;
             if (_current_depth > _MAX_DEPTH)
@@ -650,7 +633,10 @@ namespace DuraIT.FastBinaryJson
                 append = true;
             }
 
-            Getters[] g = Reflection.Instance.GetGetters(t, /*_params.ShowReadOnlyProperties,*/ _params.IgnoreAttributes);
+            Getters[] g = Reflection.Instance.GetGetters(
+                t, /*_params.ShowReadOnlyProperties,*/
+                _params.IgnoreAttributes
+            );
             int c = g.Length;
             for (int ii = 0; ii < c; ii++)
             {
@@ -667,10 +653,7 @@ namespace DuraIT.FastBinaryJson
                 }
 
                 var o = p.Getter(obj);
-                if (_params.SerializeNulls == false && (o == null || o is DBNull))
-                {
-
-                }
+                if (_params.SerializeNulls == false && (o == null || o is DBNull)) { }
                 else
                 {
                     if (append)
@@ -824,7 +807,8 @@ namespace DuraIT.FastBinaryJson
 
             foreach (object obj in array)
             {
-                if (pendingSeperator) WriteComma();
+                if (pendingSeperator)
+                    WriteComma();
 
                 WriteValue(obj);
 
@@ -841,7 +825,8 @@ namespace DuraIT.FastBinaryJson
 
             foreach (DictionaryEntry entry in dic)
             {
-                if (pendingSeparator) WriteComma();
+                if (pendingSeparator)
+                    WriteComma();
 
                 WritePair((string)entry.Key, entry.Value);
 
@@ -858,7 +843,8 @@ namespace DuraIT.FastBinaryJson
 
             foreach (KeyValuePair<string, object> entry in dic)
             {
-                if (pendingSeparator) WriteComma();
+                if (pendingSeparator)
+                    WriteComma();
 
                 WritePair((string)entry.Key, entry.Value);
 
@@ -875,7 +861,8 @@ namespace DuraIT.FastBinaryJson
 
             foreach (DictionaryEntry entry in dic)
             {
-                if (pendingSeparator) WriteComma();
+                if (pendingSeparator)
+                    WriteComma();
                 _output.WriteByte(TOKENS.DOC_START);
                 WritePair("k", entry.Key);
                 WriteComma();

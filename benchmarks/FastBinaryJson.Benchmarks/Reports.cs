@@ -83,7 +83,8 @@ namespace FastBinaryJson.Benchmarks
                         "DIFFERS in length: ",
                         ours.Length.ToString(CultureInfo.InvariantCulture),
                         " vs ",
-                        theirs.Length.ToString(CultureInfo.InvariantCulture));
+                        theirs.Length.ToString(CultureInfo.InvariantCulture)
+                    );
                 }
 
                 return "IDENTICAL";
@@ -122,15 +123,25 @@ namespace FastBinaryJson.Benchmarks
                         continue;
                     }
 
-                    Console.WriteLine(string.Concat(
-                        "| ", row.Name,
-                        " | ", Number(row.Raw),
-                        " | ", Number(row.Gzip),
-                        " | ", Number(row.Brotli),
-                        " | ", Percent(row.Gzip, row.Raw),
-                        " | ", Ratio(row.Raw, baseline?.Raw),
-                        " | ", Ratio(row.Gzip, baseline?.Gzip),
-                        " |"));
+                    Console.WriteLine(
+                        string.Concat(
+                            "| ",
+                            row.Name,
+                            " | ",
+                            Number(row.Raw),
+                            " | ",
+                            Number(row.Gzip),
+                            " | ",
+                            Number(row.Brotli),
+                            " | ",
+                            Percent(row.Gzip, row.Raw),
+                            " | ",
+                            Ratio(row.Raw, baseline?.Raw),
+                            " | ",
+                            Ratio(row.Gzip, baseline?.Gzip),
+                            " |"
+                        )
+                    );
                 }
 
                 Console.WriteLine();

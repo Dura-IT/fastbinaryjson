@@ -3,14 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using FastBinaryJson.Benchmarks.Corpus;
 using FastBinaryJson.UnitTests.Golden;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -70,9 +66,10 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
             for (int i = 0; i < 400; i++)
             {
-                byte[] damaged = i % 5 == 4
-                    ? original.Take(random.Next(1, original.Length)).ToArray()
-                    : Replace(original, random.Next(original.Length), (byte)random.Next(256));
+                byte[] damaged =
+                    i % 5 == 4
+                        ? original.Take(random.Next(1, original.Length)).ToArray()
+                        : Replace(original, random.Next(original.Length), (byte)random.Next(256));
 
                 Outcome twoStep = Read(damaged, source, oneStep: false);
                 Outcome oneStep = Read(damaged, source, oneStep: true);
@@ -88,12 +85,16 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 }
 
                 oneStep.Error.Should().BeNull("{0}: the two-step path succeeded", context);
-                oneStep.Value.Should().BeEquivalentTo(twoStep.Value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering().IgnoringCyclicReferences(), context);
+                oneStep
+                    .Value.Should()
+                    .BeEquivalentTo(twoStep.Value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering().IgnoringCyclicReferences(), context);
                 AssertSameShape(twoStep.Value, oneStep.Value, context, new HashSet<object>(ReferenceEqualityComparer.Instance));
                 succeeded++;
             }
 
-            succeeded.Should().BeGreaterThan(0, "some damage (a changed digit, a changed character) still decodes, and those are the cases that compare graphs");
+            succeeded
+                .Should()
+                .BeGreaterThan(0, "some damage (a changed digit, a changed character) still decodes, and those are the cases that compare graphs");
         }
 
         public static IEnumerable<EquivalenceCase> MutationSources()
@@ -187,7 +188,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             BJSONParameters parameters = new BJSONParameters { ShowReadOnlyProperties = true };
             Deserializer deserializer = new Deserializer(parameters);
 
-            EqReadOnlyMembers restored = (EqReadOnlyMembers)deserializer.ToObject(BJSON.ToBJSON(EqReadOnlyMembers.Build(), parameters), typeof(EqReadOnlyMembers))!;
+            EqReadOnlyMembers restored = (EqReadOnlyMembers)
+                deserializer.ToObject(BJSON.ToBJSON(EqReadOnlyMembers.Build(), parameters), typeof(EqReadOnlyMembers))!;
 
             restored.PrivateSet.Should().Be(42);
             restored.GetOnly.Should().Be(EqReadOnlyMembers.Build().GetOnly);
@@ -201,7 +203,10 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToObject_StructMembers_TakeTheBoxingSetter()
         {
-            EqPointHolder value = new EqPointHolder { Point = new EqPoint { X = 3, Y = -4 } };
+            EqPointHolder value = new EqPointHolder
+            {
+                Point = new EqPoint { X = 3, Y = -4 },
+            };
             Deserializer deserializer = new Deserializer(new BJSONParameters());
 
             EqPointHolder restored = (EqPointHolder)deserializer.ToObject(BJSON.ToBJSON(value), typeof(EqPointHolder))!;
@@ -215,7 +220,14 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             foreach (GoldenCase golden in GoldenFileTests.Cases())
             {
                 object built = golden.Build();
-                yield return new EquivalenceCase("golden/" + golden.Name, golden.Build, golden.Parameters, built.GetType(), MustSucceed: golden.BytesOnlyReason == null, StandardShape: IsStandardGolden(golden.Name));
+                yield return new EquivalenceCase(
+                    "golden/" + golden.Name,
+                    golden.Build,
+                    golden.Parameters,
+                    built.GetType(),
+                    MustSucceed: golden.BytesOnlyReason == null,
+                    StandardShape: IsStandardGolden(golden.Name)
+                );
             }
 
             foreach ((string name, Func<BJSONParameters> parameters, bool extensions) in Variants())
@@ -243,7 +255,13 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             // No $type, so the declared type decides the members - and their tokens do not match.
             Func<BJSONParameters> noExtensions = () => new BJSONParameters { UseExtensions = false };
             yield return new EquivalenceCase("token-wider-than-member/no-extensions", EqWidths.Build, noExtensions, typeof(EqWidened), MustSucceed: false);
-            yield return new EquivalenceCase("token-into-nullable-member/no-extensions", EqWidths.Build, noExtensions, typeof(EqNullableWidths), StandardShape: true);
+            yield return new EquivalenceCase(
+                "token-into-nullable-member/no-extensions",
+                EqWidths.Build,
+                noExtensions,
+                typeof(EqNullableWidths),
+                StandardShape: true
+            );
         }
 
         private static IEnumerable<(string Name, Func<BJSONParameters> Parameters, bool Extensions)> Variants()
@@ -257,7 +275,14 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             yield return ("no-extensions", () => new BJSONParameters { UseExtensions = false }, false);
         }
 
-        private static EquivalenceCase Case<T>(string shape, Func<T> build, string variant, Func<BJSONParameters> parameters, bool standard, bool mustSucceed = true)
+        private static EquivalenceCase Case<T>(
+            string shape,
+            Func<T> build,
+            string variant,
+            Func<BJSONParameters> parameters,
+            bool standard,
+            bool mustSucceed = true
+        )
             where T : notnull
         {
             return new EquivalenceCase(shape + "/" + variant, () => build(), parameters, typeof(T), mustSucceed, standard);
@@ -278,10 +303,20 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             EqNode shared = new EqNode { Name = "shared", Value = 3 };
             return new List<EqNode?>
             {
-                new EqNode { Name = "one", Value = 1, Children = new List<EqNode> { new EqNode { Name = "leaf" } } },
+                new EqNode
+                {
+                    Name = "one",
+                    Value = 1,
+                    Children = new List<EqNode> { new EqNode { Name = "leaf" } },
+                },
                 null,
                 shared,
-                new EqNode { Name = "two", Value = 2, Next = shared },
+                new EqNode
+                {
+                    Name = "two",
+                    Value = 2,
+                    Next = shared,
+                },
             };
         }
 
@@ -378,7 +413,14 @@ namespace FastBinaryJson.UnitTests.RoundTrip
     /// <summary>
     /// Public only because NUnit requires a public parameter type on a [TestCaseSource] method.
     /// </summary>
-    public sealed record EquivalenceCase(string Name, Func<object> Build, Func<BJSONParameters> Parameters, Type Type, bool MustSucceed = true, bool StandardShape = false)
+    public sealed record EquivalenceCase(
+        string Name,
+        Func<object> Build,
+        Func<BJSONParameters> Parameters,
+        Type Type,
+        bool MustSucceed = true,
+        bool StandardShape = false
+    )
     {
         public override string ToString()
         {
@@ -437,7 +479,15 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         internal static EqNestedLists Build()
         {
-            return new EqNestedLists { Nested = new List<List<int>> { new List<int> { 1 }, new List<int>(), new List<int> { 2, 3 } } };
+            return new EqNestedLists
+            {
+                Nested = new List<List<int>>
+                {
+                    new List<int> { 1 },
+                    new List<int>(),
+                    new List<int> { 2, 3 },
+                },
+            };
         }
     }
 
@@ -519,9 +569,22 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 Blob = new byte[] { 1, 2, 3 },
                 Kind = EqKind.Many,
                 Point = new EqPoint { X = 3, Y = -4 },
-                Child = new EqNode { Name = "child", Value = 1, Next = shared },
+                Child = new EqNode
+                {
+                    Name = "child",
+                    Value = 1,
+                    Next = shared,
+                },
                 Empty = new EqNode(),
-                Nodes = new List<EqNode> { shared, new EqNode { Name = "n2", Children = new List<EqNode> { new EqNode { Name = "n3" } } } },
+                Nodes = new List<EqNode>
+                {
+                    shared,
+                    new EqNode
+                    {
+                        Name = "n2",
+                        Children = new List<EqNode> { new EqNode { Name = "n3" } },
+                    },
+                },
                 Numbers = new List<int> { 1, 2, 3 },
                 Strings = new List<string?> { "a", null, "c" },
                 NodeArray = new[] { new EqNode { Name = "arr" } },
@@ -532,7 +595,11 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 Anything = new EqNode { Name = "anything" },
                 Bag = new Dictionary<string, object> { ["k"] = "v" },
                 Polymorphic = new EqRight { Label = "p", Right = 2.5 },
-                Mixed = new List<EqBase> { new EqLeft { Left = 1 }, new EqRight { Right = 2 } },
+                Mixed = new List<EqBase>
+                {
+                    new EqLeft { Left = 1 },
+                    new EqRight { Right = 2 },
+                },
             };
         }
     }
@@ -635,9 +702,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
     /// </remarks>
     public sealed class EqReadOnlyMembers
     {
-        public EqReadOnlyMembers()
-        {
-        }
+        public EqReadOnlyMembers() { }
 
         internal EqReadOnlyMembers(int privateSet, DateTime getOnly)
         {

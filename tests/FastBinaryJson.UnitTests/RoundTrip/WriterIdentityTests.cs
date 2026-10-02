@@ -1,10 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -42,7 +39,11 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCase(false)]
         public void ToBJSON_DistinctEqualRecords_RestoreAsSeparateInstances(bool oneStep)
         {
-            EqRecordsThenShared value = new EqRecordsThenShared { A = new EqRecord { Name = "same" }, B = new EqRecord { Name = "same" } };
+            EqRecordsThenShared value = new EqRecordsThenShared
+            {
+                A = new EqRecord { Name = "same" },
+                B = new EqRecord { Name = "same" },
+            };
 
             EqRecordsThenShared restored = Read<EqRecordsThenShared>(BJSON.ToBJSON(value), oneStep);
 

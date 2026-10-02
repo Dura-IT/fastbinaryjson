@@ -2,13 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using FastBinaryJson.UnitTests.RoundTrip;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.Golden
@@ -97,7 +93,8 @@ namespace FastBinaryJson.UnitTests.Golden
                 "int-array-untyped",
                 GoldenCorpus.BuildIntArray,
                 () => With(p => p.UseTypedArrays = false),
-                bytesOnlyReason: "UseTypedArrays off leaves a root array with no type to restore to");
+                bytesOnlyReason: "UseTypedArrays off leaves a root array with no type to restore to"
+            );
 
             yield return GoldenCase.For("string-array-typed-v14", GoldenCorpus.BuildStringArray, () => With(p => p.v1_4TypedArray = true));
 
@@ -122,14 +119,16 @@ namespace FastBinaryJson.UnitTests.Golden
         {
             Version? runtime = typeof(int).Assembly.GetName().Version;
 
-            runtime.Should()
+            runtime
+                .Should()
                 .Be(
                     ExpectedRuntimeVersion,
                     "the typed-array fixtures embed '{0}, Version={1}' in their element type's AssemblyQualifiedName, so a "
                         + "TargetFramework bump rewrites them with no serializer change. Regenerate them deliberately and "
                         + "update ExpectedRuntimeVersion in the same commit",
                     CoreLibraryName,
-                    ExpectedRuntimeVersion);
+                    ExpectedRuntimeVersion
+                );
         }
 
         [TestCaseSource(nameof(Cases))]
@@ -260,10 +259,15 @@ namespace FastBinaryJson.UnitTests.Golden
 
             byte[] bytes = File.ReadAllBytes(path);
             // Guards the premise, so the test cannot pass on a file that has lost its back-reference.
-            bytes.AsSpan().IndexOf(Encoding.Unicode.GetBytes("$i")).Should().BeGreaterThanOrEqualTo(0, "the file has to hold the back-reference this test exists to read");
+            bytes
+                .AsSpan()
+                .IndexOf(Encoding.Unicode.GetBytes("$i"))
+                .Should()
+                .BeGreaterThanOrEqualTo(0, "the file has to hold the back-reference this test exists to read");
 
             BJSON.ClearReflectionCache();
-            EqStructsThenShared restored = (EqStructsThenShared)new Deserializer(Defaults()) { OneStep = oneStep }.ToObject(bytes, typeof(EqStructsThenShared))!;
+            EqStructsThenShared restored = (EqStructsThenShared)
+                new Deserializer(Defaults()) { OneStep = oneStep }.ToObject(bytes, typeof(EqStructsThenShared))!;
 
             restored.A.Should().Be(new EqPoint { X = 5, Y = 6 });
             restored.B.Should().Be(new EqPoint { X = 5, Y = 6 });
@@ -370,7 +374,8 @@ namespace FastBinaryJson.UnitTests.Golden
             if (directory == null)
             {
                 throw new DirectoryNotFoundException(
-                    "Could not locate the repository root (no FastBinaryJson.slnx above " + TestContext.CurrentContext.TestDirectory + ").");
+                    "Could not locate the repository root (no FastBinaryJson.slnx above " + TestContext.CurrentContext.TestDirectory + ")."
+                );
             }
 
             return Path.Combine(directory.FullName, "tests", "FastBinaryJson.UnitTests", "Golden", "Fixtures");

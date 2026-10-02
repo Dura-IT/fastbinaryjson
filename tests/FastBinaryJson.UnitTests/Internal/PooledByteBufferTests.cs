@@ -1,10 +1,7 @@
 using System;
 using System.Linq;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson.Internal;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.Internal
@@ -151,7 +148,14 @@ namespace FastBinaryJson.UnitTests.Internal
 
             buffer.WriteInt32At(1, 0x04030201);
 
-            buffer.ToArray().Should().Equal(new byte[] { 1 }.Concat(BitConverter.GetBytes(0x04030201)).Concat(new byte[] { 2 }));
+            buffer
+                .ToArray()
+                .Should()
+                .Equal(
+                    new byte[] { 1 }
+                        .Concat(BitConverter.GetBytes(0x04030201))
+                        .Concat(new byte[] { 2 })
+                );
         }
 
         [TestCase(3)]

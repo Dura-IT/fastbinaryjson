@@ -14,9 +14,7 @@ namespace DuraIT.FastBinaryJson.Internal
     {
         internal static readonly ReferenceComparer Instance = new ReferenceComparer();
 
-        private ReferenceComparer()
-        {
-        }
+        private ReferenceComparer() { }
 
         public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
 

@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -51,7 +50,9 @@
     the benchmarks measure. Linked, not referenced: its types must not become golden-fixture types.
   -->
   <ItemGroup>
-    <Compile Include="../../benchmarks/FastBinaryJson.Benchmarks/Corpus/*.cs" LinkBase="BenchmarkCorpus" />
+    <Compile
+      Include="../../benchmarks/FastBinaryJson.Benchmarks/Corpus/*.cs"
+      LinkBase="BenchmarkCorpus"
+    />
   </ItemGroup>
-
 </Project>

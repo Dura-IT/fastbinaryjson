@@ -515,15 +515,20 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         private object ReadGenericList(Type pt, Type? bt, Dictionary<string, object>? globaltypes)
         {
-            List<object?> items = ReadElements(bt, globaltypes, false, ob =>
-            {
-                if (ob is List<object> list)
-                    return bt!.IsGenericType ? list : list.ToArray();
-                if (ob is TypedArray typed)
-                    return typed.data.ToArray();
+            List<object?> items = ReadElements(
+                bt,
+                globaltypes,
+                false,
+                ob =>
+                {
+                    if (ob is List<object> list)
+                        return bt!.IsGenericType ? list : list.ToArray();
+                    if (ob is TypedArray typed)
+                        return typed.data.ToArray();
 
-                return ob;
-            });
+                    return ob;
+                }
+            );
 
             // Created after the elements are read, so it gets the capacity CreateGenericList gives it.
             IList col = (IList)Reflection.Instance.FastCreateList(pt, items.Count);

@@ -1,10 +1,7 @@
 using System.Net;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
 using DuraIT.FastBinaryJson.Internal;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -100,9 +97,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             public string Name { get; set; } = null!;
         }
 
-        private sealed class Dog : Animal
-        {
-        }
+        private sealed class Dog : Animal { }
 
         private sealed class AnimalHolder
         {

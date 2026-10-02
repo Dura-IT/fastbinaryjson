@@ -23,7 +23,9 @@ namespace DuraIT.FastBinaryJson.Internal
         private const int MaxNames = 4096;
 
         private static readonly ConcurrentDictionary<string, string> Names = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
-        private static readonly ConcurrentDictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> ByChars = Names.GetAlternateLookup<ReadOnlySpan<char>>();
+        private static readonly ConcurrentDictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> ByChars = Names.GetAlternateLookup<
+            ReadOnlySpan<char>
+        >();
         private static int _count;
 
         /// <summary>

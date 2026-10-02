@@ -1,7 +1,5 @@
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -28,7 +26,13 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void ToObject_TwoStructsThenSharedReference_KeepsTheReference(bool oneStep)
         {
             EqNode shared = new EqNode { Name = "shared" };
-            EqStructsThenShared value = new EqStructsThenShared { A = new EqPoint { X = 1, Y = 2 }, B = new EqPoint { X = 3, Y = 4 }, First = shared, Second = shared };
+            EqStructsThenShared value = new EqStructsThenShared
+            {
+                A = new EqPoint { X = 1, Y = 2 },
+                B = new EqPoint { X = 3, Y = 4 },
+                First = shared,
+                Second = shared,
+            };
 
             EqStructsThenShared restored = Read<EqStructsThenShared>(BJSON.ToBJSON(value), oneStep);
 
@@ -47,7 +51,11 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCase(false)]
         public void ToObject_EqualStructs_BothKeepTheirValue(bool oneStep)
         {
-            EqStructsThenShared value = new EqStructsThenShared { A = new EqPoint { X = 5, Y = 6 }, B = new EqPoint { X = 5, Y = 6 } };
+            EqStructsThenShared value = new EqStructsThenShared
+            {
+                A = new EqPoint { X = 5, Y = 6 },
+                B = new EqPoint { X = 5, Y = 6 },
+            };
 
             EqStructsThenShared restored = Read<EqStructsThenShared>(BJSON.ToBJSON(value), oneStep);
 
@@ -64,7 +72,13 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void ToObject_EmptyRecordThenFilledRecordThenSharedReference_KeepsTheReference(bool oneStep)
         {
             EqNode shared = new EqNode { Name = "shared" };
-            EqRecordsThenShared value = new EqRecordsThenShared { A = new EqRecord(), B = new EqRecord { Name = "b" }, First = shared, Second = shared };
+            EqRecordsThenShared value = new EqRecordsThenShared
+            {
+                A = new EqRecord(),
+                B = new EqRecord { Name = "b" },
+                First = shared,
+                Second = shared,
+            };
 
             EqRecordsThenShared restored = Read<EqRecordsThenShared>(BJSON.ToBJSON(value), oneStep);
 

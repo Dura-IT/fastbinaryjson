@@ -1,9 +1,6 @@
 using System;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -161,7 +158,10 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void UserDefinedStruct_TypedProperty_RoundTrips()
         {
-            StructHolder source = new StructHolder { Value = new PlainStruct { Number = 1, Text = "x" } };
+            StructHolder source = new StructHolder
+            {
+                Value = new PlainStruct { Number = 1, Text = "x" },
+            };
 
             StructHolder restored = BJSON.ToObject<StructHolder>(BJSON.ToBJSON(source))!;
 

@@ -1,7 +1,5 @@
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -24,7 +22,14 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void FillObject_NestedClassMember_IsFilledIntoItsOwnInstance(bool useExtensions)
         {
             BJSONParameters parameters = new BJSONParameters { UseExtensions = useExtensions };
-            byte[] bytes = BJSON.ToBJSON(new Outer { Name = "outer", Inner = new Inner { Value = 5 } }, parameters);
+            byte[] bytes = BJSON.ToBJSON(
+                new Outer
+                {
+                    Name = "outer",
+                    Inner = new Inner { Value = 5 },
+                },
+                parameters
+            );
 
             Outer target = new Outer();
             BJSON.FillObject(target, bytes);

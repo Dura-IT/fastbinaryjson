@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -88,7 +85,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             LongNameHolder restored = BJSON.ToObject<LongNameHolder>(BJSON.ToBJSON(source))!;
 
             LongPropertyName.Length.Should().Be(130, "the name has to cross the 256 encoded byte threshold as UTF-16");
-            restored.ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16XXXXXXXXXXXXXXXXXXXXXXXXXX.Should().Be(42);
+            restored
+                .ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16XXXXXXXXXXXXXXXXXXXXXXXXXX.Should()
+                .Be(42);
         }
 
         [Test]

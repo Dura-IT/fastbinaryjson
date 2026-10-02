@@ -15,8 +15,22 @@ namespace FastBinaryJson.Benchmarks.Corpus
 
         private static readonly string[] Words =
         {
-            "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel",
-            "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa",
+            "alpha",
+            "bravo",
+            "charlie",
+            "delta",
+            "echo",
+            "foxtrot",
+            "golf",
+            "hotel",
+            "india",
+            "juliet",
+            "kilo",
+            "lima",
+            "mike",
+            "november",
+            "oscar",
+            "papa",
         };
 
         public const int LargeCollectionCount = 1000;
@@ -82,14 +96,16 @@ namespace FastBinaryJson.Benchmarks.Corpus
                 int quantity = random.Next(1, 20);
                 total += unitPrice * quantity;
 
-                lines.Add(new OrderLine
-                {
-                    LineNumber = i + 1,
-                    Sku = string.Concat("SKU-", random.Next(100000, 999999).ToString()),
-                    Description = NextSentence(random, 6),
-                    Quantity = quantity,
-                    UnitPrice = unitPrice,
-                });
+                lines.Add(
+                    new OrderLine
+                    {
+                        LineNumber = i + 1,
+                        Sku = string.Concat("SKU-", random.Next(100000, 999999).ToString()),
+                        Description = NextSentence(random, 6),
+                        Quantity = quantity,
+                        UnitPrice = unitPrice,
+                    }
+                );
             }
 
             return new Order
@@ -118,16 +134,18 @@ namespace FastBinaryJson.Benchmarks.Corpus
 
             for (int i = 0; i < LargeCollectionCount; i++)
             {
-                entries.Add(new LogEntry
-                {
-                    Sequence = i,
-                    TimestampUtc = BaseUtc.AddMilliseconds(i * 37),
-                    Level = random.Next(0, 6),
-                    Source = Words[random.Next(Words.Length)],
-                    Message = NextSentence(random, 10),
-                    Succeeded = random.Next(0, 10) > 2,
-                    DurationMs = random.NextDouble() * 250.0,
-                });
+                entries.Add(
+                    new LogEntry
+                    {
+                        Sequence = i,
+                        TimestampUtc = BaseUtc.AddMilliseconds(i * 37),
+                        Level = random.Next(0, 6),
+                        Source = Words[random.Next(Words.Length)],
+                        Message = NextSentence(random, 10),
+                        Succeeded = random.Next(0, 10) > 2,
+                        DurationMs = random.NextDouble() * 250.0,
+                    }
+                );
             }
 
             return entries;
@@ -140,18 +158,20 @@ namespace FastBinaryJson.Benchmarks.Corpus
 
             for (int i = 0; i < CorrelationCount; i++)
             {
-                records.Add(new CorrelationRecord
-                {
-                    Id = NextGuid(random),
-                    TraceId = NextGuid(random),
-                    SpanId = NextGuid(random),
-                    ParentSpanId = NextGuid(random),
-                    TenantId = NextGuid(random),
-                    SessionId = NextGuid(random),
-                    RequestId = NextGuid(random),
-                    CorrelationId = NextGuid(random),
-                    Sequence = i,
-                });
+                records.Add(
+                    new CorrelationRecord
+                    {
+                        Id = NextGuid(random),
+                        TraceId = NextGuid(random),
+                        SpanId = NextGuid(random),
+                        ParentSpanId = NextGuid(random),
+                        TenantId = NextGuid(random),
+                        SessionId = NextGuid(random),
+                        RequestId = NextGuid(random),
+                        CorrelationId = NextGuid(random),
+                        Sequence = i,
+                    }
+                );
             }
 
             return records;
@@ -169,26 +189,37 @@ namespace FastBinaryJson.Benchmarks.Corpus
                 switch (i % 3)
                 {
                     case 0:
-                        shapes.Add(new Circle { Id = i, Label = label, Radius = random.NextDouble() * 100.0 });
+                        shapes.Add(
+                            new Circle
+                            {
+                                Id = i,
+                                Label = label,
+                                Radius = random.NextDouble() * 100.0,
+                            }
+                        );
                         break;
                     case 1:
-                        shapes.Add(new Rectangle
-                        {
-                            Id = i,
-                            Label = label,
-                            Width = random.NextDouble() * 100.0,
-                            Height = random.NextDouble() * 100.0,
-                        });
+                        shapes.Add(
+                            new Rectangle
+                            {
+                                Id = i,
+                                Label = label,
+                                Width = random.NextDouble() * 100.0,
+                                Height = random.NextDouble() * 100.0,
+                            }
+                        );
                         break;
                     default:
-                        shapes.Add(new Triangle
-                        {
-                            Id = i,
-                            Label = label,
-                            BaseLength = random.NextDouble() * 100.0,
-                            Height = random.NextDouble() * 100.0,
-                            Skew = random.NextDouble(),
-                        });
+                        shapes.Add(
+                            new Triangle
+                            {
+                                Id = i,
+                                Label = label,
+                                BaseLength = random.NextDouble() * 100.0,
+                                Height = random.NextDouble() * 100.0,
+                                Skew = random.NextDouble(),
+                            }
+                        );
                         break;
                 }
             }

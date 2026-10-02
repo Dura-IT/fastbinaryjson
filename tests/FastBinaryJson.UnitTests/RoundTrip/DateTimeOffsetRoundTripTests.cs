@@ -1,10 +1,7 @@
 using System;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson;
 using DuraIT.FastBinaryJson.Internal;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip

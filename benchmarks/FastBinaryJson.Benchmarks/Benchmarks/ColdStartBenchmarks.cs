@@ -34,5 +34,4 @@ namespace FastBinaryJson.Benchmarks.Benchmarks
         [Benchmark(Description = "First serialize after cache clear")]
         public byte[] ColdSerialize() => _payload.Serialize(_arm);
     }
-
 }

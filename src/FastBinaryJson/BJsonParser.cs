@@ -1,6 +1,6 @@
-using DuraIT.FastBinaryJson.Internal;
 using System;
 using System.Collections.Generic;
+using DuraIT.FastBinaryJson.Internal;
 #if NET10_0_OR_GREATER
 using System.Runtime.InteropServices;
 #endif
@@ -42,7 +42,7 @@ namespace DuraIT.FastBinaryJson
                 {
                     // save curr index position
                     int savedindex = _index;
-                    // set index = pointer 
+                    // set index = pointer
                     _index = ParseInt();
                     t = GetToken();
                     // read $types
@@ -288,7 +288,8 @@ namespace DuraIT.FastBinaryJson
                     array.Add(o!);
                     t = GetToken();
                 }
-                else t = (byte)o!;
+                else
+                    t = (byte)o!;
 
                 if (t == TOKENS.COMMA)
                     continue;
@@ -385,7 +386,7 @@ namespace DuraIT.FastBinaryJson
             if (token == TOKENS.ARRAY_TYPED)
             {
                 if (_v1_4TA)
-                    ar.typename = ParseName(); 
+                    ar.typename = ParseName();
                 else
                     ar.typename = ParseName2();
             }
@@ -404,7 +405,8 @@ namespace DuraIT.FastBinaryJson
                     ar.data.Add(o!);
                     b = GetToken();
                 }
-                else b = (byte)o!;
+                else
+                    b = (byte)o!;
 
                 if (b == TOKENS.COMMA)
                     continue;

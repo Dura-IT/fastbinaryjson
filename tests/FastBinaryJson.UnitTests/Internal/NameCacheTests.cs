@@ -1,9 +1,6 @@
 using System.Text;
-
 using AwesomeAssertions;
-
 using DuraIT.FastBinaryJson.Internal;
-
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.Internal

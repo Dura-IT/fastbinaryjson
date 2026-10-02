@@ -1,5 +1,4 @@
 using System;
-
 using DuraIT.FastBinaryJson;
 
 namespace FastBinaryJson.UnitTests.Golden
@@ -16,7 +15,8 @@ namespace FastBinaryJson.UnitTests.Golden
         Func<object> Build,
         Func<BJSONParameters> Parameters,
         Func<byte[], BJSONParameters, object> Deserialize,
-        string? BytesOnlyReason)
+        string? BytesOnlyReason
+    )
     {
         /// <summary>
         /// Builds a case whose read-back is bound to the concrete type <typeparamref name="T"/>.
@@ -30,12 +30,7 @@ namespace FastBinaryJson.UnitTests.Golden
         public static GoldenCase For<T>(string name, Func<T> build, Func<BJSONParameters> parameters, string? bytesOnlyReason = null)
             where T : notnull
         {
-            return new GoldenCase(
-                name,
-                () => build(),
-                parameters,
-                (bytes, param) => BJSON.ToObject<T>(bytes, param)!,
-                bytesOnlyReason);
+            return new GoldenCase(name, () => build(), parameters, (bytes, param) => BJSON.ToObject<T>(bytes, param)!, bytesOnlyReason);
         }
 
         public override string ToString()

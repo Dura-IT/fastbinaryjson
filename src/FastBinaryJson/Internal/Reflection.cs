@@ -1,13 +1,13 @@
 using System;
-using System.Collections.Generic;
-using System.Reflection.Emit;
-using System.Reflection;
 using System.Collections;
-using System.Text;
-using System.Runtime.Serialization;
-using System.Linq;
-using System.Data;
+using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Data;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.Serialization;
+using System.Text;
 
 namespace DuraIT.FastBinaryJson.Internal
 {
@@ -103,15 +103,17 @@ namespace DuraIT.FastBinaryJson.Internal
     {
         // Singleton pattern 4 from : http://csharpindepth.com/articles/general/singleton.aspx
         private static readonly Reflection instance = new Reflection();
+
         // Explicit static constructor to tell C# compiler
         // not to mark type as beforefieldinit
-        static Reflection()
+        static Reflection() { }
+
+        private Reflection() { }
+
+        public static Reflection Instance
         {
+            get { return instance; }
         }
-        private Reflection()
-        {
-        }
-        public static Reflection Instance { get { return instance; } }
 
         public static bool RDBMode = false;
 
@@ -131,6 +133,7 @@ namespace DuraIT.FastBinaryJson.Internal
         private SafeDictionary<Type, CreateList?> _conlistcache = new SafeDictionary<Type, CreateList?>(10);
         private SafeDictionary<Type, Getters[]> _getterscache = new SafeDictionary<Type, Getters[]>(10);
         private SafeDictionary<string, Dictionary<string, myPropInfo>> _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>(10);
+
         // Companion of _propertycache, same key, reset wherever it is.
         private SafeDictionary<string, WireNameMap> _wirenamecache = new SafeDictionary<string, WireNameMap>(10);
         private SafeDictionary<Type, Type[]> _genericTypes = new SafeDictionary<Type, Type[]>(10);
@@ -143,7 +146,7 @@ namespace DuraIT.FastBinaryJson.Internal
             "system.windows.resourcedictionary",
             "system.windows.data.objectdataprovider",
             "system.windows.forms.bindingsource",
-            "microsoft.exchange.management.systemmanager.winforms.exchangesettingsprovider"
+            "microsoft.exchange.management.systemmanager.winforms.exchangesettingsprovider",
         };
 
         private static bool TryGetOpCode(short code, out OpCode opCode)
@@ -153,7 +156,8 @@ namespace DuraIT.FastBinaryJson.Internal
             var dict = new SafeDictionary<short, OpCode>();
             foreach (var fi in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
             {
-                if (!typeof(OpCode).IsAssignableFrom(fi.FieldType)) continue;
+                if (!typeof(OpCode).IsAssignableFrom(fi.FieldType))
+                    continue;
                 var innerOpCode = (OpCode)fi.GetValue(null)!;
                 if (innerOpCode.OpCodeType != OpCodeType.Nternal)
                     dict.Add(innerOpCode.Value, innerOpCode);
@@ -166,7 +170,7 @@ namespace DuraIT.FastBinaryJson.Internal
         //internal UnicodeEncoding unicode = new UnicodeEncoding();
         private static UTF8Encoding utf8 = new UTF8Encoding();
 
-        // TODO : optimize utf8 
+        // TODO : optimize utf8
         public static byte[] UTF8GetBytes(string str)
         {
             return utf8.GetBytes(str);
@@ -189,7 +193,7 @@ namespace DuraIT.FastBinaryJson.Internal
             return utf8.GetString(bytes, offset, len);
         }
 
-        public unsafe static byte[] UnicodeGetBytes(string str)
+        public static unsafe byte[] UnicodeGetBytes(string str)
         {
             int len = str.Length * 2;
             byte[] b = new byte[len];
@@ -205,7 +209,7 @@ namespace DuraIT.FastBinaryJson.Internal
             return UnicodeGetString(b, 0, b.Length);
         }
 
-        public unsafe static string UnicodeGetString(byte[] bytes, int offset, int buflen)
+        public static unsafe string UnicodeGetString(byte[] bytes, int offset, int buflen)
         {
             // The string is built straight from the pointer, so nothing else bounds this read: a
             // length running past the payload used to return the memory after the array as text.
@@ -391,7 +395,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 PropertyInfo[] pr = type.GetProperties(bf);
                 foreach (PropertyInfo p in pr)
                 {
-                    if (p.GetIndexParameters().Length > 0)// Property is an indexer
+                    if (p.GetIndexParameters().Length > 0) // Property is an indexer
                         continue;
 
                     myPropInfo d = CreateMyProp(p.PropertyType, p.Name);
@@ -481,16 +485,26 @@ namespace DuraIT.FastBinaryJson.Internal
             myPropInfo d = new myPropInfo();
             myPropInfoType d_type = myPropInfoType.Unknown;
 
-            if (t == typeof(int) || t == typeof(int?)) d_type = myPropInfoType.Int;
-            else if (t == typeof(long) || t == typeof(long?)) d_type = myPropInfoType.Long;
-            else if (t == typeof(string)) d_type = myPropInfoType.String;
-            else if (t == typeof(bool) || t == typeof(bool?)) d_type = myPropInfoType.Bool;
-            else if (t == typeof(DateTime) || t == typeof(DateTime?)) d_type = myPropInfoType.DateTime;
-            else if (t.IsEnum) d_type = myPropInfoType.Enum;
-            else if (t == typeof(Guid) || t == typeof(Guid?)) d_type = myPropInfoType.Guid;
-            else if (t == typeof(sbyte) || t == typeof(sbyte?)) d_type = myPropInfoType.SByte;
-            else if (t == typeof(StringDictionary)) d_type = myPropInfoType.StringDictionary;
-            else if (t == typeof(NameValueCollection)) d_type = myPropInfoType.NameValue;
+            if (t == typeof(int) || t == typeof(int?))
+                d_type = myPropInfoType.Int;
+            else if (t == typeof(long) || t == typeof(long?))
+                d_type = myPropInfoType.Long;
+            else if (t == typeof(string))
+                d_type = myPropInfoType.String;
+            else if (t == typeof(bool) || t == typeof(bool?))
+                d_type = myPropInfoType.Bool;
+            else if (t == typeof(DateTime) || t == typeof(DateTime?))
+                d_type = myPropInfoType.DateTime;
+            else if (t.IsEnum)
+                d_type = myPropInfoType.Enum;
+            else if (t == typeof(Guid) || t == typeof(Guid?))
+                d_type = myPropInfoType.Guid;
+            else if (t == typeof(sbyte) || t == typeof(sbyte?))
+                d_type = myPropInfoType.SByte;
+            else if (t == typeof(StringDictionary))
+                d_type = myPropInfoType.StringDictionary;
+            else if (t == typeof(NameValueCollection))
+                d_type = myPropInfoType.NameValue;
             else if (t.IsArray)
             {
                 d.bt = t.GetElementType();
@@ -507,9 +521,12 @@ namespace DuraIT.FastBinaryJson.Internal
                 else
                     d_type = myPropInfoType.Dictionary;
             }
-            else if (t == typeof(Hashtable)) d_type = myPropInfoType.Hashtable;
-            else if (t == typeof(DataSet)) d_type = myPropInfoType.DataSet;
-            else if (t == typeof(DataTable)) d_type = myPropInfoType.DataTable;
+            else if (t == typeof(Hashtable))
+                d_type = myPropInfoType.Hashtable;
+            else if (t == typeof(DataSet))
+                d_type = myPropInfoType.DataSet;
+            else if (t == typeof(DataTable))
+                d_type = myPropInfoType.DataTable;
             else if (IsTypeRegistered(t))
                 d_type = myPropInfoType.Custom;
 
@@ -577,10 +594,15 @@ namespace DuraIT.FastBinaryJson.Internal
                 {
                     if (t == null) // RaptorDB : loading runtime assemblies
                     {
-                        t = Type.GetType(typename, (name) =>
-                        {
-                            return AppDomain.CurrentDomain.GetAssemblies().Where(z => z.FullName == name.FullName).FirstOrDefault();
-                        }, null, true);
+                        t = Type.GetType(
+                            typename,
+                            (name) =>
+                            {
+                                return AppDomain.CurrentDomain.GetAssemblies().Where(z => z.FullName == name.FullName).FirstOrDefault();
+                            },
+                            null,
+                            true
+                        );
                     }
                 }
                 _typecache.Add(typename, t!);
@@ -619,15 +641,17 @@ namespace DuraIT.FastBinaryJson.Internal
                     }
                     else
                     {
-                        _conlistcache.Add(objtype, null);// kludge : non capacity lists
+                        _conlistcache.Add(objtype, null); // kludge : non capacity lists
                         return FastCreateInstance(objtype);
                     }
                 }
             }
             catch (Exception exc)
             {
-                throw new Exception(string.Format("Failed to fast create instance for type '{0}' from assembly '{1}'",
-                    objtype.FullName, objtype.AssemblyQualifiedName), exc);
+                throw new Exception(
+                    string.Format("Failed to fast create instance for type '{0}' from assembly '{1}'", objtype.FullName, objtype.AssemblyQualifiedName),
+                    exc
+                );
             }
         }
 
@@ -669,8 +693,10 @@ namespace DuraIT.FastBinaryJson.Internal
             }
             catch (Exception exc)
             {
-                throw new Exception(string.Format("Failed to fast create instance for type '{0}' from assembly '{1}'",
-                    objtype.FullName, objtype.AssemblyQualifiedName), exc);
+                throw new Exception(
+                    string.Format("Failed to fast create instance for type '{0}' from assembly '{1}'", objtype.FullName, objtype.AssemblyQualifiedName),
+                    exc
+                );
             }
         }
 
@@ -741,22 +767,38 @@ namespace DuraIT.FastBinaryJson.Internal
          */
         private static byte TypedToken(Type t)
         {
-            if (t == typeof(int)) return TOKENS.INT;
-            if (t == typeof(long)) return TOKENS.LONG;
-            if (t == typeof(bool)) return TOKENS.TRUE;
-            if (t == typeof(DateTime)) return TOKENS.DATETIME;
-            if (t == typeof(Guid)) return TOKENS.GUID;
-            if (t == typeof(double)) return TOKENS.DOUBLE;
-            if (t == typeof(float)) return TOKENS.FLOAT;
-            if (t == typeof(decimal)) return TOKENS.DECIMAL;
-            if (t == typeof(short)) return TOKENS.SHORT;
-            if (t == typeof(ushort)) return TOKENS.USHORT;
-            if (t == typeof(uint)) return TOKENS.UINT;
-            if (t == typeof(ulong)) return TOKENS.ULONG;
-            if (t == typeof(byte)) return TOKENS.BYTE;
-            if (t == typeof(char)) return TOKENS.CHAR;
-            if (t == typeof(TimeSpan)) return TOKENS.TIMESPAN;
-            if (t == typeof(DateTimeOffset)) return TOKENS.DATETIMEOFFSET;
+            if (t == typeof(int))
+                return TOKENS.INT;
+            if (t == typeof(long))
+                return TOKENS.LONG;
+            if (t == typeof(bool))
+                return TOKENS.TRUE;
+            if (t == typeof(DateTime))
+                return TOKENS.DATETIME;
+            if (t == typeof(Guid))
+                return TOKENS.GUID;
+            if (t == typeof(double))
+                return TOKENS.DOUBLE;
+            if (t == typeof(float))
+                return TOKENS.FLOAT;
+            if (t == typeof(decimal))
+                return TOKENS.DECIMAL;
+            if (t == typeof(short))
+                return TOKENS.SHORT;
+            if (t == typeof(ushort))
+                return TOKENS.USHORT;
+            if (t == typeof(uint))
+                return TOKENS.UINT;
+            if (t == typeof(ulong))
+                return TOKENS.ULONG;
+            if (t == typeof(byte))
+                return TOKENS.BYTE;
+            if (t == typeof(char))
+                return TOKENS.CHAR;
+            if (t == typeof(TimeSpan))
+                return TOKENS.TIMESPAN;
+            if (t == typeof(DateTimeOffset))
+                return TOKENS.DATETIMEOFFSET;
             return 0;
         }
 
@@ -849,7 +891,8 @@ namespace DuraIT.FastBinaryJson.Internal
         {
             var getMethod = autoProperty.GetGetMethod();
             // Restrict operation to auto properties to avoid risking errors if a getter does not contain exactly one field read instruction (such as with calculated properties).
-            if (!getMethod!.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false)) return null;
+            if (!getMethod!.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false))
+                return null;
 
             var byteCode = getMethod.GetMethodBody()?.GetILAsByteArray() ?? new byte[0];
             //var byteCode = getMethod.GetMethodBody().GetILAsByteArray();
@@ -864,23 +907,20 @@ namespace DuraIT.FastBinaryJson.Internal
                 // If it is a LdFld, read its operand, parse it to a FieldInfo and return it.
                 if (opCode == OpCodes.Ldfld && opCode.OperandType == OperandType.InlineField && pos + sizeof(int) <= byteCode.Length)
                 {
-                    return getMethod.Module.ResolveMember(BitConverter.ToInt32(byteCode, pos), getMethod.DeclaringType?.GetGenericArguments(), null) as FieldInfo;
+                    return getMethod.Module.ResolveMember(BitConverter.ToInt32(byteCode, pos), getMethod.DeclaringType?.GetGenericArguments(), null)
+                        as FieldInfo;
                 }
                 // Otherwise, set the current position to the start of the next instruction, if any (we need to know how much bytes are used by operands).
-                pos += opCode.OperandType == OperandType.InlineNone
-                            ? 0
-                            : opCode.OperandType == OperandType.ShortInlineBrTarget ||
-                              opCode.OperandType == OperandType.ShortInlineI ||
-                              opCode.OperandType == OperandType.ShortInlineVar
-                                ? 1
-                                : opCode.OperandType == OperandType.InlineVar
-                                    ? 2
-                                    : opCode.OperandType == OperandType.InlineI8 ||
-                                      opCode.OperandType == OperandType.InlineR
-                                        ? 8
-                                        : opCode.OperandType == OperandType.InlineSwitch
-                                            ? 4 * (BitConverter.ToInt32(byteCode, pos) + 1)
-                                            : 4;
+                pos +=
+                    opCode.OperandType == OperandType.InlineNone ? 0
+                    : opCode.OperandType == OperandType.ShortInlineBrTarget
+                    || opCode.OperandType == OperandType.ShortInlineI
+                    || opCode.OperandType == OperandType.ShortInlineVar
+                        ? 1
+                    : opCode.OperandType == OperandType.InlineVar ? 2
+                    : opCode.OperandType == OperandType.InlineI8 || opCode.OperandType == OperandType.InlineR ? 8
+                    : opCode.OperandType == OperandType.InlineSwitch ? 4 * (BitConverter.ToInt32(byteCode, pos) + 1)
+                    : 4;
             }
             return null;
         }
@@ -890,8 +930,9 @@ namespace DuraIT.FastBinaryJson.Internal
             MethodInfo? setMethod = propertyInfo.GetSetMethod(ShowReadOnlyProperties);
             if (setMethod == null)
             {
-                if (!ShowReadOnlyProperties) return null;
-                // If the property has no setter and it is an auto property, try and create a setter for its backing field instead 
+                if (!ShowReadOnlyProperties)
+                    return null;
+                // If the property has no setter and it is an auto property, try and create a setter for its backing field instead
                 var fld = GetGetterBackingField(propertyInfo);
                 return fld != null ? CreateSetField(type, fld) : null;
             }
@@ -899,7 +940,7 @@ namespace DuraIT.FastBinaryJson.Internal
             Type[] arguments = new Type[2];
             arguments[0] = arguments[1] = typeof(object);
 
-            DynamicMethod setter = new DynamicMethod("_csm", typeof(object), arguments, true);// !setMethod.IsPublic); // fix: skipverify
+            DynamicMethod setter = new DynamicMethod("_csm", typeof(object), arguments, true); // !setMethod.IsPublic); // fix: skipverify
             ILGenerator il = setter.GetILGenerator();
 
             if (!type.IsClass) // structs
@@ -1020,7 +1061,10 @@ namespace DuraIT.FastBinaryJson.Internal
             return (GenericGetter)getter.CreateDelegate(typeof(GenericGetter));
         }
 
-        public Getters[] GetGetters(Type type, /*bool ShowReadOnlyProperties,*/ List<Type> IgnoreAttributes)
+        public Getters[] GetGetters(
+            Type type, /*bool ShowReadOnlyProperties,*/
+            List<Type> IgnoreAttributes
+        )
         {
             Getters[]? val = null;
             if (_getterscache.TryGetValue(type, out val))
@@ -1035,10 +1079,10 @@ namespace DuraIT.FastBinaryJson.Internal
             {
                 bool read_only = false;
                 if (p.GetIndexParameters().Length > 0)
-                {// Property is an indexer
+                { // Property is an indexer
                     continue;
                 }
-                if (!p.CanWrite)// && (ShowReadOnlyProperties == false))//|| isAnonymous == false))
+                if (!p.CanWrite) // && (ShowReadOnlyProperties == false))//|| isAnonymous == false))
                     read_only = true; //continue;
                 if (IgnoreAttributes != null)
                 {
@@ -1070,7 +1114,14 @@ namespace DuraIT.FastBinaryJson.Internal
                 GenericGetter? g = CreateGetMethod(type, p);
                 if (g != null)
                 {
-                    Getters getter = new Getters { Getter = g, Name = p.Name, lcName = p.Name.ToLowerInvariant(), memberName = mName, ReadOnly = read_only };
+                    Getters getter = new Getters
+                    {
+                        Getter = g,
+                        Name = p.Name,
+                        lcName = p.Name.ToLowerInvariant(),
+                        memberName = mName,
+                        ReadOnly = read_only,
+                    };
                     BuildTypedGetter(ref getter, type, p.PropertyType, p.DeclaringType!, p.GetGetMethod(), null);
                     getters.Add(getter);
                 }
@@ -1081,7 +1132,7 @@ namespace DuraIT.FastBinaryJson.Internal
             {
                 bool read_only = false;
                 if (f.IsInitOnly) // && (ShowReadOnlyProperties == false))//|| isAnonymous == false))
-                    read_only = true;//continue;
+                    read_only = true; //continue;
                 if (IgnoreAttributes != null)
                 {
                     bool found = false;
@@ -1114,7 +1165,14 @@ namespace DuraIT.FastBinaryJson.Internal
                     GenericGetter g = CreateGetField(type, f);
                     if (g != null)
                     {
-                        Getters getter = new Getters { Getter = g, Name = f.Name, lcName = f.Name.ToLowerInvariant(), memberName = mName, ReadOnly = read_only };
+                        Getters getter = new Getters
+                        {
+                            Getter = g,
+                            Name = f.Name,
+                            lcName = f.Name.ToLowerInvariant(),
+                            memberName = mName,
+                            ReadOnly = read_only,
+                        };
                         BuildTypedGetter(ref getter, type, f.FieldType, f.DeclaringType!, null, f);
                         getters.Add(getter);
                     }
