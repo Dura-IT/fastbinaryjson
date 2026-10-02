@@ -131,6 +131,28 @@ namespace DuraIT.FastBinaryJson
         }
 
         /// <summary>
+        /// Skips the value at the current index when its bytes are exactly the <paramref name="length"/>
+        /// bytes at <paramref name="earlierStart"/>. Returns false, having read nothing, otherwise.
+        /// </summary>
+        internal bool TrySkipRepeat(int earlierStart, int length)
+        {
+            if (_index > _json.Length - length)
+                return false;
+#if NET10_0_OR_GREATER
+            if (new ReadOnlySpan<byte>(_json, _index, length).SequenceEqual(new ReadOnlySpan<byte>(_json, earlierStart, length)) == false)
+                return false;
+#else
+            for (int i = 0; i < length; i++)
+            {
+                if (_json[_index + i] != _json[earlierStart + i])
+                    return false;
+            }
+#endif
+            _index += length;
+            return true;
+        }
+
+        /// <summary>
         /// A copy of the bytes from <paramref name="start"/> up to the current index.
         /// </summary>
         internal byte[] CopyFrom(int start)

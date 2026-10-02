@@ -389,6 +389,11 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         internal int TypesResolvedInPlace { get; set; }
 
+        /// <summary>
+        /// How many $type values TypedReader took from the previous one by comparing bytes. Diagnostic only.
+        /// </summary>
+        internal int TypesRepeated { get; set; }
+
         public T? ToObject<T>(byte[] json)
         {
             return (T?)ToObject(json, typeof(T));

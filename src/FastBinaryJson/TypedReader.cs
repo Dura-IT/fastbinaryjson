@@ -34,6 +34,11 @@ namespace DuraIT.FastBinaryJson
         private readonly Deserializer _deserializer;
         private readonly BJsonParser _parser;
 
+        // The last $type value resolved with no $types table in play: where its bytes are, and its type.
+        private int _lastTypeStart;
+        private int _lastTypeLength;
+        private Type? _lastType;
+
         private TypedReader(Deserializer deserializer, BJsonParser parser)
         {
             _deserializer = deserializer;
@@ -194,13 +199,19 @@ namespace DuraIT.FastBinaryJson
 
                 if (name == "$type")
                 {
-                    if (TryResolveTypeInPlace(globaltypes, out type) == false)
+                    if (TryRepeatType(globaltypes, out type) == false)
                     {
-                        object? tn = _parser.ReadValue(out bool broke);
-                        if (broke)
-                            return Abandon(start, circular, sharedTypes, addedTypes);
+                        int valueStart = _parser.Index;
+                        if (TryResolveTypeInPlace(globaltypes, out type) == false)
+                        {
+                            object? tn = _parser.ReadValue(out bool broke);
+                            if (broke)
+                                return Abandon(start, circular, sharedTypes, addedTypes);
 
-                        type = _deserializer.ResolveType(tn!, globaltypes);
+                            type = _deserializer.ResolveType(tn!, globaltypes);
+                        }
+
+                        RememberType(globaltypes, valueStart, type);
                     }
 
                     needsDeclaredType = false;
@@ -364,6 +375,39 @@ namespace DuraIT.FastBinaryJson
             key[1] = (byte)name.Length;
             Buffer.BlockCopy(name, 0, key, 2, name.Length);
             return key;
+        }
+
+        /// <summary>
+        /// Takes the $type at the current index from the previous one when its bytes are the same.
+        /// </summary>
+        /// <remarks>
+        /// A root list is written without global types, so each element carries its full
+        /// assembly-qualified type name, and they are mostly the same name. Comparing the bytes with
+        /// the last one is far cheaper than decoding and hashing the name again. Only with no $types
+        /// table in play: the name is then resolved the same way every time, so equal bytes are the
+        /// same answer. A name that failed to resolve threw, and was never remembered.
+        /// </remarks>
+        private bool TryRepeatType(Dictionary<string, object>? globaltypes, out Type? type)
+        {
+            type = null;
+            if (_lastTypeLength == 0 || (globaltypes != null && globaltypes.Count > 0))
+                return false;
+            if (_parser.TrySkipRepeat(_lastTypeStart, _lastTypeLength) == false)
+                return false;
+
+            type = _lastType;
+            _deserializer.TypesRepeated++;
+            return true;
+        }
+
+        private void RememberType(Dictionary<string, object>? globaltypes, int valueStart, Type? type)
+        {
+            if (globaltypes != null && globaltypes.Count > 0)
+                return;
+
+            _lastTypeStart = valueStart;
+            _lastTypeLength = _parser.Index - valueStart;
+            _lastType = type;
         }
 
         /// <summary>
