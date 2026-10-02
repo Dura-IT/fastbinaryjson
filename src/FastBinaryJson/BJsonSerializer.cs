@@ -32,6 +32,8 @@ namespace DuraIT.FastBinaryJson
         private int _MAX_DEPTH = 20;
         int _current_depth = 0;
         private Dictionary<string, int> _globalTypes = new Dictionary<string, int>();
+        // Created on first use: a root list or dictionary turns global types off and never needs it.
+        private Dictionary<Type, string>? _globalTypeIds;
         /*
          * By identity: $i means "this same instance". Default equality wrote a distinct object that
          * merely compared Equal as a reference to the first one, so an entity with Equals over its Id
@@ -639,16 +641,7 @@ namespace DuraIT.FastBinaryJson
                 if (_params.UsingGlobalTypes == false)
                     WritePairFast("$type", Reflection.Instance.GetTypeAssemblyName(t));
                 else
-                {
-                    int dt = 0;
-                    string ct = Reflection.Instance.GetTypeAssemblyName(t);
-                    if (_globalTypes.TryGetValue(ct, out dt) == false)
-                    {
-                        dt = _globalTypes.Count + 1;
-                        _globalTypes.Add(ct, dt);
-                    }
-                    WritePairFast("$type", dt.ToString());
-                }
+                    WritePairFast("$type", GetGlobalTypeId(t));
                 append = true;
             }
 
@@ -674,6 +667,33 @@ namespace DuraIT.FastBinaryJson
             }
             _output.WriteByte(TOKENS.DOC_END);
             _current_depth--;
+        }
+
+        /// <summary>
+        /// The $types id for <paramref name="t"/>, as the text written into $type.
+        /// </summary>
+        /// <remarks>
+        /// Looked up by Type first. Keyed only by the assembly-qualified name, every object hashed that
+        /// whole name (around a hundred characters) and formatted its id into a new string. Ids are
+        /// still assigned through <see cref="_globalTypes"/>, so they and the $types table come out
+        /// exactly as before - including two types with one name sharing an id.
+        /// </remarks>
+        private string GetGlobalTypeId(Type t)
+        {
+            _globalTypeIds ??= new Dictionary<Type, string>();
+            if (_globalTypeIds.TryGetValue(t, out string? id))
+                return id;
+
+            string ct = Reflection.Instance.GetTypeAssemblyName(t);
+            if (_globalTypes.TryGetValue(ct, out int dt) == false)
+            {
+                dt = _globalTypes.Count + 1;
+                _globalTypes.Add(ct, dt);
+            }
+
+            id = dt.ToString();
+            _globalTypeIds.Add(t, id);
+            return id;
         }
 
         private void WritePairFast(string name, string value)
