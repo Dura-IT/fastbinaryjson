@@ -28,10 +28,19 @@ Data written by the original keeps reading back, and that is enforced by tests r
 
 ## Compatibility
 
-The wire format is unchanged, and the golden fixtures are what keep it that way.
+The wire format is unchanged, and the golden fixtures are what keep it that way. Bytes written by
+the original read back through this package, and bytes written here read back through the original.
 
-The assembly name is `DuraIT.FastBinaryJson`, deliberately different from the original, so this
-package can sit in the same project as `fastBinaryJSON` without duplicate type definitions.
+**Source compatibility costs one line.** The namespace is `DuraIT.FastBinaryJson`, matching the
+assembly and package name; upstream's was `fastBinaryJSON`. Migrating is a `using` swap per file and
+nothing else. Internal machinery lives in `DuraIT.FastBinaryJson.Internal`.
+
+**Stored data is not affected by that rename.** The `$type` entries in a payload carry the assembly
+qualified names of *your* types, never the serializer's, so renaming this library's namespace cannot
+invalidate anything already on disk. None of the 16 golden fixtures reference this assembly at all.
+
+Assembly name and namespace both differ from the original, so this package and `fastBinaryJSON` can
+sit in the same project with no duplicate type definitions and no ambiguity.
 
 `netstandard2.0` is a permanent target, not a leftover: the people with stored data are exactly the
 ones who cannot move runtime quickly.
@@ -39,6 +48,8 @@ ones who cannot move runtime quickly.
 ## Usage
 
 ```csharp
+using DuraIT.FastBinaryJson;
+
 byte[] bytes = BJSON.ToBJSON(myObject);
 MyType back = BJSON.ToObject<MyType>(bytes);
 ```
@@ -61,10 +72,12 @@ byte[] smaller = BJSON.ToBJSON(myObject, new BJSONParameters
 
 ## The five inherited defects
 
-All five are present in the original. Here they are pinned by characterization tests in
-[`KnownDefectTests.cs`](https://github.com/Dura-IT/fastbinaryjson/blob/master/tests/FastBinaryJson.UnitTests/Defects/KnownDefectTests.cs),
-which assert the behaviour as it currently is - wrong included - so a fix fails the build and forces
-a real test to be written for it.
+All five are present in the original and all five are fixed here, each in its own commit, with
+round-trip tests in
+[`tests/FastBinaryJson.UnitTests/RoundTrip/`](https://github.com/Dura-IT/fastbinaryjson/tree/master/tests/FastBinaryJson.UnitTests/RoundTrip)
+that replaced the characterization tests which used to pin the broken behaviour in place.
+
+The table describes what the original does.
 
 | Defect | Effect |
 |---|---|
@@ -74,8 +87,16 @@ a real test to be written for it.
 | `DateTimeOffset` cannot be serialized | The token is declared but never written or read; serializing one produces invalid IL |
 | Custom types skip subclasses | A registration for a base type is not used for a derived instance |
 
-Fixing the first three changes the wire format, so on a library whose value is drop-in compatibility
-that is a decision rather than a routine fix. It gets made deliberately, not folded into a patch.
+Two of the fixes change the bytes this version writes: `sbyte` gets its own token instead of being
+written as `byte`, and a name of 256 encoded bytes or more is no longer truncated. Data written by
+the original still reads back in both cases; data written by this version does not read back through
+the original. The `char` fix is read-side only, so its output is byte-identical to before, and
+`DateTimeOffset` uses a token the original declared but never wrote, so no existing payload can
+contain one.
+
+A sixth defect was found while fixing these: `UseUTCDateTime` converted on write and again on read,
+so a value came back shifted by the reading machine's time zone. The bytes were always correct. That
+fix is read-side only as well.
 
 ## License
 

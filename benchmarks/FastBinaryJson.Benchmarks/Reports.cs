@@ -41,6 +41,59 @@ namespace FastBinaryJson.Benchmarks
             }
         }
 
+        /// <summary>
+        /// Whether the fork and upstream 1.6.1 write the same bytes for each payload. Identical
+        /// output means both arms do the same work, so any timing difference is implementation.
+        /// </summary>
+        public static void PrintUpstreamIdentity(IReadOnlyList<PayloadCase> payloads)
+        {
+            Console.WriteLine("## Fork vs upstream 1.6.1 output");
+            Console.WriteLine();
+
+            foreach (PayloadCase payload in payloads)
+            {
+                foreach (bool unicode in new bool[] { true, false })
+                {
+                    string verdict = CompareOutput(payload, new FastBinaryJsonArm(unicode), new UpstreamFastBinaryJsonArm(unicode));
+                    Console.WriteLine(string.Concat("  ", payload.Name.PadRight(18), unicode ? "UTF-16  " : "UTF-8   ", verdict));
+                }
+            }
+
+            Console.WriteLine();
+        }
+
+        private static string CompareOutput(PayloadCase payload, ISerializerArm fork, ISerializerArm upstream)
+        {
+            try
+            {
+                byte[] ours = payload.Serialize(fork);
+                byte[] theirs = payload.Serialize(upstream);
+                int length = Math.Min(ours.Length, theirs.Length);
+                for (int i = 0; i < length; i++)
+                {
+                    if (ours[i] != theirs[i])
+                    {
+                        return string.Concat("DIFFERS at byte ", i.ToString(CultureInfo.InvariantCulture));
+                    }
+                }
+
+                if (ours.Length != theirs.Length)
+                {
+                    return string.Concat(
+                        "DIFFERS in length: ",
+                        ours.Length.ToString(CultureInfo.InvariantCulture),
+                        " vs ",
+                        theirs.Length.ToString(CultureInfo.InvariantCulture));
+                }
+
+                return "IDENTICAL";
+            }
+            catch (Exception ex)
+            {
+                return string.Concat("FAIL  -  ", ex.GetType().Name, ": ", ex.Message);
+            }
+        }
+
         public static void PrintSizeTable(IReadOnlyList<PayloadCase> payloads, IReadOnlyList<ISerializerArm> arms)
         {
             Console.WriteLine("## Encoded size (bytes)");

@@ -1,6 +1,6 @@
 using System;
 
-using fastBinaryJSON;
+using DuraIT.FastBinaryJson;
 
 namespace FastBinaryJson.UnitTests.Golden
 {

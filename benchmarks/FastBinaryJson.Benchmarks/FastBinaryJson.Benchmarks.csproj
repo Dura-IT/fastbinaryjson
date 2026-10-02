@@ -19,6 +19,12 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageReference Include="MessagePack" Version="3.1.8" />
+    <!--
+      Upstream's last release, pinned on purpose: it is what the fork is measured against. Its
+      assembly (fastbinaryjson) and namespace (fastBinaryJSON) differ from the fork's, so both load
+      side by side in one process without an extern alias.
+    -->
+    <PackageReference Include="fastBinaryJSON" Version="1.6.1" />
   </ItemGroup>
 
 </Project>

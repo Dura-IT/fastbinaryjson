@@ -1,22 +1,50 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Collections.Specialized;
-using fastJSON;
+using DuraIT.FastBinaryJson.Internal;
+#if NET10_0_OR_GREATER
+using System.Runtime.InteropServices;
+#endif
 
-namespace fastBinaryJSON
+namespace DuraIT.FastBinaryJson
 {
+    /*
+     * On net10.0 the fixed-size writes go through stackalloc, strings are encoded straight into
+     * the output, and the output is a pooled buffer rather than a MemoryStream.
+     * netstandard2.0 keeps upstream's byte[] and MemoryStream path. Both write the same bytes in
+     * the same (native) order - the golden files and the netstandard2.0 test project hold that,
+     * so a divergence fails on one target rather than going unnoticed.
+     *
+     * The split lives in the small raw-write and Encode helpers at the bottom, not in the callers.
+     */
     internal sealed class BJSONSerializer : IDisposable
     {
-        private MemoryStream _output = new MemoryStream();
+#if NET10_0_OR_GREATER
+        private readonly PooledByteBuffer _output = new PooledByteBuffer();
+#else
+        private readonly MemoryStream _output = new MemoryStream();
+#endif
         //private MemoryStream _before = new MemoryStream();
         private int _typespointer = 0;
         private int _MAX_DEPTH = 20;
         int _current_depth = 0;
-        private Dictionary<string, int> _globalTypes = new Dictionary<string, int>();
-        private Dictionary<object, int> _cirobj = new Dictionary<object, int>();
+        /*
+         * Keyed by Type, not by assembly-qualified name: every object looks itself up here, and the name
+         * key hashed around a hundred characters each time. The table is still written in the same
+         * order, under the same ids, with the same names. Only two distinct types that share a name -
+         * one assembly loaded twice - now get an id each instead of sharing one, and both still read
+         * back as the type that name resolves to.
+         */
+        private Dictionary<Type, int> _globalTypes = new Dictionary<Type, int>();
+        /*
+         * By identity: $i means "this same instance". Default equality wrote a distinct object that
+         * merely compared Equal as a reference to the first one, so an entity with Equals over its Id
+         * lost every other member, and equal records or structs came back as one shared instance.
+         */
+        private Dictionary<object, int> _cirobj = new Dictionary<object, int>(ReferenceComparer.Instance);
         private BJSONParameters _params;
 
         private void Dispose(bool disposing)
@@ -24,8 +52,9 @@ namespace fastBinaryJSON
             if (disposing)
             {
                 // dispose managed resources
-                _output.Close();
+                _output.Dispose();
                 //_before.Close();
+                ReleasePooled();
             }
             // free native resources
         }
@@ -44,26 +73,34 @@ namespace fastBinaryJSON
 
         internal byte[] ConvertToBJSON(object obj)
         {
-            WriteValue(obj);
-
-            // add $types
-            if (_params.UsingGlobalTypes && _globalTypes != null && _globalTypes.Count > 0)
+            // The caller does not dispose this instance, so pooled buffers are returned here.
+            // ToArray runs in the return expressions, before the finally.
+            try
             {
-                var pointer = (int)_output.Length;
-                WriteName("$types");
-                WriteColon();
-                WriteTypes(_globalTypes);
-                //var i = _output.Length;
-                _output.Seek(_typespointer, SeekOrigin.Begin);
-                _output.Write(Helper.GetBytes(pointer, false), 0, 4);
+                WriteValue(obj);
+
+                // add $types
+                if (_params.UsingGlobalTypes && _globalTypes != null && _globalTypes.Count > 0)
+                {
+                    var pointer = (int)_output.Length;
+                    WriteName("$types");
+                    WriteColon();
+                    WriteTypes(_globalTypes);
+                    //var i = _output.Length;
+                    PatchInt32(_typespointer, pointer);
+
+                    return _output.ToArray();
+                }
 
                 return _output.ToArray();
             }
-
-            return _output.ToArray();
+            finally
+            {
+                ReleasePooled();
+            }
         }
 
-        private void WriteTypes(Dictionary<string, int> dic)
+        private void WriteTypes(Dictionary<Type, int> dic)
         {
             _output.WriteByte(TOKENS.DOC_START);
 
@@ -73,14 +110,14 @@ namespace fastBinaryJSON
             {
                 if (pendingSeparator) WriteComma();
 
-                WritePair(entry.Value.ToString(), entry.Key);
+                WritePair(entry.Value.ToString(), Reflection.Instance.GetTypeAssemblyName(entry.Key));
 
                 pendingSeparator = true;
             }
             _output.WriteByte(TOKENS.DOC_END);
         }
 
-        private void WriteValue(object obj)
+        private void WriteValue(object? obj)
         {
             if (obj == null || obj is DBNull)
                 WriteNull();
@@ -135,10 +172,8 @@ namespace fastBinaryJSON
 
             else if (obj is TimeSpan)
                 WriteTimeSpan((TimeSpan)obj);
-#if NET4
             else if (obj is System.Dynamic.ExpandoObject)
                 WriteStringDictionary((IDictionary<string, object>)obj);
-#endif
 
             else if (obj is IDictionary && obj.GetType().IsGenericType && obj.GetType().GetGenericArguments()[0] == typeof(string))
                 WriteStringDictionary((IDictionary)obj);
@@ -171,22 +206,32 @@ namespace fastBinaryJSON
             else if (Reflection.Instance.IsTypeRegistered(obj.GetType()))
                 WriteCustom(obj);
 
+            /*
+             * Deliberately AFTER the custom-type check rather than up with the other primitives.
+             *
+             * Registering a custom type was the only way to store a DateTimeOffset before this
+             * branch existed, so anyone who stores one today has a registration and their stored
+             * data is a string. Letting the native form win would change their bytes on the next
+             * write, and would break their reads outright: a property whose declared type is
+             * registered is classified Custom, and that path casts the parsed value to string.
+             */
+            else if (obj is DateTimeOffset)
+                WriteDateTimeOffset((DateTimeOffset)obj);
+
             else
                 WriteObject(obj);
         }
 
         private void WriteSByte(sbyte p)
         {
-            _output.WriteByte(TOKENS.BYTE);
-            byte i = (byte)p;
-            _output.WriteByte(i);
+            _output.WriteByte(TOKENS.SBYTE);
+            _output.WriteByte(unchecked((byte)p));
         }
 
         private void WriteTimeSpan(TimeSpan obj)
         {
             _output.WriteByte(TOKENS.TIMESPAN);
-            byte[] b = Helper.GetBytes(obj.Ticks, false);
-            _output.Write(b, 0, b.Length);
+            WriteInt64Raw(obj.Ticks);
         }
 
         private void WriteTypedArray(ICollection array)
@@ -199,26 +244,22 @@ namespace fastBinaryJSON
                 //if (t.GetElementType().IsClass)
                 {
                     token = false;
-                    byte[] b;
-                    // array type name
-                    if (_params.v1_4TypedArray)
-                        b = Reflection.UTF8GetBytes(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()));
-                    else
-                        b = Reflection.UnicodeGetBytes(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()));
+                    // array type name - byte[] on netstandard2.0, a PendingString on net10.0
+                    var b = Encode(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!), unicode: !_params.v1_4TypedArray);
                     if (b.Length < 256)
                     {
                         _output.WriteByte(TOKENS.ARRAY_TYPED);
                         _output.WriteByte((byte)b.Length);
-                        _output.Write(b, 0, b.Length);
+                        WriteBytesRaw(b);
                     }
                     else
                     {
                         _output.WriteByte(TOKENS.ARRAY_TYPED_LONG);
-                        _output.Write(Helper.GetBytes(b.Length, false), 0, 2);
-                        _output.Write(b, 0, b.Length);
+                        WriteInt16Raw(unchecked((short)b.Length));
+                        WriteBytesRaw(b);
                     }
                     // array count
-                    _output.Write(Helper.GetBytes(array.Count, false), 0, 4); //count
+                    WriteInt32Raw(array.Count);
                 }
             }
             if (token)
@@ -272,27 +313,35 @@ namespace fastBinaryJSON
         private void WriteUShort(ushort p)
         {
             _output.WriteByte(TOKENS.USHORT);
-            _output.Write(Helper.GetBytes(p, false), 0, 2);
+            WriteInt16Raw(unchecked((short)p));
         }
 
         private void WriteShort(short p)
         {
             _output.WriteByte(TOKENS.SHORT);
-            _output.Write(Helper.GetBytes(p, false), 0, 2);
+            WriteInt16Raw(p);
         }
 
         private void WriteFloat(float p)
         {
             _output.WriteByte(TOKENS.FLOAT);
+#if NET10_0_OR_GREATER
+            WriteInt32Raw(BitConverter.SingleToInt32Bits(p));
+#else
             byte[] b = BitConverter.GetBytes(p);
             _output.Write(b, 0, b.Length);
+#endif
         }
 
         private void WriteDouble(double p)
         {
             _output.WriteByte(TOKENS.DOUBLE);
+#if NET10_0_OR_GREATER
+            WriteInt64Raw(BitConverter.DoubleToInt64Bits(p));
+#else
             var b = BitConverter.GetBytes(p);
             _output.Write(b, 0, b.Length);
+#endif
         }
 
         private void WriteByte(byte p)
@@ -304,40 +353,45 @@ namespace fastBinaryJSON
         private void WriteDecimal(decimal p)
         {
             _output.WriteByte(TOKENS.DECIMAL);
+#if NET10_0_OR_GREATER
+            Span<int> b = stackalloc int[4];
+            decimal.GetBits(p, b);
+#else
             var b = decimal.GetBits(p);
+#endif
             foreach (var c in b)
-                _output.Write(Helper.GetBytes(c, false), 0, 4);
+                WriteInt32Raw(c);
         }
 
         private void WriteULong(ulong p)
         {
             _output.WriteByte(TOKENS.ULONG);
-            _output.Write(Helper.GetBytes((long)p, false), 0, 8);
+            WriteInt64Raw(unchecked((long)p));
         }
 
         private void WriteUInt(uint p)
         {
             _output.WriteByte(TOKENS.UINT);
-            _output.Write(Helper.GetBytes(p, false), 0, 4);
+            WriteInt32Raw(unchecked((int)p));
         }
 
         private void WriteLong(long p)
         {
             _output.WriteByte(TOKENS.LONG);
-            _output.Write(Helper.GetBytes(p, false), 0, 8);
+            WriteInt64Raw(p);
         }
 
         private void WriteChar(char p)
         {
             _output.WriteByte(TOKENS.CHAR);
-            _output.Write(Helper.GetBytes((short)p, false), 0, 2);
+            WriteInt16Raw(unchecked((short)p));
         }
 
         private void WriteBytes(byte[] p)
         {
             _output.WriteByte(TOKENS.BYTEARRAY);
-            _output.Write(Helper.GetBytes(p.Length, false), 0, 4);
-            _output.Write(p, 0, p.Length);
+            WriteInt32Raw(p.Length);
+            WriteBytesRaw(p);
         }
 
         private void WriteBool(bool p)
@@ -356,9 +410,8 @@ namespace fastBinaryJSON
 
         private void WriteCustom(object obj)
         {
-            Reflection.Serialize s;
-            Reflection.Instance._customSerializer.TryGetValue(obj.GetType(), out s);
-            WriteString(s(obj));
+            Reflection.Instance.TryGetCustomSerializer(obj.GetType(), out Reflection.Serialize? s);
+            WriteString(s!(obj));
         }
 
         private void WriteColon()
@@ -392,13 +445,19 @@ namespace fastBinaryJSON
             //    }
             //}
             _output.WriteByte(TOKENS.INT);
-            _output.Write(Helper.GetBytes(i, false), 0, 4);
+            WriteInt32Raw(i);
         }
 
         private void WriteGuid(Guid g)
         {
             _output.WriteByte(TOKENS.GUID);
+#if NET10_0_OR_GREATER
+            Span<byte> b = stackalloc byte[16];
+            g.TryWriteBytes(b);
+            _output.Write(b);
+#else
             _output.Write(g.ToByteArray(), 0, 16);
+#endif
         }
 
         private void WriteDateTime(DateTime dateTime)
@@ -408,11 +467,29 @@ namespace fastBinaryJSON
                 dt = dateTime.ToUniversalTime();
 
             _output.WriteByte(TOKENS.DATETIME);
-            byte[] b = Helper.GetBytes(dt.Ticks, false);
-            _output.Write(b, 0, b.Length);
+            WriteInt64Raw(dt.Ticks);
         }
 
-        private DatasetSchema GetSchema(DataTable ds)
+        /// <summary>
+        /// Writes a DateTimeOffset as raw clock ticks plus its offset in whole minutes.
+        /// </summary>
+        /// <remarks>
+        /// TOKENS.DATETIMEOFFSET was declared by upstream and never written, so this fills in a dead
+        /// token and no existing stream is affected.
+        ///
+        /// UseUTCDateTime is not consulted. It exists to decide which clock a DateTime means, and a
+        /// DateTimeOffset already carries that answer - normalizing it would discard the offset the
+        /// caller chose. The offset is signed and written as two bytes, which covers the whole
+        /// permitted range of -14:00 to +14:00 with room to spare.
+        /// </remarks>
+        private void WriteDateTimeOffset(DateTimeOffset value)
+        {
+            _output.WriteByte(TOKENS.DATETIMEOFFSET);
+            WriteInt64Raw(value.Ticks);
+            WriteInt16Raw(unchecked((short)(int)value.Offset.TotalMinutes));
+        }
+
+        private DatasetSchema? GetSchema(DataTable? ds)
         {
             if (ds == null) return null;
 
@@ -431,7 +508,7 @@ namespace fastBinaryJSON
             return m;
         }
 
-        private DatasetSchema GetSchema(DataSet ds)
+        private DatasetSchema? GetSchema(DataSet? ds)
         {
             if (ds == null) return null;
 
@@ -466,7 +543,7 @@ namespace fastBinaryJSON
         {
             _output.WriteByte(TOKENS.DOC_START);
             {
-                WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object)GetSchema(ds) : ds.GetXmlSchema());
+                WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(ds) : ds.GetXmlSchema());
                 WriteComma();
             }
             bool tablesep = false;
@@ -511,7 +588,7 @@ namespace fastBinaryJSON
             _output.WriteByte(TOKENS.DOC_START);
             //if (this.useExtension)
             {
-                this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object)this.GetSchema(dt) : this.GetXmlSchema(dt));
+                this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)this.GetSchema(dt) : this.GetXmlSchema(dt));
                 WriteComma();
             }
 
@@ -550,7 +627,7 @@ namespace fastBinaryJSON
                     // write pointer to $types position
                     _output.WriteByte(TOKENS.TYPES_POINTER);
                     _typespointer = (int)_output.Length; // place holder
-                    _output.Write(new byte[4], 0, 4); // zero pointer for now
+                    WriteInt32Raw(0); // zero pointer for now
                                                       //_output = new MemoryStream();
                     _TypesWritten = true;
                 }
@@ -569,16 +646,7 @@ namespace fastBinaryJSON
                 if (_params.UsingGlobalTypes == false)
                     WritePairFast("$type", Reflection.Instance.GetTypeAssemblyName(t));
                 else
-                {
-                    int dt = 0;
-                    string ct = Reflection.Instance.GetTypeAssemblyName(t);
-                    if (_globalTypes.TryGetValue(ct, out dt) == false)
-                    {
-                        dt = _globalTypes.Count + 1;
-                        _globalTypes.Add(ct, dt);
-                    }
-                    WritePairFast("$type", dt.ToString());
-                }
+                    WritePairFast("$type", GetGlobalTypeId(t));
                 append = true;
             }
 
@@ -586,7 +654,18 @@ namespace fastBinaryJSON
             int c = g.Length;
             for (int ii = 0; ii < c; ii++)
             {
-                var p = g[ii];
+                ref Getters p = ref g[ii];
+                if (p.TypedGetter != null && TypedGetters)
+                {
+                    // A primitive is never null, so it is always written - as below, minus the box.
+                    if (append)
+                        WriteComma();
+                    WriteBytesRaw(MemberKey(ref p));
+                    WriteTyped(ref p, obj);
+                    append = true;
+                    continue;
+                }
+
                 var o = p.Getter(obj);
                 if (_params.SerializeNulls == false && (o == null || o is DBNull))
                 {
@@ -596,12 +675,123 @@ namespace fastBinaryJSON
                 {
                     if (append)
                         WriteComma();
-                    WritePair(p.Name, o);
+                    // Name and colon in one copy; WritePair's own null check cannot fire here.
+                    WriteBytesRaw(MemberKey(ref p));
+                    WriteValue(o);
                     append = true;
                 }
             }
             _output.WriteByte(TOKENS.DOC_END);
             _current_depth--;
+        }
+
+        /// <summary>
+        /// Read primitive members through their typed getters instead of the boxing one.
+        /// </summary>
+        /// <remarks>
+        /// Off only in tests, to write with the boxing path as the reference.
+        /// </remarks>
+        internal bool TypedGetters { get; set; } = true;
+
+        /// <summary>
+        /// Writes a primitive member's value without boxing it, with the writer WriteValue picks for it.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">If a getter carries a token with no writer here.</exception>
+        private void WriteTyped(ref Getters p, object obj)
+        {
+            Delegate getter = p.TypedGetter!;
+            switch (p.TypedToken)
+            {
+                case TOKENS.INT:
+                    WriteInt(((Reflection.TypedGetter<int>)getter)(obj));
+                    break;
+                case TOKENS.LONG:
+                    WriteLong(((Reflection.TypedGetter<long>)getter)(obj));
+                    break;
+                case TOKENS.TRUE:
+                    WriteBool(((Reflection.TypedGetter<bool>)getter)(obj));
+                    break;
+                case TOKENS.DATETIME:
+                    WriteDateTime(((Reflection.TypedGetter<DateTime>)getter)(obj));
+                    break;
+                case TOKENS.GUID:
+                    WriteGuid(((Reflection.TypedGetter<Guid>)getter)(obj));
+                    break;
+                case TOKENS.DOUBLE:
+                    WriteDouble(((Reflection.TypedGetter<double>)getter)(obj));
+                    break;
+                case TOKENS.FLOAT:
+                    WriteFloat(((Reflection.TypedGetter<float>)getter)(obj));
+                    break;
+                case TOKENS.DECIMAL:
+                    WriteDecimal(((Reflection.TypedGetter<decimal>)getter)(obj));
+                    break;
+                case TOKENS.SHORT:
+                    WriteShort(((Reflection.TypedGetter<short>)getter)(obj));
+                    break;
+                case TOKENS.USHORT:
+                    WriteUShort(((Reflection.TypedGetter<ushort>)getter)(obj));
+                    break;
+                case TOKENS.UINT:
+                    WriteUInt(((Reflection.TypedGetter<uint>)getter)(obj));
+                    break;
+                case TOKENS.ULONG:
+                    WriteULong(((Reflection.TypedGetter<ulong>)getter)(obj));
+                    break;
+                case TOKENS.BYTE:
+                    WriteByte(((Reflection.TypedGetter<byte>)getter)(obj));
+                    break;
+                case TOKENS.SBYTE:
+                    WriteSByte(((Reflection.TypedGetter<sbyte>)getter)(obj));
+                    break;
+                case TOKENS.CHAR:
+                    WriteChar(((Reflection.TypedGetter<char>)getter)(obj));
+                    break;
+                case TOKENS.TIMESPAN:
+                    WriteTimeSpan(((Reflection.TypedGetter<TimeSpan>)getter)(obj));
+                    break;
+                default:
+                    throw new InvalidOperationException("No typed writer for token " + p.TypedToken + ".");
+            }
+        }
+
+        /// <summary>
+        /// A member's name and the colon after it, as written in the current encoding.
+        /// </summary>
+        /// <remarks>
+        /// Encoded once per member and encoding and kept on its getter, instead of measuring and
+        /// encoding the name again for every object. The DataMember name when there is one - the
+        /// reader has expected it since upstream v1.4.23, but no writer ever wrote it until this fork.
+        /// </remarks>
+        private byte[] MemberKey(ref Getters p)
+        {
+            if (_params.UseUnicodeStrings)
+                return p.KeyUtf16 ??= EncodeKey(p.memberName ?? p.Name);
+
+            return p.KeyUtf8 ??= EncodeKey(p.memberName ?? p.Name);
+        }
+
+        // Written by WriteName and WriteColon themselves, so the cached bytes cannot differ from theirs.
+        private byte[] EncodeKey(string name)
+        {
+            using (BJSONSerializer scratch = new BJSONSerializer(_params))
+            {
+                scratch.WriteName(name);
+                scratch.WriteColon();
+                return scratch._output.ToArray();
+            }
+        }
+
+        // The $types id for t, assigned in first-use order.
+        private string GetGlobalTypeId(Type t)
+        {
+            if (_globalTypes.TryGetValue(t, out int dt) == false)
+            {
+                dt = _globalTypes.Count + 1;
+                _globalTypes.Add(t, dt);
+            }
+
+            return dt.ToString();
         }
 
         private void WritePairFast(string name, string value)
@@ -615,7 +805,7 @@ namespace fastBinaryJSON
             WriteString(value);
         }
 
-        private void WritePair(string name, object value)
+        private void WritePair(string name, object? value)
         {
             if (_params.SerializeNulls == false && (value == null || value is DBNull))
                 return;
@@ -697,38 +887,144 @@ namespace fastBinaryJSON
             _output.WriteByte(TOKENS.ARRAY_END);
         }
 
+        /// <summary>
+        /// Writes an encoded name, choosing the single-byte or the four-byte length form.
+        /// </summary>
+        /// <remarks>
+        /// This used to put the length into one byte and then write `b.Length % 256` bytes, so both
+        /// wrapped and any name of 256 encoded bytes or more was silently truncated. The short form
+        /// is kept for everything below that threshold, unchanged, which is what leaves every name
+        /// that already worked byte-identical.
+        /// </remarks>
         private void WriteName(string s)
         {
-            byte[] b;
-            if (_params.UseUnicodeStrings == false)
+            bool unicode = _params.UseUnicodeStrings;
+            // byte[] on netstandard2.0, a PendingString on net10.0
+            var b = Encode(s, unicode);
+            if (b.Length < 256)
             {
-                _output.WriteByte(TOKENS.NAME);
-                b = Reflection.UTF8GetBytes(s);
+                _output.WriteByte(unicode ? TOKENS.NAME_UNI : TOKENS.NAME);
+                _output.WriteByte((byte)b.Length);
             }
             else
             {
-                _output.WriteByte(TOKENS.NAME_UNI);
-                b = Reflection.UnicodeGetBytes(s);
+                _output.WriteByte(unicode ? TOKENS.NAME_UNI_LONG : TOKENS.NAME_LONG);
+                WriteInt32Raw(b.Length);
             }
-            _output.WriteByte((byte)b.Length);
-            _output.Write(b, 0, b.Length % 256);
+
+            WriteBytesRaw(b);
         }
 
         private void WriteString(string s)
         {
-            byte[] b = null;
-            if (_params.UseUnicodeStrings)
-            {
-                _output.WriteByte(TOKENS.UNICODE_STRING);
-                b = Reflection.UnicodeGetBytes(s);
-            }
-            else
-            {
-                _output.WriteByte(TOKENS.STRING);
-                b = Reflection.UTF8GetBytes(s);
-            }
-            _output.Write(Helper.GetBytes(b.Length, false), 0, 4);
-            _output.Write(b, 0, b.Length);
+            bool unicode = _params.UseUnicodeStrings;
+            _output.WriteByte(unicode ? TOKENS.UNICODE_STRING : TOKENS.STRING);
+            var b = Encode(s, unicode);
+            WriteInt32Raw(b.Length);
+            WriteBytesRaw(b);
         }
+
+        #region Raw writes
+
+        /*
+         * Native byte order on both targets, exactly as Helper.GetBytes wrote it. Not
+         * BinaryPrimitives.WriteXxxLittleEndian: that would only differ on big-endian hardware, but
+         * byte-identical to upstream is the rule, not "identical where it happens to matter".
+         */
+        private void WriteInt16Raw(short value)
+        {
+#if NET10_0_OR_GREATER
+            Span<byte> buffer = stackalloc byte[sizeof(short)];
+            MemoryMarshal.Write(buffer, in value);
+            _output.Write(buffer);
+#else
+            _output.Write(Helper.GetBytes(value, false), 0, 2);
+#endif
+        }
+
+        private void WriteInt32Raw(int value)
+        {
+#if NET10_0_OR_GREATER
+            Span<byte> buffer = stackalloc byte[sizeof(int)];
+            MemoryMarshal.Write(buffer, in value);
+            _output.Write(buffer);
+#else
+            _output.Write(Helper.GetBytes(value, false), 0, 4);
+#endif
+        }
+
+        private void WriteInt64Raw(long value)
+        {
+#if NET10_0_OR_GREATER
+            Span<byte> buffer = stackalloc byte[sizeof(long)];
+            MemoryMarshal.Write(buffer, in value);
+            _output.Write(buffer);
+#else
+            _output.Write(Helper.GetBytes(value, false), 0, 8);
+#endif
+        }
+
+        // Overwrites four bytes written earlier - the $types pointer placeholder.
+        private void PatchInt32(int position, int value)
+        {
+#if NET10_0_OR_GREATER
+            _output.WriteInt32At(position, value);
+#else
+            _output.Seek(position, SeekOrigin.Begin);
+            WriteInt32Raw(value);
+#endif
+        }
+
+#if NET10_0_OR_GREATER
+        /// <summary>
+        /// A string whose encoded length is known but whose bytes are not produced yet.
+        /// </summary>
+        /// <remarks>
+        /// Every caller writes a length header before the bytes, so the length has to come first.
+        /// Carrying it separately lets <see cref="WriteBytesRaw"/> encode straight into the output
+        /// afterwards, instead of encoding into a scratch buffer and copying.
+        /// </remarks>
+        private readonly record struct PendingString(string Value, bool Unicode, int Length);
+
+        // Only measures; WriteBytesRaw produces the bytes.
+        private static PendingString Encode(string s, bool unicode) =>
+            new PendingString(s, unicode, unicode ? s.Length * sizeof(char) : Reflection.UTF8GetByteCount(s));
+
+        /// <summary>
+        /// Writes the string's bytes into the output without an intermediate copy.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">If the encoder wrote another length than it counted.</exception>
+        private void WriteBytesRaw(PendingString pending)
+        {
+            // The same bytes UnicodeGetBytes copied out of the string, without the copy.
+            if (pending.Unicode)
+            {
+                _output.Write(MemoryMarshal.AsBytes(pending.Value.AsSpan()));
+                return;
+            }
+
+            // Counted and encoded by the same encoder instance, so the two cannot disagree; checked
+            // anyway, because the header carrying the count is already written.
+            int written = Reflection.UTF8GetBytes(pending.Value, _output.GetSpan(pending.Length));
+            if (written != pending.Length)
+                throw new InvalidOperationException($"UTF-8 encoder wrote {written} bytes after counting {pending.Length}.");
+
+            _output.Advance(written);
+        }
+
+        private void WriteBytesRaw(ReadOnlySpan<byte> bytes) => _output.Write(bytes);
+
+        // Idempotent: called from ConvertToBJSON's finally and again from Dispose.
+        private void ReleasePooled() => _output.Dispose();
+#else
+        private static byte[] Encode(string s, bool unicode) => unicode ? Reflection.UnicodeGetBytes(s) : Reflection.UTF8GetBytes(s);
+
+        private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes, 0, bytes.Length);
+
+        // Nothing is pooled on this target.
+        private void ReleasePooled() { }
+#endif
+
+        #endregion
     }
 }

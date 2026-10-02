@@ -1,4 +1,5 @@
-﻿using fastBinaryJSON;
+﻿using DuraIT.FastBinaryJson;
+using DuraIT.FastBinaryJson.Internal;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using System;
@@ -43,6 +44,20 @@ using System.Threading;
 //{
 public class tests
 {
+    /*
+     * Custom type registration is process-wide and there is no public way back, so three tests in
+     * this file - CustomTypes, anonymoustype and the deleted datetimeoff - used to leave their
+     * registration in place for whatever NUnit ran next. That decided results elsewhere: a
+     * DateTimeOffset registered with a ToString()-based serializer loses sub-second precision, so
+     * any later test round-tripping one natively would silently go through the lossy path, in an
+     * order NUnit does not define.
+     */
+    [TearDown]
+    public void ClearRegistrations()
+    {
+        Reflection.Instance.ClearCustomTypes();
+    }
+
     //[TestFixtureTearDown]
     //public static void dteardown()
     //{
@@ -579,7 +594,7 @@ public class tests
         byte[] b = BJSON.ToBJSON(
             obj,
             new BJSONParameters { UseExtensions = false, EnableAnonymousTypes = true });
-        dynamic d = fastBinaryJSON.BJSON.ToDynamic(b);
+        dynamic d = BJSON.ToDynamic(b);
         var ss = d.Name;
         var oo = d.Age;
         var dob = d.dob;
@@ -724,7 +739,7 @@ public class tests
     public static void NonDefaultConstructor()
     {
         var o = new nondefaultctor(10);
-        //fastBinaryJSON.BJSON.Parameters.ParametricConstructorOverride = true;
+        //BJSON.Parameters.ParametricConstructorOverride = true;
         var s = BJSON.ToBJSON(o);
         //Console.WriteLine(s);
         var obj = BJSON.ToObject<nondefaultctor>(s, new BJSONParameters { ParametricConstructorOverride = true });
@@ -734,7 +749,7 @@ public class tests
         var obj2 = BJSON.ToObject<List<nondefaultctor>>(s, new BJSONParameters { ParametricConstructorOverride = true });
         ClassicAssert.AreEqual(3, obj2.Count);
         ClassicAssert.AreEqual(10, obj2[1].age);
-        //fastBinaryJSON.BJSON.Parameters.ParametricConstructorOverride = false;
+        //BJSON.Parameters.ParametricConstructorOverride = false;
     }
 
     public class o1
@@ -1061,15 +1076,14 @@ public class tests
     public static void CustomTypes()
     {
         var ip = new ctype();
-        // Was `System.Net.IPAddress.Loopback` upstream. On .NET (Core) that static returns a
-        // private subclass, System.Net.IPAddress+ReadOnlyIPAddress, where on .NET Framework 4.0
-        // it returned a plain IPAddress. IsTypeRegistered matches the exact runtime type, so the
-        // custom type registered below no longer applies, serialization falls through to
-        // reflection, and reflection reaches IPAddress.ScopeId, which throws SocketException for
-        // any IPv4 address. Constructing the address directly restores the type the test was
-        // written against. The exact-match gap itself is a real library limitation, recorded
-        // separately - it is not fixed here.
-        ip.ip = new System.Net.IPAddress(new byte[] { 127, 0, 0, 1 });
+        // Back to upstream's `IPAddress.Loopback`. It had to be replaced with a directly
+        // constructed address for a while: on .NET that static returns a private
+        // System.Net.IPAddress+ReadOnlyIPAddress subclass, and registration used to match the exact
+        // runtime type, so the registration below was skipped and reflection reached
+        // IPAddress.ScopeId, which throws SocketException for any IPv4 address. Registration now
+        // resolves through the base chain, so the original line works again - see
+        // RoundTrip.CustomTypeTests.
+        ip.ip = System.Net.IPAddress.Loopback;
 
         BJSON.RegisterCustomType(typeof(System.Net.IPAddress),
             (x) => { return x.ToString(); },
@@ -1203,31 +1217,6 @@ public class tests
 
         var d = BJSON.ToObject<Dictionary<string, byte[]>>(s);
         ClassicAssert.AreEqual(typeof(byte[]), d["Test 2"].GetType());
-    }
-
-    public class dto
-    {
-        public DateTimeOffset date;
-    }
-
-    [Test]
-    public static void datetimeoff()
-    {
-        DateTimeOffset dt = new DateTimeOffset(DateTime.Now);
-        BJSON.RegisterCustomType(typeof(DateTimeOffset),
-            (x) => { return x.ToString(); },
-            (x) => { return DateTimeOffset.Parse(x); }
-        );
-
-        var t = new dto();
-        t.date = dt;
-
-        var s = BJSON.ToBJSON(t);
-        var d = BJSON.ToObject(s);
-
-        s = BJSON.ToBJSON(dt);
-        d = BJSON.ToObject<DateTimeOffset>(s);
-        //ClassicAssert.AreEqual(dt, d);
     }
 
     public class X
@@ -1593,9 +1582,9 @@ public class tests
             Items = new KeyAndValue<string, Version>[] { new KeyAndValue<string, Version> { Key = "Test", Value = new Version() } }
         };
 
-        var bjson = fastBinaryJSON.BJSON.ToBJSON(input);
+        var bjson = BJSON.ToBJSON(input);
 
-        var output = fastBinaryJSON.BJSON.ToObject<CommandSendInfo>(bjson);
+        var output = BJSON.ToObject<CommandSendInfo>(bjson);
 
         ClassicAssert.AreEqual("Test", output.Items[0].Key);
     }

@@ -108,6 +108,8 @@ namespace FastBinaryJson.Benchmarks
             {
                 case "fbj-utf16": return new FastBinaryJsonArm(useUnicodeStrings: true);
                 case "fbj-utf8": return new FastBinaryJsonArm(useUnicodeStrings: false);
+                case "upstream-utf16": return new UpstreamFastBinaryJsonArm(useUnicodeStrings: true);
+                case "upstream-utf8": return new UpstreamFastBinaryJsonArm(useUnicodeStrings: false);
                 case "stj": return new SystemTextJsonArm();
                 case "msgpack": return new MessagePackArm();
                 default: throw new ArgumentOutOfRangeException(nameof(key), key, "Unknown serializer arm.");
@@ -133,6 +135,8 @@ namespace FastBinaryJson.Benchmarks
             {
                 new FastBinaryJsonArm(useUnicodeStrings: true),
                 new FastBinaryJsonArm(useUnicodeStrings: false),
+                new UpstreamFastBinaryJsonArm(useUnicodeStrings: true),
+                new UpstreamFastBinaryJsonArm(useUnicodeStrings: false),
                 new SystemTextJsonArm(),
                 new MessagePackArm(),
             };

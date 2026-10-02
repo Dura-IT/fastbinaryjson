@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="src/FastBinaryJson/FastBinaryJson.csproj" />
   <Project Path="tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj" />
+  <Project Path="tests/FastBinaryJson.UnitTests.Netstandard20/FastBinaryJson.UnitTests.Netstandard20.csproj" />
   <Project Path="benchmarks/FastBinaryJson.Benchmarks/FastBinaryJson.Benchmarks.csproj" />
 </Solution>

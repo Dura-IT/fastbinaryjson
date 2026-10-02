@@ -26,12 +26,37 @@ namespace FastBinaryJson.Benchmarks
     /// </summary>
     public sealed class FastBinaryJsonArm : ISerializerArm
     {
-        private readonly global::fastBinaryJSON.BJSONParameters _parameters;
+        private readonly global::DuraIT.FastBinaryJson.BJSONParameters _parameters;
         private readonly string _name;
 
         public FastBinaryJsonArm(bool useUnicodeStrings)
         {
             _name = useUnicodeStrings ? "fastBinaryJSON (UTF-16)" : "fastBinaryJSON (UTF-8)";
+            _parameters = new global::DuraIT.FastBinaryJson.BJSONParameters
+            {
+                UseUnicodeStrings = useUnicodeStrings,
+            };
+        }
+
+        public string Name => _name;
+
+        public byte[] Serialize<T>(T value) => global::DuraIT.FastBinaryJson.BJSON.ToBJSON(value!, _parameters);
+
+        public T Deserialize<T>(byte[] bytes) => global::DuraIT.FastBinaryJson.BJSON.ToObject<T>(bytes, _parameters)!;
+    }
+
+    /// <summary>
+    /// Upstream fastBinaryJSON 1.6.1 from nuget.org, configured exactly like
+    /// <see cref="FastBinaryJsonArm"/> so the two differ only in implementation.
+    /// </summary>
+    public sealed class UpstreamFastBinaryJsonArm : ISerializerArm
+    {
+        private readonly global::fastBinaryJSON.BJSONParameters _parameters;
+        private readonly string _name;
+
+        public UpstreamFastBinaryJsonArm(bool useUnicodeStrings)
+        {
+            _name = useUnicodeStrings ? "upstream 1.6.1 (UTF-16)" : "upstream 1.6.1 (UTF-8)";
             _parameters = new global::fastBinaryJSON.BJSONParameters
             {
                 UseUnicodeStrings = useUnicodeStrings,
@@ -40,9 +65,9 @@ namespace FastBinaryJson.Benchmarks
 
         public string Name => _name;
 
-        public byte[] Serialize<T>(T value) => global::fastBinaryJSON.BJSON.ToBJSON(value, _parameters);
+        public byte[] Serialize<T>(T value) => global::fastBinaryJSON.BJSON.ToBJSON(value!, _parameters);
 
-        public T Deserialize<T>(byte[] bytes) => global::fastBinaryJSON.BJSON.ToObject<T>(bytes, _parameters);
+        public T Deserialize<T>(byte[] bytes) => global::fastBinaryJSON.BJSON.ToObject<T>(bytes, _parameters)!;
     }
 
     /// <summary>
