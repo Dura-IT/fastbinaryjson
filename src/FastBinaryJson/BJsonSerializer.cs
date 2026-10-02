@@ -654,7 +654,7 @@ namespace DuraIT.FastBinaryJson
             int c = g.Length;
             for (int ii = 0; ii < c; ii++)
             {
-                var p = g[ii];
+                ref Getters p = ref g[ii];
                 var o = p.Getter(obj);
                 if (_params.SerializeNulls == false && (o == null || o is DBNull))
                 {
@@ -664,14 +664,41 @@ namespace DuraIT.FastBinaryJson
                 {
                     if (append)
                         WriteComma();
-                    // The DataMember name when there is one - the reader has expected it since upstream
-                    // v1.4.23, but no writer ever wrote it until this fork.
-                    WritePair(p.memberName ?? p.Name, o);
+                    // Name and colon in one copy; WritePair's own null check cannot fire here.
+                    WriteBytesRaw(MemberKey(ref p));
+                    WriteValue(o);
                     append = true;
                 }
             }
             _output.WriteByte(TOKENS.DOC_END);
             _current_depth--;
+        }
+
+        /// <summary>
+        /// A member's name and the colon after it, as written in the current encoding.
+        /// </summary>
+        /// <remarks>
+        /// Encoded once per member and encoding and kept on its getter, instead of measuring and
+        /// encoding the name again for every object. The DataMember name when there is one - the
+        /// reader has expected it since upstream v1.4.23, but no writer ever wrote it until this fork.
+        /// </remarks>
+        private byte[] MemberKey(ref Getters p)
+        {
+            if (_params.UseUnicodeStrings)
+                return p.KeyUtf16 ??= EncodeKey(p.memberName ?? p.Name);
+
+            return p.KeyUtf8 ??= EncodeKey(p.memberName ?? p.Name);
+        }
+
+        // Written by WriteName and WriteColon themselves, so the cached bytes cannot differ from theirs.
+        private byte[] EncodeKey(string name)
+        {
+            using (BJSONSerializer scratch = new BJSONSerializer(_params))
+            {
+                scratch.WriteName(name);
+                scratch.WriteColon();
+                return scratch._output.ToArray();
+            }
         }
 
         // The $types id for t, assigned in first-use order.

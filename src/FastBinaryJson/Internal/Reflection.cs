@@ -18,6 +18,14 @@ namespace DuraIT.FastBinaryJson.Internal
         public string? memberName;
         public Reflection.GenericGetter Getter;
         public bool ReadOnly;
+
+        /*
+         * The member's key and colon as the writer writes them, per encoding, filled on first use.
+         * Getters arrays are cached per type and shared between threads; a race only encodes the same
+         * bytes twice. Internal because this struct is public and these are not part of it.
+         */
+        internal byte[]? KeyUtf16;
+        internal byte[]? KeyUtf8;
     }
 
     public enum myPropInfoType
