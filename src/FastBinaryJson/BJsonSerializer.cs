@@ -32,7 +32,12 @@ namespace DuraIT.FastBinaryJson
         private int _MAX_DEPTH = 20;
         int _current_depth = 0;
         private Dictionary<string, int> _globalTypes = new Dictionary<string, int>();
-        private Dictionary<object, int> _cirobj = new Dictionary<object, int>();
+        /*
+         * By identity: $i means "this same instance". Default equality wrote a distinct object that
+         * merely compared Equal as a reference to the first one, so an entity with Equals over its Id
+         * lost every other member, and equal records or structs came back as one shared instance.
+         */
+        private Dictionary<object, int> _cirobj = new Dictionary<object, int>(ReferenceComparer.Instance);
         private BJSONParameters _params;
 
         private void Dispose(bool disposing)

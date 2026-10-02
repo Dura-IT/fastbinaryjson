@@ -7,6 +7,8 @@ using AwesomeAssertions;
 
 using DuraIT.FastBinaryJson;
 
+using FastBinaryJson.UnitTests.RoundTrip;
+
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.Golden
@@ -51,6 +53,8 @@ namespace FastBinaryJson.UnitTests.Golden
         private const string RegenerateVariable = "FBJ_REGEN_GOLDEN";
 
         private const string CoreLibraryName = "System.Private.CoreLib";
+
+        private const string LegacyEqualStructs = "legacy-equal-structs-as-reference";
 
         private static readonly Version ExpectedRuntimeVersion = new Version(10, 0, 0, 0);
 
@@ -230,6 +234,39 @@ namespace FastBinaryJson.UnitTests.Golden
             restored.Third.Should().BeSameAs(restored.First, "the two fields were the same instance when written, and $i encodes that");
             restored.Second.Should().NotBeSameAs(restored.First, "the middle value was a distinct instance");
             restored.Second.Name.Should().Be("Other", "the back-reference index must not have been resolved to the wrong object");
+        }
+
+        /// <summary>
+        /// Reads bytes in which an equal struct was written as a back-reference to the first one.
+        /// </summary>
+        /// <remarks>
+        /// The writer used to look up the objects it had written by Equals, so the second of two equal
+        /// structs went out as {"$i": 2}. It compares by identity now and writes both in full, so
+        /// nothing produces these bytes any more - but stored payloads contain them, and both read
+        /// paths must resolve the reference to the first struct's value. The file was written once
+        /// by the writer before that fix (a3849df). It is read-only: it is not one of
+        /// <see cref="Cases"/>, so a regeneration run does not rewrite it.
+        /// </remarks>
+        [TestCase(true)]
+        [TestCase(false)]
+        public void LegacyEqualStructs_CommittedBytes_RestoreBothValues(bool oneStep)
+        {
+            string path = FixturePath(LegacyEqualStructs);
+            if (File.Exists(path) == false)
+            {
+                Assert.Fail("No legacy file '" + LegacyEqualStructs + "' at " + path + ". It cannot be regenerated: the current writer no longer produces it.");
+                return;
+            }
+
+            byte[] bytes = File.ReadAllBytes(path);
+            // Guards the premise, so the test cannot pass on a file that has lost its back-reference.
+            bytes.AsSpan().IndexOf(Encoding.Unicode.GetBytes("$i")).Should().BeGreaterThanOrEqualTo(0, "the file has to hold the back-reference this test exists to read");
+
+            BJSON.ClearReflectionCache();
+            EqStructsThenShared restored = (EqStructsThenShared)new Deserializer(Defaults()) { OneStep = oneStep }.ToObject(bytes, typeof(EqStructsThenShared))!;
+
+            restored.A.Should().Be(new EqPoint { X = 5, Y = 6 });
+            restored.B.Should().Be(new EqPoint { X = 5, Y = 6 });
         }
 
         private static BJSONParameters Defaults()

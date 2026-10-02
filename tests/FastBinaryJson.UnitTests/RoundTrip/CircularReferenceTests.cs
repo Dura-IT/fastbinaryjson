@@ -39,7 +39,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         }
 
         /// <summary>
-        /// Two equal structs: the writer writes the second as $i to the first.
+        /// Two equal structs. The writer used to write the second as $i to the first and writes both in
+        /// full now; GoldenFileTests.LegacyEqualStructs_CommittedBytes_RestoreBothValues keeps the old
+        /// bytes covered.
         /// </summary>
         [TestCase(true)]
         [TestCase(false)]
