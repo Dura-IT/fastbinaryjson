@@ -28,9 +28,9 @@ namespace DuraIT.FastBinaryJson
         private readonly MemoryStream _output = new MemoryStream();
 #endif
 
-        private int _typespointer = 0;
+        private int _typespointer;
         private readonly int _MAX_DEPTH = 20;
-        int _current_depth = 0;
+        int _current_depth;
 
         /*
          * Keyed by Type, not by assembly-qualified name: every object looks itself up here, and the name
@@ -450,7 +450,7 @@ namespace DuraIT.FastBinaryJson
             WriteInt16Raw(unchecked((short)(int)value.Offset.TotalMinutes));
         }
 
-        private DatasetSchema? GetSchema(DataTable? ds)
+        private static DatasetSchema? GetSchema(DataTable? ds)
         {
             if (ds == null)
                 return null;
@@ -470,7 +470,7 @@ namespace DuraIT.FastBinaryJson
             return m;
         }
 
-        private DatasetSchema? GetSchema(DataSet? ds)
+        private static DatasetSchema? GetSchema(DataSet? ds)
         {
             if (ds == null)
                 return null;
@@ -493,7 +493,7 @@ namespace DuraIT.FastBinaryJson
             return m;
         }
 
-        private string GetXmlSchema(DataTable dt)
+        private static string GetXmlSchema(DataTable dt)
         {
             using (var writer = new StringWriter())
             {
@@ -553,7 +553,7 @@ namespace DuraIT.FastBinaryJson
         {
             _output.WriteByte(TOKENS.DOC_START);
             {
-                this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)this.GetSchema(dt) : this.GetXmlSchema(dt));
+                this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(dt) : GetXmlSchema(dt));
                 WriteComma();
             }
 
@@ -563,7 +563,7 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(TOKENS.DOC_END);
         }
 
-        bool _TypesWritten = false;
+        bool _TypesWritten;
 
         private void WriteObject(object obj)
         {
@@ -989,7 +989,7 @@ namespace DuraIT.FastBinaryJson
         private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes, 0, bytes.Length);
 
         // Nothing is pooled on this target.
-        private void ReleasePooled() { }
+        private static void ReleasePooled() { }
 #endif
 
         #endregion

@@ -84,7 +84,7 @@ namespace DuraIT.FastBinaryJson
         /// <summary>
         /// Serialize readonly properties (default = False)
         /// </summary>
-        public bool ShowReadOnlyProperties = false;
+        public bool ShowReadOnlyProperties;
 
         /// <summary>
         /// Use global types $types for more compact size when using a lot of classes (default = True)
@@ -99,7 +99,7 @@ namespace DuraIT.FastBinaryJson
         /// <summary>
         /// Serialize Null values to the output (default = False)
         /// </summary>
-        public bool SerializeNulls = false;
+        public bool SerializeNulls;
 
         /// <summary>
         /// Enable fastBinaryJSON extensions $types, $type, $map (default = True)
@@ -109,12 +109,12 @@ namespace DuraIT.FastBinaryJson
         /// <summary>
         /// Anonymous types have read only properties
         /// </summary>
-        public bool EnableAnonymousTypes = false;
+        public bool EnableAnonymousTypes;
 
         /// <summary>
         /// Use the UTC date format (default = False)
         /// </summary>
-        public bool UseUTCDateTime = false;
+        public bool UseUTCDateTime;
 
         /// <summary>
         /// Ignore attributes to check for (default : XmlIgnoreAttribute, NonSerialized)
@@ -126,7 +126,7 @@ namespace DuraIT.FastBinaryJson
         ///
         /// IMPORTANT NOTE : If True then all initial values within the class will be ignored and will be not set
         /// </summary>
-        public bool ParametricConstructorOverride = false;
+        public bool ParametricConstructorOverride;
 
         /// <summary>
         /// Maximum depth the serializer will go to to avoid loops (default = 20 levels)
@@ -465,7 +465,7 @@ namespace DuraIT.FastBinaryJson
             return o;
         }
 
-        private object? ChangeType(object? o, Type type)
+        private static object? ChangeType(object? o, Type type)
         {
             if (Reflection.Instance.IsTypeRegistered(type))
                 return Reflection.Instance.CreateCustom((string)o!, type);
@@ -567,7 +567,7 @@ namespace DuraIT.FastBinaryJson
             return null;
         }
 
-        private bool _globalTypes = false;
+        private bool _globalTypes;
 
         #region Shared with TypedReader
 
@@ -824,7 +824,7 @@ namespace DuraIT.FastBinaryJson
             return oset;
         }
 
-        private StringDictionary CreateSD(Dictionary<string, object> d)
+        private static StringDictionary CreateSD(Dictionary<string, object> d)
         {
             StringDictionary nv = new StringDictionary();
 
@@ -834,7 +834,7 @@ namespace DuraIT.FastBinaryJson
             return nv;
         }
 
-        private NameValueCollection CreateNV(Dictionary<string, object> d)
+        private static NameValueCollection CreateNV(Dictionary<string, object> d)
         {
             NameValueCollection nv = new NameValueCollection();
 
@@ -844,7 +844,7 @@ namespace DuraIT.FastBinaryJson
             return nv;
         }
 
-        private object CreateEnum(Type pt, object v)
+        private static object CreateEnum(Type pt, object v)
         {
             // FEATURE : optimize create enum
             return Enum.Parse(pt, v.ToString()!);
@@ -1016,7 +1016,7 @@ namespace DuraIT.FastBinaryJson
             return ds;
         }
 
-        private void ReadDataTable(List<object> rows, DataTable dt)
+        private static void ReadDataTable(List<object> rows, DataTable dt)
         {
             dt.BeginInit();
             dt.BeginLoadData();

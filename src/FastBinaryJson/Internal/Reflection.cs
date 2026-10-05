@@ -115,7 +115,7 @@ namespace DuraIT.FastBinaryJson.Internal
             get { return instance; }
         }
 
-        public static bool RDBMode = false;
+        public static bool RDBMode;
 
         public delegate string Serialize(object data);
         public delegate object Deserialize(string data);
@@ -547,7 +547,7 @@ namespace DuraIT.FastBinaryJson.Internal
             return d;
         }
 
-        private Type GetChangeType(Type conversionType)
+        private static Type GetChangeType(Type conversionType)
         {
             if (conversionType.IsGenericType && conversionType.GetGenericTypeDefinition().Equals(typeof(Nullable<>)))
                 return Reflection.Instance.GetGenericArguments(conversionType)[0];
