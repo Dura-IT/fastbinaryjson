@@ -408,10 +408,9 @@ namespace DuraIT.FastBinaryJson.Internal
                     var att = p.GetCustomAttributes(true);
                     foreach (var at in att)
                     {
-                        if (at is DataMemberAttribute dm)
+                        if (at is DataMemberAttribute dm && dm.Name != "")
                         {
-                            if (dm.Name != "")
-                                d.memberName = dm.Name;
+                            d.memberName = dm.Name;
                         }
                     }
                     AddMemberKeys(sd, aliases, d, p.Name);
@@ -433,10 +432,9 @@ namespace DuraIT.FastBinaryJson.Internal
                         var att = f.GetCustomAttributes(true);
                         foreach (var at in att)
                         {
-                            if (at is DataMemberAttribute dm)
+                            if (at is DataMemberAttribute dm && dm.Name != "")
                             {
-                                if (dm.Name != "")
-                                    d.memberName = dm.Name;
+                                d.memberName = dm.Name;
                             }
                         }
                         AddMemberKeys(sd, aliases, d, f.Name);
@@ -587,20 +585,17 @@ namespace DuraIT.FastBinaryJson.Internal
                 }
 
                 Type? t = Type.GetType(typename);
-                if (RDBMode)
+                if (RDBMode && t == null) // RaptorDB : loading runtime assemblies
                 {
-                    if (t == null) // RaptorDB : loading runtime assemblies
-                    {
-                        t = Type.GetType(
-                            typename,
-                            (name) =>
-                            {
-                                return AppDomain.CurrentDomain.GetAssemblies().Where(z => z.FullName == name.FullName).FirstOrDefault();
-                            },
-                            null,
-                            true
-                        );
-                    }
+                    t = Type.GetType(
+                        typename,
+                        (name) =>
+                        {
+                            return AppDomain.CurrentDomain.GetAssemblies().Where(z => z.FullName == name.FullName).FirstOrDefault();
+                        },
+                        null,
+                        true
+                    );
                 }
                 _typecache.Add(typename, t!);
                 return t;
@@ -907,16 +902,15 @@ namespace DuraIT.FastBinaryJson.Internal
                         as FieldInfo;
                 }
                 // Otherwise, set the current position to the start of the next instruction, if any (we need to know how much bytes are used by operands).
-                pos +=
-                    opCode.OperandType == OperandType.InlineNone ? 0
-                    : opCode.OperandType == OperandType.ShortInlineBrTarget
-                    || opCode.OperandType == OperandType.ShortInlineI
-                    || opCode.OperandType == OperandType.ShortInlineVar
-                        ? 1
-                    : opCode.OperandType == OperandType.InlineVar ? 2
-                    : opCode.OperandType == OperandType.InlineI8 || opCode.OperandType == OperandType.InlineR ? 8
-                    : opCode.OperandType == OperandType.InlineSwitch ? 4 * (BitConverter.ToInt32(byteCode, pos) + 1)
-                    : 4;
+                pos += opCode.OperandType switch
+                {
+                    OperandType.InlineNone => 0,
+                    OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+                    OperandType.InlineVar => 2,
+                    OperandType.InlineI8 or OperandType.InlineR => 8,
+                    OperandType.InlineSwitch => 4 * (BitConverter.ToInt32(byteCode, pos) + 1),
+                    _ => 4,
+                };
             }
             return null;
         }
@@ -1096,12 +1090,9 @@ namespace DuraIT.FastBinaryJson.Internal
                 var att = p.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
-                    if (at is DataMemberAttribute dm)
+                    if (at is DataMemberAttribute dm && dm.Name != "")
                     {
-                        if (dm.Name != "")
-                        {
-                            mName = dm.Name;
-                        }
+                        mName = dm.Name;
                     }
                 }
                 GenericGetter? g = CreateGetMethod(type, p);
@@ -1144,12 +1135,9 @@ namespace DuraIT.FastBinaryJson.Internal
                 var att = f.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
-                    if (at is DataMemberAttribute dm)
+                    if (at is DataMemberAttribute dm && dm.Name != "")
                     {
-                        if (dm.Name != "")
-                        {
-                            mName = dm.Name;
-                        }
+                        mName = dm.Name;
                     }
                 }
                 if (!f.IsLiteral)

@@ -826,7 +826,7 @@ namespace DuraIT.FastBinaryJson
                 if (pendingSeparator)
                     WriteComma();
 
-                WritePair((string)entry.Key, entry.Value);
+                WritePair(entry.Key, entry.Value);
 
                 pendingSeparator = true;
             }

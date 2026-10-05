@@ -482,21 +482,21 @@ namespace DuraIT.FastBinaryJson
 
         internal short ParseShort()
         {
-            short u = (short)Helper.ToInt16(_json, _index);
+            short u = Helper.ToInt16(_json, _index);
             _index += 2;
             return u;
         }
 
         internal long ParseLong()
         {
-            long u = (long)Helper.ToInt64(_json, _index);
+            long u = Helper.ToInt64(_json, _index);
             _index += 8;
             return u;
         }
 
         internal int ParseInt()
         {
-            int u = (int)Helper.ToInt32(_json, _index);
+            int u = Helper.ToInt32(_json, _index);
             _index += 4;
             return u;
         }

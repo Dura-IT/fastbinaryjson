@@ -683,7 +683,7 @@ namespace DuraIT.FastBinaryJson
                     globaltypes = new Dictionary<string, object>();
                 foreach (var kv in (Dictionary<string, object>)tn)
                 {
-                    globaltypes.Add((string)kv.Key, kv.Value);
+                    globaltypes.Add(kv.Key, kv.Value);
                 }
             }
 

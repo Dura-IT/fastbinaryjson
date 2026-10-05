@@ -48,9 +48,8 @@ namespace DuraIT.FastBinaryJson
 
         public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
-            if (!_dictionary!.TryGetValue(binder.Name, out result))
-                if (!_dictionary.TryGetValue(binder.Name.ToLowerInvariant(), out result))
-                    return false;
+            if (!_dictionary!.TryGetValue(binder.Name, out result) && !_dictionary.TryGetValue(binder.Name.ToLowerInvariant(), out result))
+                return false;
 
             if (result is IDictionary<string, object> memberDictionary)
             {
