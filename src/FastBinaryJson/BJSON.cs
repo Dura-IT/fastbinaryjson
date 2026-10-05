@@ -230,6 +230,12 @@ namespace DuraIT.FastBinaryJson
         /// <returns></returns>
         public static byte[] ToBJSON(object obj, BJSONParameters param)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(param);
+#else
+            if (param == null)
+                throw new ArgumentNullException(nameof(param));
+#endif
             param.FixValues();
             param = param.MakeCopy();
             Type? t = null;
@@ -257,6 +263,12 @@ namespace DuraIT.FastBinaryJson
         /// <returns></returns>
         public static object? FillObject(object input, byte[] json)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(input);
+#else
+            if (input == null)
+                throw new ArgumentNullException(nameof(input));
+#endif
             return new Deserializer(Parameters).FillObject(input, json);
         }
 
@@ -280,6 +292,12 @@ namespace DuraIT.FastBinaryJson
         /// <returns></returns>
         public static T? ToObject<T>(byte[] json, BJSONParameters param)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(param);
+#else
+            if (param == null)
+                throw new ArgumentNullException(nameof(param));
+#endif
             return new Deserializer(param).ToObject<T>(json);
         }
 
@@ -301,6 +319,12 @@ namespace DuraIT.FastBinaryJson
         /// <returns></returns>
         public static object? ToObject(byte[] json, BJSONParameters param)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(param);
+#else
+            if (param == null)
+                throw new ArgumentNullException(nameof(param));
+#endif
             param.FixValues();
             param = param.MakeCopy();
             return new Deserializer(param).ToObject(json, null);
@@ -700,7 +724,7 @@ namespace DuraIT.FastBinaryJson
                 type = ResolveType(tn!, _globalTypes ? globaltypes : null);
 
             if (type == null)
-                throw new Exception("Cannot determine type");
+                throw new BjsonException("Cannot determine type");
 
             string typename = type.FullName!;
             object? o = input ?? CreateInstance(type);

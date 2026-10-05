@@ -600,7 +600,7 @@ namespace DuraIT.FastBinaryJson
             }
             _current_depth++;
             if (_current_depth > _MAX_DEPTH)
-                throw new Exception("Serializer encountered maximum depth of " + _MAX_DEPTH);
+                throw new BjsonException("Serializer encountered maximum depth of " + _MAX_DEPTH);
 
             Type t = obj.GetType();
             bool append = false;

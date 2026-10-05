@@ -581,7 +581,7 @@ namespace DuraIT.FastBinaryJson.Internal
                     var tn = typename.Trim().ToLowerInvariant();
                     foreach (var s in _blacklistTypes)
                         if (tn.StartsWith(s, StringComparison.Ordinal))
-                            throw new Exception("Black list type encountered, possible attack vector when using $type : " + typename);
+                            throw new BjsonException("Black list type encountered, possible attack vector when using $type : " + typename);
                 }
 
                 Type? t = Type.GetType(typename);
@@ -640,7 +640,7 @@ namespace DuraIT.FastBinaryJson.Internal
             }
             catch (Exception exc)
             {
-                throw new Exception(
+                throw new BjsonException(
                     string.Format("Failed to fast create instance for type '{0}' from assembly '{1}'", objtype.FullName, objtype.AssemblyQualifiedName),
                     exc
                 );
@@ -685,7 +685,7 @@ namespace DuraIT.FastBinaryJson.Internal
             }
             catch (Exception exc)
             {
-                throw new Exception(
+                throw new BjsonException(
                     string.Format("Failed to fast create instance for type '{0}' from assembly '{1}'", objtype.FullName, objtype.AssemblyQualifiedName),
                     exc
                 );

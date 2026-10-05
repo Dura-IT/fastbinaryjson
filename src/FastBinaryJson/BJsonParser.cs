@@ -99,13 +99,13 @@ namespace DuraIT.FastBinaryJson
             if (token == TOKENS.NAME_UNI_LONG)
                 return ParseLongName(true);
 
-            throw new Exception("excpecting a name field");
+            throw new BjsonException("excpecting a name field");
         }
 
         internal void ReadColon()
         {
             if (GetToken() != TOKENS.COLON)
-                throw new Exception("expecting a colon");
+                throw new BjsonException("expecting a colon");
         }
 
         /// <summary>
@@ -367,7 +367,7 @@ namespace DuraIT.FastBinaryJson
                     return ParsTimeSpan();
             }
 
-            throw new Exception("Unrecognized token at index = " + _index);
+            throw new BjsonException("Unrecognized token at index = " + _index);
         }
 
         internal TimeSpan ParsTimeSpan()
