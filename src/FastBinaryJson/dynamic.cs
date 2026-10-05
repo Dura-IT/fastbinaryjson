@@ -69,7 +69,7 @@ namespace DuraIT.FastBinaryJson
                 result = list;
             }
 
-            return _dictionary!.ContainsKey(binder.Name);
+            return _dictionary.ContainsKey(binder.Name);
         }
 
         public IEnumerator GetEnumerator()

@@ -419,7 +419,7 @@ namespace DuraIT.FastBinaryJson
 
             var o = new BJsonParser(json, _params.UseUTCDateTime, _params.v1_4TypedArray).Decode();
             if (type?.IsEnum == true)
-                return CreateEnum(type!, o!);
+                return CreateEnum(type, o!);
             if (type != null && type == typeof(DataSet))
                 return CreateDataset(o as Dictionary<string, object>, null);
 
@@ -494,10 +494,10 @@ namespace DuraIT.FastBinaryJson
                 object? key = values["k"];
                 object? val = values["v"];
                 if (key is Dictionary<string, object>)
-                    key = ParseDictionary((Dictionary<string, object>)key!, null, typeof(object), null);
+                    key = ParseDictionary((Dictionary<string, object>)key, null, typeof(object), null);
 
                 if (val is Dictionary<string, object>)
-                    val = ParseDictionary((Dictionary<string, object>)val!, null, typeof(object), null);
+                    val = ParseDictionary((Dictionary<string, object>)val, null, typeof(object), null);
 
                 h.Add(key!, val);
             }
@@ -546,8 +546,8 @@ namespace DuraIT.FastBinaryJson
                     _globalTypes = false;
                     object? v;
                     object k = kv.Key;
-                    if (t2!.Name.StartsWith("Dictionary")) // deserialize a dictionary
-                        v = RootDictionary(kv.Value, t2!);
+                    if (t2.Name.StartsWith("Dictionary")) // deserialize a dictionary
+                        v = RootDictionary(kv.Value, t2);
                     else if (kv.Value is Dictionary<string, object> valueDictionary)
                         v = ParseDictionary(valueDictionary, null, t2, null);
                     else if (t2 == typeof(byte[]))
@@ -677,9 +677,9 @@ namespace DuraIT.FastBinaryJson
                 return CreateSD(d!);
 
             if (d!.TryGetValue("$i", out tn))
-                return ResolveCircular(tn!);
+                return ResolveCircular(tn);
 
-            if (d!.TryGetValue("$types", out tn))
+            if (d.TryGetValue("$types", out tn))
             {
                 _globalTypes = true;
                 if (globaltypes == null)
@@ -693,7 +693,7 @@ namespace DuraIT.FastBinaryJson
             if (globaltypes != null)
                 _globalTypes = true;
 
-            bool found = d!.TryGetValue("$type", out tn);
+            bool found = d.TryGetValue("$type", out tn);
             if (!found && type == typeof(System.Object))
             {
                 return d; // CreateDataset(d, globaltypes);
@@ -710,18 +710,18 @@ namespace DuraIT.FastBinaryJson
             int id = RegisterCircular(o);
 
             WireNameMap props = Reflection.Instance.GetWireNameMap(type, typename, _params.ShowReadOnlyProperties); //, Reflection.Instance.IsTypeRegistered(type));
-            foreach (var kv in d!)
+            foreach (var kv in d)
             {
                 var v = kv.Value;
                 myPropInfo? pi = props.Find(kv.Key);
                 if (pi == null)
                     continue;
                 if (pi.CanWrite && v != null)
-                    o = pi.setter!(o!, ConvertValue(pi, v, globaltypes)!);
+                    o = pi.setter!(o, ConvertValue(pi, v, globaltypes)!);
             }
 
             if (type.IsValueType)
-                UpdateCircular(id, o!);
+                UpdateCircular(id, o);
             return o;
         }
 
@@ -816,9 +816,9 @@ namespace DuraIT.FastBinaryJson
                 else if (dd is TypedArray)
                     oo = ParseTypedArray(globaltypes, dd);
                 else if (dd is Dictionary<string, object>)
-                    oo = ParseDictionary((Dictionary<string, object>)dd!, globaltypes, t, null);
+                    oo = ParseDictionary((Dictionary<string, object>)dd, globaltypes, t, null);
                 else if (dd is List<object>)
-                    oo = CreateArray((List<object>)dd!, t!, t!.GetElementType(), globaltypes);
+                    oo = CreateArray((List<object>)dd, t!, t!.GetElementType(), globaltypes);
                 else
                     oo = dd;
                 a[i++] = oo;
@@ -926,7 +926,7 @@ namespace DuraIT.FastBinaryJson
                 object? val = null;
 
                 if (values.Value is Dictionary<string, object>)
-                    val = ParseDictionary((Dictionary<string, object>)values.Value!, globalTypes, t2, null);
+                    val = ParseDictionary((Dictionary<string, object>)values.Value, globalTypes, t2, null);
                 else if (types != null && t2.IsArray)
                 {
                     if (values.Value is Array)
@@ -962,12 +962,12 @@ namespace DuraIT.FastBinaryJson
                 object? val = values["v"];
 
                 if (key is Dictionary<string, object>)
-                    key = ParseDictionary((Dictionary<string, object>)key!, globalTypes, t1, null);
+                    key = ParseDictionary((Dictionary<string, object>)key, globalTypes, t1, null);
 
                 if (typeof(IDictionary).IsAssignableFrom(t2))
-                    val = RootDictionary(val!, t2!);
+                    val = RootDictionary(val, t2);
                 else if (val is Dictionary<string, object>)
-                    val = ParseDictionary((Dictionary<string, object>)val!, globalTypes, t2, null);
+                    val = ParseDictionary((Dictionary<string, object>)val, globalTypes, t2, null);
 
                 col.Add(key!, val);
             }
@@ -991,13 +991,13 @@ namespace DuraIT.FastBinaryJson
             }
             else
             {
-                DatasetSchema ms = (DatasetSchema)ParseDictionary((Dictionary<string, object>)schema!, globalTypes, typeof(DatasetSchema), null)!;
+                DatasetSchema ms = (DatasetSchema)ParseDictionary((Dictionary<string, object>)schema, globalTypes, typeof(DatasetSchema), null)!;
                 ds.DataSetName = ms.Name!;
                 for (int i = 0; i < ms.Info!.Count; i += 3)
                 {
                     if (!ds.Tables.Contains(ms.Info[i]))
                         ds.Tables.Add(ms.Info[i]);
-                    ds.Tables[ms.Info![i]]!.Columns.Add(ms.Info[i + 1], Type.GetType(ms.Info[i + 2])!);
+                    ds.Tables[ms.Info[i]]!.Columns.Add(ms.Info[i + 1], Type.GetType(ms.Info[i + 2])!);
                 }
             }
 
@@ -1049,11 +1049,11 @@ namespace DuraIT.FastBinaryJson
             }
             else
             {
-                var ms = (DatasetSchema)this.ParseDictionary((Dictionary<string, object>)schema!, globalTypes, typeof(DatasetSchema), null)!;
+                var ms = (DatasetSchema)this.ParseDictionary((Dictionary<string, object>)schema, globalTypes, typeof(DatasetSchema), null)!;
                 dt.TableName = ms.Info![0];
                 for (int i = 0; i < ms.Info.Count; i += 3)
                 {
-                    dt.Columns.Add(ms.Info![i + 1], Type.GetType(ms.Info[i + 2])!);
+                    dt.Columns.Add(ms.Info[i + 1], Type.GetType(ms.Info[i + 2])!);
                 }
             }
 
