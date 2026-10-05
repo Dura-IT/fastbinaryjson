@@ -50,7 +50,7 @@ namespace DuraIT.FastBinaryJson
         {
             if (!_dictionary!.TryGetValue(binder.Name, out result))
                 if (!_dictionary.TryGetValue(binder.Name.ToLowerInvariant(), out result))
-                    return false; // throw new Exception("property not found " + binder.Name);
+                    return false;
 
             if (result is IDictionary<string, object> memberDictionary)
             {

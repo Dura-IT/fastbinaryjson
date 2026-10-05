@@ -28,7 +28,6 @@ namespace DuraIT.FastBinaryJson
         private readonly MemoryStream _output = new MemoryStream();
 #endif
 
-        //private MemoryStream _before = new MemoryStream();
         private int _typespointer = 0;
         private readonly int _MAX_DEPTH = 20;
         int _current_depth = 0;
@@ -56,7 +55,6 @@ namespace DuraIT.FastBinaryJson
             {
                 // dispose managed resources
                 _output.Dispose();
-                //_before.Close();
                 ReleasePooled();
             }
             // free native resources
@@ -89,7 +87,6 @@ namespace DuraIT.FastBinaryJson
                     WriteName("$types");
                     WriteColon();
                     WriteTypes(_globalTypes);
-                    //var i = _output.Length;
                     PatchInt32(_typespointer, pointer);
 
                     return _output.ToArray();
@@ -217,7 +214,6 @@ namespace DuraIT.FastBinaryJson
             var t = array.GetType();
             if (!t.IsGenericType) // != null) // non generic array
             {
-                //if (t.GetElementType().IsClass)
                 {
                     token = false;
                     // array type name - byte[] on netstandard2.0, a PendingString on net10.0
@@ -409,19 +405,6 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteInt(int i)
         {
-            //if (_params.OptimizeSize)
-            //{
-            //    if (i < 256)
-            //    {
-            //        WriteByte((byte)i);
-            //        return;
-            //    }
-            //    else if (i < 65536)
-            //    {
-            //        WriteUShort((ushort)i);
-            //        return;
-            //    }
-            //}
             _output.WriteByte(TOKENS.INT);
             WriteInt32Raw(i);
         }
@@ -569,7 +552,6 @@ namespace DuraIT.FastBinaryJson
         void WriteDataTable(DataTable dt)
         {
             _output.WriteByte(TOKENS.DOC_START);
-            //if (this.useExtension)
             {
                 this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)this.GetSchema(dt) : this.GetXmlSchema(dt));
                 WriteComma();
@@ -592,7 +574,6 @@ namespace DuraIT.FastBinaryJson
             {
                 if (_current_depth > 0)
                 {
-                    //_circular = true;
                     _output.WriteByte(TOKENS.DOC_START);
                     WriteName("$i");
                     WriteColon();
@@ -612,7 +593,6 @@ namespace DuraIT.FastBinaryJson
                     _output.WriteByte(TOKENS.TYPES_POINTER);
                     _typespointer = (int)_output.Length; // place holder
                     WriteInt32Raw(0); // zero pointer for now
-                    //_output = new MemoryStream();
                     _TypesWritten = true;
                 }
                 else

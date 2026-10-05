@@ -143,8 +143,6 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         public bool v1_4TypedArray = false;
 
-        //public bool OptimizeSize = false;
-
         public void FixValues()
         {
             if (!UseExtensions) // disable conflicting params
@@ -238,7 +236,7 @@ namespace DuraIT.FastBinaryJson
             if (obj == null)
                 return new byte[] { TOKENS.NULL };
             if (obj.GetType().IsGenericType)
-                t = Reflection.Instance.GetGenericTypeDefinition(obj.GetType()); // obj.GetType().GetGenericTypeDefinition();
+                t = Reflection.Instance.GetGenericTypeDefinition(obj.GetType());
             if (t == typeof(Dictionary<,>) || t == typeof(List<>))
                 param.UsingGlobalTypes = false;
             // FEATURE : enable extensions when you can deserialize anon types
@@ -406,10 +404,9 @@ namespace DuraIT.FastBinaryJson
 
         public object? ToObject(byte[] json, Type? type)
         {
-            //_params.FixValues();
             Type? t = null;
             if (type != null && type.IsGenericType)
-                t = Reflection.Instance.GetGenericTypeDefinition(type); // type.GetGenericTypeDefinition();
+                t = Reflection.Instance.GetGenericTypeDefinition(type);
             _globalTypes = _params.UsingGlobalTypes;
             if (t == typeof(Dictionary<,>) || t == typeof(List<>))
                 _globalTypes = false;
@@ -507,7 +504,7 @@ namespace DuraIT.FastBinaryJson
 
         private object RootList(object parse, Type? type)
         {
-            Type[] gtypes = Reflection.Instance.GetGenericArguments(type!); // type.GetGenericArguments();
+            Type[] gtypes = Reflection.Instance.GetGenericArguments(type!);
             IList o = (IList)Reflection.Instance.FastCreateList(type!, ((IList)parse).Count);
             Dictionary<string, object> globals = new Dictionary<string, object>();
 
@@ -696,7 +693,7 @@ namespace DuraIT.FastBinaryJson
             bool found = d.TryGetValue("$type", out tn);
             if (!found && type == typeof(System.Object))
             {
-                return d; // CreateDataset(d, globaltypes);
+                return d;
             }
             // _globalTypes is always true here when globaltypes is non-null - set just above.
             if (found)
@@ -709,7 +706,7 @@ namespace DuraIT.FastBinaryJson
             object? o = input ?? CreateInstance(type);
             int id = RegisterCircular(o);
 
-            WireNameMap props = Reflection.Instance.GetWireNameMap(type, typename, _params.ShowReadOnlyProperties); //, Reflection.Instance.IsTypeRegistered(type));
+            WireNameMap props = Reflection.Instance.GetWireNameMap(type, typename, _params.ShowReadOnlyProperties);
             foreach (var kv in d)
             {
                 var v = kv.Value;

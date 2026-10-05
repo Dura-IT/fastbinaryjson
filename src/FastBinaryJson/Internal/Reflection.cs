@@ -167,7 +167,6 @@ namespace DuraIT.FastBinaryJson.Internal
         }
 
         #region bjson custom types
-        //internal UnicodeEncoding unicode = new UnicodeEncoding();
         private static UTF8Encoding utf8 = new UTF8Encoding();
 
         // TODO : optimize utf8
@@ -893,7 +892,6 @@ namespace DuraIT.FastBinaryJson.Internal
                 return null;
 
             var byteCode = getMethod.GetMethodBody()?.GetILAsByteArray() ?? new byte[0];
-            //var byteCode = getMethod.GetMethodBody().GetILAsByteArray();
             int pos = 0;
             // Find the first LdFld instruction and parse its operand to a FieldInfo object.
             while (pos < byteCode.Length)
@@ -1069,8 +1067,6 @@ namespace DuraIT.FastBinaryJson.Internal
                 return val!;
 
             var bf = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
-            //if (ShowReadOnlyProperties)
-            //    bf |= BindingFlags.NonPublic;
             PropertyInfo[] props = type.GetProperties(bf);
             List<Getters> getters = new List<Getters>();
             foreach (PropertyInfo p in props)
@@ -1178,23 +1174,6 @@ namespace DuraIT.FastBinaryJson.Internal
             _getterscache.Add(type, val);
             return val;
         }
-
-        //private static bool IsAnonymousType(Type type)
-        //{
-        //    // may break in the future if compiler defined names change...
-        //    const string CS_ANONYMOUS_PREFIX = "<>f__AnonymousType";
-        //    const string VB_ANONYMOUS_PREFIX = "VB$AnonymousType";
-
-        //    if (type == null)
-        //        throw new ArgumentNullException("type");
-
-        //    if (type.Name.StartsWith(CS_ANONYMOUS_PREFIX, StringComparison.Ordinal) || type.Name.StartsWith(VB_ANONYMOUS_PREFIX, StringComparison.Ordinal))
-        //    {
-        //        return type.IsDefined(typeof(CompilerGeneratedAttribute), false);
-        //    }
-
-        //    return false;
-        //}
         #endregion
 
         internal void ResetPropertyCache()
