@@ -269,7 +269,7 @@ namespace DuraIT.FastBinaryJson.Internal
             if (_customSerializer.Count() == 0)
                 return false;
 
-            if (_serializerForType.TryGetValue(t, out serializer) == false)
+            if (!_serializerForType.TryGetValue(t, out serializer))
             {
                 serializer = Resolve(t, _customSerializer);
                 _serializerForType.Add(t, serializer);
@@ -284,7 +284,7 @@ namespace DuraIT.FastBinaryJson.Internal
             if (_customDeserializer.Count() == 0)
                 return false;
 
-            if (_deserializerForType.TryGetValue(t, out deserializer) == false)
+            if (!_deserializerForType.TryGetValue(t, out deserializer))
             {
                 deserializer = Resolve(t, _customDeserializer);
                 _deserializerForType.Add(t, deserializer);
@@ -422,9 +422,9 @@ namespace DuraIT.FastBinaryJson.Internal
                 foreach (FieldInfo f in fi)
                 {
                     myPropInfo d = CreateMyProp(f.FieldType, f.Name);
-                    if (f.IsLiteral == false)
+                    if (!f.IsLiteral)
                     {
-                        if (f.IsInitOnly == false)
+                        if (!f.IsInitOnly)
                             d.setter = Reflection.CreateSetField(type, f);
                         if (d.setter != null)
                         {
@@ -448,7 +448,7 @@ namespace DuraIT.FastBinaryJson.Internal
 
                 foreach (KeyValuePair<string, myPropInfo> alias in aliases)
                 {
-                    if (sd.ContainsKey(alias.Key) == false)
+                    if (!sd.ContainsKey(alias.Key))
                         sd.Add(alias.Key, alias.Value);
                 }
 
@@ -712,13 +712,13 @@ namespace DuraIT.FastBinaryJson.Internal
                 return;
             }
 
-            if (setMethod.IsStatic == false)
+            if (!setMethod.IsStatic)
                 BuildTypedSetter(d, type, property.PropertyType, property.DeclaringType!, setMethod, null);
         }
 
         private static void AddTypedSetter(myPropInfo d, Type type, FieldInfo field)
         {
-            if (field.IsStatic == false)
+            if (!field.IsStatic)
                 BuildTypedSetter(d, type, field.FieldType, field.DeclaringType!, null, field);
         }
 
@@ -733,7 +733,7 @@ namespace DuraIT.FastBinaryJson.Internal
         /// </remarks>
         private static void BuildTypedSetter(myPropInfo d, Type type, Type memberType, Type declaringType, MethodInfo? setMethod, FieldInfo? field)
         {
-            if (type.IsClass == false)
+            if (!type.IsClass)
                 return;
 
             Type? underlying = Nullable.GetUnderlyingType(memberType);
@@ -811,7 +811,7 @@ namespace DuraIT.FastBinaryJson.Internal
         /// </remarks>
         private static void BuildTypedGetter(ref Getters getter, Type type, Type memberType, Type declaringType, MethodInfo? getMethod, FieldInfo? field)
         {
-            if (type.IsClass == false || getMethod?.IsStatic == true || field?.IsStatic == true)
+            if (!type.IsClass || getMethod?.IsStatic == true || field?.IsStatic == true)
                 return;
 
             byte token = WrittenToken(memberType);
@@ -1160,7 +1160,7 @@ namespace DuraIT.FastBinaryJson.Internal
                         }
                     }
                 }
-                if (f.IsLiteral == false)
+                if (!f.IsLiteral)
                 {
                     GenericGetter g = CreateGetField(type, f);
                     if (g != null)

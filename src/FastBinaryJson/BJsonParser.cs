@@ -64,7 +64,7 @@ namespace DuraIT.FastBinaryJson
             ReadColon();
             object? val = ParseValue(out breakparse);
 
-            if (breakparse == false)
+            if (!breakparse)
                 dic.Add(key, val!);
 
             return breakparse;
@@ -117,7 +117,7 @@ namespace DuraIT.FastBinaryJson
             if (keyStart > _json.Length - raw.Length)
                 return false;
 #if NET10_0_OR_GREATER
-            if (new ReadOnlySpan<byte>(_json, keyStart, raw.Length).SequenceEqual(raw) == false)
+            if (!new ReadOnlySpan<byte>(_json, keyStart, raw.Length).SequenceEqual(raw))
                 return false;
 #else
             for (int i = 0; i < raw.Length; i++)
@@ -139,7 +139,7 @@ namespace DuraIT.FastBinaryJson
             if (_index > _json.Length - length)
                 return false;
 #if NET10_0_OR_GREATER
-            if (new ReadOnlySpan<byte>(_json, _index, length).SequenceEqual(new ReadOnlySpan<byte>(_json, earlierStart, length)) == false)
+            if (!new ReadOnlySpan<byte>(_json, _index, length).SequenceEqual(new ReadOnlySpan<byte>(_json, earlierStart, length)))
                 return false;
 #else
             for (int i = 0; i < length; i++)
@@ -283,7 +283,7 @@ namespace DuraIT.FastBinaryJson
             {
                 object? o = ParseValue(out breakparse);
                 byte t = 0;
-                if (breakparse == false)
+                if (!breakparse)
                 {
                     array.Add(o!);
                     t = GetToken();
@@ -400,7 +400,7 @@ namespace DuraIT.FastBinaryJson
             {
                 object? o = ParseValue(out breakparse);
                 byte b = 0;
-                if (breakparse == false)
+                if (!breakparse)
                 {
                     ar.data.Add(o!);
                     b = GetToken();

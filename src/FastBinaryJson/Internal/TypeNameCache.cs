@@ -39,7 +39,7 @@ namespace DuraIT.FastBinaryJson.Internal
         {
             if (globaltypes != null && globaltypes.Count > 0)
             {
-                if (globaltypes.TryGetAlternateLookup(out Dictionary<string, object>.AlternateLookup<ReadOnlySpan<char>> lookup) == false)
+                if (!globaltypes.TryGetAlternateLookup(out Dictionary<string, object>.AlternateLookup<ReadOnlySpan<char>> lookup))
                     return deserializer.ResolveType(new string(name), globaltypes);
                 if (lookup.TryGetValue(name, out object? mapped))
                     return deserializer.ResolveGlobalType(mapped);

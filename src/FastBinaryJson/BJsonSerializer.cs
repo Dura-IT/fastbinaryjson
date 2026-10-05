@@ -215,7 +215,7 @@ namespace DuraIT.FastBinaryJson
             bool pendingSeperator = false;
             bool token = true;
             var t = array.GetType();
-            if (t.IsGenericType == false) // != null) // non generic array
+            if (!t.IsGenericType) // != null) // non generic array
             {
                 //if (t.GetElementType().IsClass)
                 {
@@ -586,7 +586,7 @@ namespace DuraIT.FastBinaryJson
         private void WriteObject(object obj)
         {
             int i = 0;
-            if (_cirobj.TryGetValue(obj, out i) == false)
+            if (!_cirobj.TryGetValue(obj, out i))
                 _cirobj.Add(obj, _cirobj.Count + 1);
             else
             {
@@ -601,11 +601,11 @@ namespace DuraIT.FastBinaryJson
                     return;
                 }
             }
-            if (_params.UsingGlobalTypes == false)
+            if (!_params.UsingGlobalTypes)
                 _output.WriteByte(TOKENS.DOC_START);
             else
             {
-                if (_TypesWritten == false)
+                if (!_TypesWritten)
                 {
                     _output.WriteByte(TOKENS.DOC_START);
                     // write pointer to $types position
@@ -626,7 +626,7 @@ namespace DuraIT.FastBinaryJson
             bool append = false;
             if (_params.UseExtensions)
             {
-                if (_params.UsingGlobalTypes == false)
+                if (!_params.UsingGlobalTypes)
                     WritePairFast("$type", Reflection.Instance.GetTypeAssemblyName(t));
                 else
                     WritePairFast("$type", GetGlobalTypeId(t));
@@ -653,7 +653,7 @@ namespace DuraIT.FastBinaryJson
                 }
 
                 var o = p.Getter(obj);
-                if (_params.SerializeNulls == false && (o == null || o is DBNull)) { }
+                if (!_params.SerializeNulls && (o == null || o is DBNull)) { }
                 else
                 {
                     if (append)
@@ -768,7 +768,7 @@ namespace DuraIT.FastBinaryJson
         // The $types id for t, assigned in first-use order.
         private string GetGlobalTypeId(Type t)
         {
-            if (_globalTypes.TryGetValue(t, out int dt) == false)
+            if (!_globalTypes.TryGetValue(t, out int dt))
             {
                 dt = _globalTypes.Count + 1;
                 _globalTypes.Add(t, dt);
@@ -779,7 +779,7 @@ namespace DuraIT.FastBinaryJson
 
         private void WritePairFast(string name, string value)
         {
-            if (_params.SerializeNulls == false && (value == null))
+            if (!_params.SerializeNulls && (value == null))
                 return;
             WriteName(name);
 
@@ -790,7 +790,7 @@ namespace DuraIT.FastBinaryJson
 
         private void WritePair(string name, object? value)
         {
-            if (_params.SerializeNulls == false && (value == null || value is DBNull))
+            if (!_params.SerializeNulls && (value == null || value is DBNull))
                 return;
             WriteName(name);
 

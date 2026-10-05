@@ -78,7 +78,7 @@ namespace DuraIT.FastBinaryJson
             if (genericDefinition == typeof(Dictionary<,>) || genericDefinition == typeof(List<>))
                 return false;
 
-            return type == typeof(object) || typeof(IEnumerable).IsAssignableFrom(type) == false;
+            return type == typeof(object) || !typeof(IEnumerable).IsAssignableFrom(type);
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace DuraIT.FastBinaryJson
         {
             if (IsSpecialMember(pi))
                 return false;
-            if (pi.IsGenericType && pi.IsValueType == false)
+            if (pi.IsGenericType && !pi.IsValueType)
                 return false;
 
             return pi.IsClass || pi.IsStruct || pi.IsInterface;
@@ -99,7 +99,7 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         private static bool IsPlainListMember(myPropInfo pi)
         {
-            return IsSpecialMember(pi) == false && pi.IsGenericType && pi.IsValueType == false;
+            return !IsSpecialMember(pi) && pi.IsGenericType && !pi.IsValueType;
         }
 
         // The members ConvertValue's switch handles itself - always left to it.
@@ -152,11 +152,11 @@ namespace DuraIT.FastBinaryJson
 
             if (t == TOKENS.TYPES_POINTER)
             {
-                if (globaltypes != null && (mayExtendSharedTypes == false || globaltypes.Count > 0))
+                if (globaltypes != null && (!mayExtendSharedTypes || globaltypes.Count > 0))
                     return Abandon(start, circular, sharedTypes, addedTypes);
 
                 Dictionary<string, object> table = _parser.ReadTypesTable();
-                if (table.Count != 1 || table.TryGetValue("$types", out object? types) == false)
+                if (table.Count != 1 || !table.TryGetValue("$types", out object? types))
                     return Abandon(start, circular, sharedTypes, addedTypes);
 
                 if (globaltypes == null)
@@ -199,10 +199,10 @@ namespace DuraIT.FastBinaryJson
 
                 if (name == "$type")
                 {
-                    if (TryRepeatType(globaltypes, out type) == false)
+                    if (!TryRepeatType(globaltypes, out type))
                     {
                         int valueStart = _parser.Index;
-                        if (TryResolveTypeInPlace(globaltypes, out type) == false)
+                        if (!TryResolveTypeInPlace(globaltypes, out type))
                         {
                             object? tn = _parser.ReadValue(out bool broke);
                             if (broke)
@@ -248,7 +248,7 @@ namespace DuraIT.FastBinaryJson
             if (firstMember != null)
                 o = ReadMember(o, members.Find(firstMember), globaltypes, out ended);
 
-            while (ended == false)
+            while (!ended)
             {
                 t = _parser.ReadToken();
                 if (t == TOKENS.COMMA)
@@ -392,7 +392,7 @@ namespace DuraIT.FastBinaryJson
             type = null;
             if (_lastTypeLength == 0 || (globaltypes != null && globaltypes.Count > 0))
                 return false;
-            if (_parser.TrySkipRepeat(_lastTypeStart, _lastTypeLength) == false)
+            if (!_parser.TrySkipRepeat(_lastTypeStart, _lastTypeLength))
                 return false;
 
             type = _lastType;
@@ -566,14 +566,14 @@ namespace DuraIT.FastBinaryJson
         {
             List<object?> items = new List<object?>();
             bool broke = false;
-            while (broke == false)
+            while (!broke)
             {
                 object? item;
                 // An object element is added as built, never through convert - as in both originals.
                 bool isObject = _parser.PeekToken() == TOKENS.DOC_START;
                 if (isObject)
                 {
-                    if (TryReadObject(bt, globaltypes, mayExtendSharedTypes, out object? read) == false)
+                    if (!TryReadObject(bt, globaltypes, mayExtendSharedTypes, out object? read))
                         read = _deserializer.ParseDictionary((Dictionary<string, object>)_parser.ReadValue(out _)!, globaltypes, bt, null);
                     item = read;
                 }
@@ -583,7 +583,7 @@ namespace DuraIT.FastBinaryJson
                 }
 
                 byte t;
-                if (broke == false)
+                if (!broke)
                 {
                     items.Add(isObject ? item : convert(item));
                     t = _parser.ReadToken();

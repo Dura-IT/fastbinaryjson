@@ -147,7 +147,7 @@ namespace DuraIT.FastBinaryJson
 
         public void FixValues()
         {
-            if (UseExtensions == false) // disable conflicting params
+            if (!UseExtensions) // disable conflicting params
                 UsingGlobalTypes = false;
 
             if (EnableAnonymousTypes)
@@ -694,7 +694,7 @@ namespace DuraIT.FastBinaryJson
                 _globalTypes = true;
 
             bool found = d!.TryGetValue("$type", out tn);
-            if (found == false && type == typeof(System.Object))
+            if (!found && type == typeof(System.Object))
             {
                 return d; // CreateDataset(d, globaltypes);
             }
@@ -763,7 +763,7 @@ namespace DuraIT.FastBinaryJson
                     return CreateArray((List<object>)v, pi.pt, pi.bt, globaltypes);
             }
 
-            if (pi.IsGenericType && pi.IsValueType == false)
+            if (pi.IsGenericType && !pi.IsValueType)
                 return CreateGenericList((List<object>)v, pi.pt, pi.bt, globaltypes);
 
             if ((pi.IsClass || pi.IsStruct || pi.IsInterface) && v is Dictionary<string, object>)
@@ -995,7 +995,7 @@ namespace DuraIT.FastBinaryJson
                 ds.DataSetName = ms.Name!;
                 for (int i = 0; i < ms.Info!.Count; i += 3)
                 {
-                    if (ds.Tables.Contains(ms.Info[i]) == false)
+                    if (!ds.Tables.Contains(ms.Info[i]))
                         ds.Tables.Add(ms.Info[i]);
                     ds.Tables[ms.Info![i]]!.Columns.Add(ms.Info[i + 1], Type.GetType(ms.Info[i + 2])!);
                 }
