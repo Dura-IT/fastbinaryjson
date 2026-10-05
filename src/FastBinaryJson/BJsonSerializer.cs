@@ -498,7 +498,7 @@ namespace DuraIT.FastBinaryJson
             using (var writer = new StringWriter())
             {
                 dt.WriteXmlSchema(writer);
-                return dt.ToString();
+                return writer.ToString();
             }
         }
 
