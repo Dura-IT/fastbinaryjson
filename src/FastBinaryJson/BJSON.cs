@@ -346,7 +346,7 @@ namespace DuraIT.FastBinaryJson
             _params = param.MakeCopy();
         }
 
-        private BJSONParameters _params;
+        private readonly BJSONParameters _params;
 
         /*
          * $i numbering on read: entry n-1 is the object the writer numbered n. The writer numbers

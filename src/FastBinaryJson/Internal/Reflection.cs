@@ -130,7 +130,7 @@ namespace DuraIT.FastBinaryJson.Internal
         private SafeDictionary<Type, string> _tyname = new SafeDictionary<Type, string>(10);
         private SafeDictionary<string, Type> _typecache = new SafeDictionary<string, Type>(10);
         private SafeDictionary<Type, CreateObject> _constrcache = new SafeDictionary<Type, CreateObject>(10);
-        private SafeDictionary<Type, CreateList?> _conlistcache = new SafeDictionary<Type, CreateList?>(10);
+        private readonly SafeDictionary<Type, CreateList?> _conlistcache = new SafeDictionary<Type, CreateList?>(10);
         private SafeDictionary<Type, Getters[]> _getterscache = new SafeDictionary<Type, Getters[]>(10);
         private SafeDictionary<string, Dictionary<string, myPropInfo>> _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>(10);
 

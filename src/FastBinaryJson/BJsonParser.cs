@@ -11,8 +11,8 @@ namespace DuraIT.FastBinaryJson
     {
         readonly byte[] _json;
         int _index;
-        bool _useUTC = true;
-        bool _v1_4TA = false;
+        readonly bool _useUTC = true;
+        readonly bool _v1_4TA = false;
 
         internal BJsonParser(byte[] json, bool useUTC, bool v1_4TA)
         {

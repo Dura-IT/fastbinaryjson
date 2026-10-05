@@ -30,7 +30,7 @@ namespace DuraIT.FastBinaryJson
 
         //private MemoryStream _before = new MemoryStream();
         private int _typespointer = 0;
-        private int _MAX_DEPTH = 20;
+        private readonly int _MAX_DEPTH = 20;
         int _current_depth = 0;
 
         /*
@@ -40,15 +40,15 @@ namespace DuraIT.FastBinaryJson
          * one assembly loaded twice - now get an id each instead of sharing one, and both still read
          * back as the type that name resolves to.
          */
-        private Dictionary<Type, int> _globalTypes = new Dictionary<Type, int>();
+        private readonly Dictionary<Type, int> _globalTypes = new Dictionary<Type, int>();
 
         /*
          * By identity: $i means "this same instance". Default equality wrote a distinct object that
          * merely compared Equal as a reference to the first one, so an entity with Equals over its Id
          * lost every other member, and equal records or structs came back as one shared instance.
          */
-        private Dictionary<object, int> _cirobj = new Dictionary<object, int>(ReferenceComparer.Instance);
-        private BJSONParameters _params;
+        private readonly Dictionary<object, int> _cirobj = new Dictionary<object, int>(ReferenceComparer.Instance);
+        private readonly BJSONParameters _params;
 
         private void Dispose(bool disposing)
         {
