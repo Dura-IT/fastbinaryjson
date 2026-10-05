@@ -437,7 +437,7 @@ namespace DuraIT.FastBinaryJson
                     return ParseDictionary(o as Dictionary<string, object>, null, type, null);
             }
 
-            if (o is List<object>)
+            if (o is List<object> list)
             {
                 if (type != null && t == typeof(Dictionary<,>)) // kv format
                     return RootDictionary(o, type);
@@ -446,10 +446,10 @@ namespace DuraIT.FastBinaryJson
                     return RootList(o, type);
 
                 if (type == typeof(Hashtable))
-                    return RootHashTable((List<object>)o);
+                    return RootHashTable(list);
                 else if (type == null)
                 {
-                    List<object> l = (List<object>)o;
+                    List<object> l = list;
                     if (l.Count > 0 && l[0].GetType() == typeof(Dictionary<string, object>))
                     {
                         Dictionary<string, object> globals = new Dictionary<string, object>();
@@ -515,8 +515,8 @@ namespace DuraIT.FastBinaryJson
             {
                 _globalTypes = false;
                 object? v = k;
-                if (k is Dictionary<string, object>)
-                    v = ParseDictionary(k as Dictionary<string, object>, globals, gtypes[0], null);
+                if (k is Dictionary<string, object> keyDictionary)
+                    v = ParseDictionary(keyDictionary, globals, gtypes[0], null);
                 else
                     v = k;
 
@@ -537,19 +537,19 @@ namespace DuraIT.FastBinaryJson
             }
             var arraytype = t2!.GetElementType();
 
-            if (parse is Dictionary<string, object>)
+            if (parse is Dictionary<string, object> parseDictionary)
             {
                 IDictionary o = (IDictionary)Reflection.Instance.FastCreateInstance(type);
 
-                foreach (var kv in (Dictionary<string, object>)parse)
+                foreach (var kv in parseDictionary)
                 {
                     _globalTypes = false;
                     object? v;
                     object k = kv.Key;
                     if (t2!.Name.StartsWith("Dictionary")) // deserialize a dictionary
                         v = RootDictionary(kv.Value, t2!);
-                    else if (kv.Value is Dictionary<string, object>)
-                        v = ParseDictionary(kv.Value as Dictionary<string, object>, null, t2, null);
+                    else if (kv.Value is Dictionary<string, object> valueDictionary)
+                        v = ParseDictionary(valueDictionary, null, t2, null);
                     else if (t2 == typeof(byte[]))
                         v = kv.Value;
                     else if (gtypes != null && t2.IsArray)
@@ -564,8 +564,8 @@ namespace DuraIT.FastBinaryJson
 
                 return o;
             }
-            if (parse is List<object>)
-                return CreateDictionary(parse as List<object>, type, gtypes, null);
+            if (parse is List<object> parseList)
+                return CreateDictionary(parseList, type, gtypes, null);
 
             return null;
         }
@@ -781,8 +781,8 @@ namespace DuraIT.FastBinaryJson
                 return ParseDictionary(oo, globaltypes, pi.pt, null);
             }
 
-            if (v is List<object>)
-                return CreateArray((List<object>)v, pi.pt, typeof(object), globaltypes);
+            if (v is List<object> valueList)
+                return CreateArray(valueList, pi.pt, typeof(object), globaltypes);
 
             return v;
         }
@@ -889,15 +889,15 @@ namespace DuraIT.FastBinaryJson
                 {
                     if (ob is IDictionary)
                         col.Add(ParseDictionary((Dictionary<string, object>)ob, globalTypes, bt, null));
-                    else if (ob is List<object>)
+                    else if (ob is List<object> nestedList)
                     {
                         if (bt!.IsGenericType)
-                            col.Add((List<object>)ob);
+                            col.Add(nestedList);
                         else
-                            col.Add(((List<object>)ob).ToArray());
+                            col.Add(nestedList.ToArray());
                     }
-                    else if (ob is TypedArray)
-                        col.Add(((TypedArray)ob).data.ToArray());
+                    else if (ob is TypedArray typedArray)
+                        col.Add(typedArray.data.ToArray());
                     else
                         col.Add(ob);
                 }
@@ -984,9 +984,9 @@ namespace DuraIT.FastBinaryJson
             // read dataset schema here
             var schema = reader!["$schema"];
 
-            if (schema is string)
+            if (schema is string schemaXml)
             {
-                TextReader tr = new StringReader((string)schema);
+                TextReader tr = new StringReader(schemaXml);
                 ds.ReadXmlSchema(tr);
             }
             else
@@ -1042,9 +1042,9 @@ namespace DuraIT.FastBinaryJson
             // read dataset schema here
             var schema = reader!["$schema"];
 
-            if (schema is string)
+            if (schema is string schemaXml)
             {
-                TextReader tr = new StringReader((string)schema);
+                TextReader tr = new StringReader(schemaXml);
                 dt.ReadXmlSchema(tr);
             }
             else

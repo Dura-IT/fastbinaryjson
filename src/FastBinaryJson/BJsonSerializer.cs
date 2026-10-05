@@ -125,62 +125,62 @@ namespace DuraIT.FastBinaryJson
         {
             if (obj == null || obj is DBNull)
                 WriteNull();
-            else if (obj is string)
-                WriteString((string)obj);
-            else if (obj is char)
-                WriteChar((char)obj);
-            else if (obj is Guid)
-                WriteGuid((Guid)obj);
-            else if (obj is bool)
-                WriteBool((bool)obj);
-            else if (obj is int)
-                WriteInt((int)obj);
-            else if (obj is uint)
-                WriteUInt((uint)obj);
-            else if (obj is long)
-                WriteLong((long)obj);
-            else if (obj is ulong)
-                WriteULong((ulong)obj);
-            else if (obj is decimal)
-                WriteDecimal((decimal)obj);
-            else if (obj is sbyte)
-                WriteSByte((sbyte)obj);
-            else if (obj is byte)
-                WriteByte((byte)obj);
-            else if (obj is double)
-                WriteDouble((double)obj);
-            else if (obj is float)
-                WriteFloat((float)obj);
-            else if (obj is short)
-                WriteShort((short)obj);
-            else if (obj is ushort)
-                WriteUShort((ushort)obj);
-            else if (obj is DateTime)
-                WriteDateTime((DateTime)obj);
-            else if (obj is TimeSpan)
-                WriteTimeSpan((TimeSpan)obj);
+            else if (obj is string text)
+                WriteString(text);
+            else if (obj is char character)
+                WriteChar(character);
+            else if (obj is Guid guid)
+                WriteGuid(guid);
+            else if (obj is bool flag)
+                WriteBool(flag);
+            else if (obj is int int32)
+                WriteInt(int32);
+            else if (obj is uint uint32)
+                WriteUInt(uint32);
+            else if (obj is long int64)
+                WriteLong(int64);
+            else if (obj is ulong uint64)
+                WriteULong(uint64);
+            else if (obj is decimal dec)
+                WriteDecimal(dec);
+            else if (obj is sbyte sbyteValue)
+                WriteSByte(sbyteValue);
+            else if (obj is byte byteValue)
+                WriteByte(byteValue);
+            else if (obj is double dbl)
+                WriteDouble(dbl);
+            else if (obj is float sgl)
+                WriteFloat(sgl);
+            else if (obj is short int16)
+                WriteShort(int16);
+            else if (obj is ushort uint16)
+                WriteUShort(uint16);
+            else if (obj is DateTime dateTime)
+                WriteDateTime(dateTime);
+            else if (obj is TimeSpan timeSpan)
+                WriteTimeSpan(timeSpan);
             else if (obj is System.Dynamic.ExpandoObject)
                 WriteStringDictionary((IDictionary<string, object>)obj);
-            else if (obj is IDictionary && obj.GetType().IsGenericType && obj.GetType().GetGenericArguments()[0] == typeof(string))
-                WriteStringDictionary((IDictionary)obj);
-            else if (obj is IDictionary)
-                WriteDictionary((IDictionary)obj);
-            else if (obj is DataSet)
-                WriteDataset((DataSet)obj);
-            else if (obj is DataTable)
-                WriteDataTable((DataTable)obj);
-            else if (obj is byte[])
-                WriteBytes((byte[])obj);
-            else if (obj is StringDictionary)
-                WriteSD((StringDictionary)obj);
-            else if (obj is NameValueCollection)
-                WriteNV((NameValueCollection)obj);
+            else if (obj is IDictionary stringKeyed && obj.GetType().IsGenericType && obj.GetType().GetGenericArguments()[0] == typeof(string))
+                WriteStringDictionary(stringKeyed);
+            else if (obj is IDictionary dictionary)
+                WriteDictionary(dictionary);
+            else if (obj is DataSet dataSet)
+                WriteDataset(dataSet);
+            else if (obj is DataTable dataTable)
+                WriteDataTable(dataTable);
+            else if (obj is byte[] bytes)
+                WriteBytes(bytes);
+            else if (obj is StringDictionary stringDictionary)
+                WriteSD(stringDictionary);
+            else if (obj is NameValueCollection nameValues)
+                WriteNV(nameValues);
             else if (_params.UseTypedArrays && obj is Array)
                 WriteTypedArray((ICollection)obj);
-            else if (obj is IEnumerable)
-                WriteArray((IEnumerable)obj);
-            else if (obj is Enum)
-                WriteEnum((Enum)obj);
+            else if (obj is IEnumerable sequence)
+                WriteArray(sequence);
+            else if (obj is Enum enumValue)
+                WriteEnum(enumValue);
             else if (Reflection.Instance.IsTypeRegistered(obj.GetType()))
                 WriteCustom(obj);
             /*
@@ -192,8 +192,8 @@ namespace DuraIT.FastBinaryJson
              * write, and would break their reads outright: a property whose declared type is
              * registered is classified Custom, and that path casts the parsed value to string.
              */
-            else if (obj is DateTimeOffset)
-                WriteDateTimeOffset((DateTimeOffset)obj);
+            else if (obj is DateTimeOffset dateTimeOffset)
+                WriteDateTimeOffset(dateTimeOffset);
             else
                 WriteObject(obj);
         }

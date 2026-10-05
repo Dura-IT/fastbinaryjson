@@ -16,33 +16,33 @@ namespace DuraIT.FastBinaryJson
         {
             var parse = BJSON.Parse(json);
 
-            if (parse is IDictionary<string, object>)
-                _dictionary = (IDictionary<string, object>)parse;
-            else if (parse is TypedArray)
-                _list = ((TypedArray)parse).data;
+            if (parse is IDictionary<string, object> parsedDictionary)
+                _dictionary = parsedDictionary;
+            else if (parse is TypedArray typedArray)
+                _list = typedArray.data;
             else
                 _list = (List<object>?)parse;
         }
 
         private DynamicJson(object? dictionary)
         {
-            if (dictionary is IDictionary<string, object>)
-                _dictionary = (IDictionary<string, object>)dictionary;
+            if (dictionary is IDictionary<string, object> typedDictionary)
+                _dictionary = typedDictionary;
         }
 
         public override bool TryGetIndex(GetIndexBinder binder, Object[] indexes, out Object? result)
         {
             var index = indexes[0];
-            if (index is int)
+            if (index is int position)
             {
-                result = _list![(int)index];
+                result = _list![position];
             }
             else
             {
                 result = _dictionary![(string)index];
             }
-            if (result is IDictionary<string, object>)
-                result = new DynamicJson(result as IDictionary<string, object>);
+            if (result is IDictionary<string, object> resultDictionary)
+                result = new DynamicJson(resultDictionary);
             return true;
         }
 
@@ -52,17 +52,17 @@ namespace DuraIT.FastBinaryJson
                 if (!_dictionary.TryGetValue(binder.Name.ToLowerInvariant(), out result))
                     return false; // throw new Exception("property not found " + binder.Name);
 
-            if (result is IDictionary<string, object>)
+            if (result is IDictionary<string, object> memberDictionary)
             {
-                result = new DynamicJson(result as IDictionary<string, object>);
+                result = new DynamicJson(memberDictionary);
             }
-            else if (result is List<object>)
+            else if (result is List<object> memberList)
             {
                 List<object> list = new List<object>();
-                foreach (object item in (List<object>)result)
+                foreach (object item in memberList)
                 {
-                    if (item is IDictionary<string, object>)
-                        list.Add(new DynamicJson(item as IDictionary<string, object>));
+                    if (item is IDictionary<string, object> itemDictionary)
+                        list.Add(new DynamicJson(itemDictionary));
                     else
                         list.Add(item);
                 }

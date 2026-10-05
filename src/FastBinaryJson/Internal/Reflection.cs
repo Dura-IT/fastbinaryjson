@@ -409,9 +409,8 @@ namespace DuraIT.FastBinaryJson.Internal
                     var att = p.GetCustomAttributes(true);
                     foreach (var at in att)
                     {
-                        if (at is DataMemberAttribute)
+                        if (at is DataMemberAttribute dm)
                         {
-                            var dm = (DataMemberAttribute)at;
                             if (dm.Name != "")
                                 d.memberName = dm.Name;
                         }
@@ -435,9 +434,8 @@ namespace DuraIT.FastBinaryJson.Internal
                         var att = f.GetCustomAttributes(true);
                         foreach (var at in att)
                         {
-                            if (at is DataMemberAttribute)
+                            if (at is DataMemberAttribute dm)
                             {
-                                var dm = (DataMemberAttribute)at;
                                 if (dm.Name != "")
                                     d.memberName = dm.Name;
                             }
@@ -1102,9 +1100,8 @@ namespace DuraIT.FastBinaryJson.Internal
                 var att = p.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
-                    if (at is DataMemberAttribute)
+                    if (at is DataMemberAttribute dm)
                     {
-                        var dm = (DataMemberAttribute)at;
                         if (dm.Name != "")
                         {
                             mName = dm.Name;
@@ -1151,9 +1148,8 @@ namespace DuraIT.FastBinaryJson.Internal
                 var att = f.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
-                    if (at is DataMemberAttribute)
+                    if (at is DataMemberAttribute dm)
                     {
-                        var dm = (DataMemberAttribute)at;
                         if (dm.Name != "")
                         {
                             mName = dm.Name;
