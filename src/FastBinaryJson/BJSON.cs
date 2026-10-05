@@ -493,11 +493,11 @@ namespace DuraIT.FastBinaryJson
             {
                 object? key = values["k"];
                 object? val = values["v"];
-                if (key is Dictionary<string, object>)
-                    key = ParseDictionary((Dictionary<string, object>)key, null, typeof(object), null);
+                if (key is Dictionary<string, object> keyDictionary)
+                    key = ParseDictionary(keyDictionary, null, typeof(object), null);
 
-                if (val is Dictionary<string, object>)
-                    val = ParseDictionary((Dictionary<string, object>)val, null, typeof(object), null);
+                if (val is Dictionary<string, object> valueDictionary)
+                    val = ParseDictionary(valueDictionary, null, typeof(object), null);
 
                 h.Add(key!, val);
             }
@@ -815,10 +815,10 @@ namespace DuraIT.FastBinaryJson
                     oo = null;
                 else if (dd is TypedArray)
                     oo = ParseTypedArray(globaltypes, dd);
-                else if (dd is Dictionary<string, object>)
-                    oo = ParseDictionary((Dictionary<string, object>)dd, globaltypes, t, null);
-                else if (dd is List<object>)
-                    oo = CreateArray((List<object>)dd, t!, t!.GetElementType(), globaltypes);
+                else if (dd is Dictionary<string, object> ddDictionary)
+                    oo = ParseDictionary(ddDictionary, globaltypes, t, null);
+                else if (dd is List<object> ddList)
+                    oo = CreateArray(ddList, t!, t!.GetElementType(), globaltypes);
                 else
                     oo = dd;
                 a[i++] = oo;
@@ -925,8 +925,8 @@ namespace DuraIT.FastBinaryJson
                 var key = values.Key;
                 object? val = null;
 
-                if (values.Value is Dictionary<string, object>)
-                    val = ParseDictionary((Dictionary<string, object>)values.Value, globalTypes, t2, null);
+                if (values.Value is Dictionary<string, object> entryDictionary)
+                    val = ParseDictionary(entryDictionary, globalTypes, t2, null);
                 else if (types != null && t2.IsArray)
                 {
                     if (values.Value is Array)
@@ -961,13 +961,13 @@ namespace DuraIT.FastBinaryJson
                 object? key = values["k"];
                 object? val = values["v"];
 
-                if (key is Dictionary<string, object>)
-                    key = ParseDictionary((Dictionary<string, object>)key, globalTypes, t1, null);
+                if (key is Dictionary<string, object> keyDictionary)
+                    key = ParseDictionary(keyDictionary, globalTypes, t1, null);
 
-                if (typeof(IDictionary).IsAssignableFrom(t2))
+                if (t2 != null && typeof(IDictionary).IsAssignableFrom(t2))
                     val = RootDictionary(val, t2);
-                else if (val is Dictionary<string, object>)
-                    val = ParseDictionary((Dictionary<string, object>)val, globalTypes, t2, null);
+                else if (val is Dictionary<string, object> valueDictionary)
+                    val = ParseDictionary(valueDictionary, globalTypes, t2, null);
 
                 col.Add(key!, val);
             }
