@@ -17,23 +17,26 @@ Data written by the original keeps reading back, and that is enforced by tests r
 
 - **Proof the wire format has not moved.** 16 committed golden fixtures assert the exact bytes
   produced, not just that a round-trip succeeds - so a corruption that reproduces itself
-  symmetrically still fails. 114 tests in total.
+  symmetrically still fails. Over 400 tests in total.
 - **Verified on Linux, macOS and Windows, in both build configurations, on every push.** A wire-format
   bug that shows up on one platform only is precisely the class this catches.
 - **Debug and Release produce identical output.** Both configurations are built and tested in CI, so
   they cannot quietly drift apart.
 - **One SDK-style project**, centralised build output, current SDK tooling.
-- **Five defects found, pinned and documented.** Each is held in place by a characterization test, so
-  fixing one has to be a deliberate act. See below.
+- **Defects found and fixed, each with a regression test.** The first five are listed below; more
+  turned up while fixing them and are fixed the same way.
+- **Clean under strict static analysis.** Sonar, Roslynator and the full .NET analyzer set run with
+  warnings as errors, and the build is at zero warnings.
 
 ## Compatibility
 
 The wire format is unchanged, and the golden fixtures are what keep it that way. Bytes written by
 the original read back through this package, and bytes written here read back through the original.
 
-**Source compatibility costs one line.** The namespace is `DuraIT.FastBinaryJson`, matching the
-assembly and package name; upstream's was `fastBinaryJSON`. Migrating is a `using` swap per file and
-nothing else. Internal machinery lives in `DuraIT.FastBinaryJson.Internal`.
+**Source compatibility costs a rename.** The namespace is `DuraIT.FastBinaryJson`, matching the
+assembly and package name; upstream's was `fastBinaryJSON`. The public API also follows .NET naming
+now, so a migration is a `using` swap plus the renames in the table below. The compiler finds every
+one of them; none changes what a call does.
 
 **Stored data is not affected by that rename.** The `$type` entries in a payload carry the assembly
 qualified names of *your* types, never the serializer's, so renaming this library's namespace cannot
@@ -44,6 +47,28 @@ sit in the same project with no duplicate type definitions and no ambiguity.
 
 `netstandard2.0` is a permanent target, not a leftover: the people with stored data are exactly the
 ones who cannot move runtime quickly.
+
+### Migrating from fastBinaryJSON
+
+| fastBinaryJSON | DuraIT.FastBinaryJson |
+|---|---|
+| `using fastBinaryJSON;` | `using DuraIT.FastBinaryJson;` |
+| `BJSON` | `Bjson` |
+| `BJSON.ToBJSON(...)` | `Bjson.ToBjson(...)` |
+| `BJSONParameters` | `BjsonParameters` |
+| `BJSONParameters.UseUTCDateTime` | `BjsonParameters.UseUtcDateTime` |
+| `BJSONParameters.v1_4TypedArray` | `BjsonParameters.UseV14TypedArray` |
+| `BJSONParameters.IgnoreAttributes = new List<Type> { ... }` | `IgnoreAttributes` is read-only; call `Clear()` and `Add(...)` on it |
+| `BJSON.Parameters` (a field) | `Bjson.Parameters` (a property) |
+| `Reflection.Serialize` / `Reflection.Deserialize`, as passed to `RegisterCustomType` | `CustomTypeSerializer` / `CustomTypeDeserializer` |
+| `TOKENS.DOC_START`, `TOKENS.INT`, ... | `Tokens.DocStart`, `Tokens.Int32`, ... (spelled-out type names) |
+| `TypedArray.typename` / `count` / `data` | `TypedArray.TypeName` / `Count` / `Data` |
+| `Reflection`, `myPropInfo`, `Getters`, `DatasetSchema` | no longer public |
+
+Two behaviours differ on purpose. Format and parse failures throw `BjsonException`, where upstream
+threw a bare `Exception`; it still derives from `Exception`, so a handler written for the base type
+keeps working. And a null argument to a public method throws `ArgumentNullException` up front instead
+of a `NullReferenceException` from somewhere inside.
 
 ## Usage
 
