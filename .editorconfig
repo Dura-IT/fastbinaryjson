@@ -19,3 +19,48 @@ indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
+
+# Test projects: relax rules that fight the mandated test conventions.
+[tests/**.cs]
+# CA1707: test names follow Method_Scenario_ExpectedResult (underscores required).
+dotnet_diagnostic.CA1707.severity = none
+# CA1515: NUnit discovers public test fixtures; they cannot be internal.
+dotnet_diagnostic.CA1515.severity = none
+# The test models exercise the library's own serialization paths, so their SHAPE is the input under
+# test: public fields (the field path), arrays and settable collections (the collection paths),
+# lowercase upstream type names, public nested types. The golden fixtures also embed these type
+# names and member order, so changing any of it is a wire-format change, not a style fix.
+# CA1051, S1104: public fields are what is being serialized.
+dotnet_diagnostic.CA1051.severity = none
+dotnet_diagnostic.S1104.severity = none
+# CA1034: nested public types are the models.
+dotnet_diagnostic.CA1034.severity = none
+# S101, CA1708, CA1716, CA1711, CA1710, CA1715, CA1720, CA1724: type and member names are inherited
+# from upstream's test suite and are embedded in the golden fixtures.
+dotnet_diagnostic.S101.severity = none
+dotnet_diagnostic.CA1708.severity = none
+dotnet_diagnostic.CA1716.severity = none
+dotnet_diagnostic.CA1711.severity = none
+dotnet_diagnostic.CA1710.severity = none
+dotnet_diagnostic.CA1715.severity = none
+dotnet_diagnostic.CA1720.severity = none
+dotnet_diagnostic.CA1724.severity = none
+# CA2227, CA1002, CA1819, CA1815: settable collections, List<T> and array properties, and structs
+# without equality are exactly the shapes the serializer has to handle.
+dotnet_diagnostic.CA2227.severity = none
+dotnet_diagnostic.CA1002.severity = none
+dotnet_diagnostic.CA1819.severity = none
+dotnet_diagnostic.CA1815.severity = none
+dotnet_diagnostic.CA2211.severity = none
+# CA5394: the payload generators use a seeded Random; reproducibility is the point and nothing here is
+# security-sensitive.
+dotnet_diagnostic.CA5394.severity = none
+
+# Benchmarks: a developer-only console harness, not shipped.
+[benchmarks/**.cs]
+# CA5394: the corpus is generated from a seeded Random so every run measures the same payloads.
+dotnet_diagnostic.CA5394.severity = none
+# CA1515: BenchmarkDotNet discovers benchmark classes by reflection and needs them public.
+dotnet_diagnostic.CA1515.severity = none
+# CA1303: a developer console tool that is never localised.
+dotnet_diagnostic.CA1303.severity = none
