@@ -169,7 +169,7 @@ namespace FastBinaryJson.Benchmarks.Corpus
     /// <summary>
     /// Isolates a defect, not a shape. fastBinaryJSON writes `char` as a short (WriteChar) but
     /// ParseChar returns that short unconverted, so a typed round trip throws InvalidCastException
-    /// and an untyped BJSON.Parse silently yields a boxed short instead of a char.
+    /// and an untyped Bjson.Parse silently yields a boxed short instead of a char.
     ///
     /// Present since the commit that introduced char support (v1.4.11) and unchanged in every
     /// release after it. Kept in the corpus so the compatibility matrix records it as a standing

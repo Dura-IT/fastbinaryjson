@@ -13,7 +13,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * the "schema" in the payload was just "Orders" and the table could not be read back.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class DataTableSchemaTests
     {
         [Test]
@@ -24,10 +24,10 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             table.Columns.Add("Name", typeof(string));
             table.Rows.Add(1, "first");
             table.Rows.Add(2, "second");
-            var parameters = new BJSONParameters { UseOptimizedDatasetSchema = false };
+            var parameters = new BjsonParameters { UseOptimizedDatasetSchema = false };
 
-            byte[] bytes = BJSON.ToBJSON(table, parameters);
-            DataTable? read = BJSON.ToObject<DataTable>(bytes, parameters);
+            byte[] bytes = Bjson.ToBjson(table, parameters);
+            DataTable? read = Bjson.ToObject<DataTable>(bytes, parameters);
 
             read.Should().NotBeNull();
             read.Rows.Count.Should().Be(2);
@@ -38,9 +38,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void DataTable_SchemaWithDocumentType_IsRejected()
         {
             const string hostile = "<!DOCTYPE schema [<!ENTITY probe \"x\">]><xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" />";
-            byte[] bytes = BJSON.ToBJSON(new Dictionary<string, object> { ["$schema"] = hostile });
+            byte[] bytes = Bjson.ToBjson(new Dictionary<string, object> { ["$schema"] = hostile });
 
-            FluentActions.Invoking(() => BJSON.ToObject<DataTable>(bytes)).Should().Throw<XmlException>();
+            FluentActions.Invoking(() => Bjson.ToObject<DataTable>(bytes)).Should().Throw<XmlException>();
         }
     }
 }

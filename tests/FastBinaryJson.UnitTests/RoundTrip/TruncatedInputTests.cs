@@ -19,65 +19,65 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * path has always thrown.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class TruncatedInputTests
     {
         [Test]
         public void Parse_Utf16StringLongerThanThePayload_Throws()
         {
-            byte[] bytes = Payload(TOKENS.UNICODE_STRING, BitConverter.GetBytes(1000), new byte[] { 0x41, 0x00, 0x42, 0x00 });
+            byte[] bytes = Payload(Tokens.Utf16String, BitConverter.GetBytes(1000), new byte[] { 0x41, 0x00, 0x42, 0x00 });
 
-            FluentActions.Invoking(() => BJSON.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
         }
 
         [Test]
         public void Parse_Utf8StringLongerThanThePayload_Throws()
         {
-            byte[] bytes = Payload(TOKENS.STRING, BitConverter.GetBytes(1000), new byte[] { 0x41, 0x42 });
+            byte[] bytes = Payload(Tokens.Utf8String, BitConverter.GetBytes(1000), new byte[] { 0x41, 0x42 });
 
-            FluentActions.Invoking(() => BJSON.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
         }
 
-        [TestCase(TOKENS.SHORT, 1)]
-        [TestCase(TOKENS.USHORT, 1)]
-        [TestCase(TOKENS.CHAR, 1)]
-        [TestCase(TOKENS.INT, 2)]
-        [TestCase(TOKENS.UINT, 3)]
-        [TestCase(TOKENS.LONG, 5)]
-        [TestCase(TOKENS.ULONG, 7)]
-        [TestCase(TOKENS.DATETIME, 4)]
-        [TestCase(TOKENS.TIMESPAN, 6)]
-        [TestCase(TOKENS.DECIMAL, 14)]
-        [TestCase(TOKENS.DATETIMEOFFSET, 9)]
+        [TestCase(Tokens.Int16, 1)]
+        [TestCase(Tokens.UInt16, 1)]
+        [TestCase(Tokens.Char, 1)]
+        [TestCase(Tokens.Int32, 2)]
+        [TestCase(Tokens.UInt32, 3)]
+        [TestCase(Tokens.Int64, 5)]
+        [TestCase(Tokens.UInt64, 7)]
+        [TestCase(Tokens.DateTime, 4)]
+        [TestCase(Tokens.TimeSpan, 6)]
+        [TestCase(Tokens.Decimal, 14)]
+        [TestCase(Tokens.DateTimeOffset, 9)]
         public void Parse_FixedSizeValueCutShort_Throws(byte token, int bytesPresent)
         {
             byte[] bytes = Payload(token, Enumerable.Repeat((byte)0x7F, bytesPresent).ToArray());
 
-            FluentActions.Invoking(() => BJSON.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
         }
 
         [Test]
         public void Parse_ByteArrayLongerThanThePayload_ThrowsWithoutAllocatingIt()
         {
-            byte[] bytes = Payload(TOKENS.BYTEARRAY, BitConverter.GetBytes(int.MaxValue), new byte[] { 1, 2, 3 });
+            byte[] bytes = Payload(Tokens.ByteArray, BitConverter.GetBytes(int.MaxValue), new byte[] { 1, 2, 3 });
 
-            FluentActions.Invoking(() => BJSON.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
         }
 
         [Test]
         public void Parse_Utf16NameLongerThanThePayload_Throws()
         {
-            byte[] bytes = Payload(TOKENS.DOC_START, new[] { TOKENS.NAME_UNI, (byte)200 }, new byte[] { 0x41, 0x00 });
+            byte[] bytes = Payload(Tokens.DocStart, new[] { Tokens.NameUtf16, (byte)200 }, new byte[] { 0x41, 0x00 });
 
-            FluentActions.Invoking(() => BJSON.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
         }
 
         [Test]
         public void Parse_LongTypedArrayNameLongerThanThePayload_Throws()
         {
-            byte[] bytes = Payload(TOKENS.ARRAY_TYPED_LONG, BitConverter.GetBytes((short)3000), new byte[] { 0x41, 0x00 });
+            byte[] bytes = Payload(Tokens.TypedArrayLong, BitConverter.GetBytes((short)3000), new byte[] { 0x41, 0x00 });
 
-            FluentActions.Invoking(() => BJSON.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
         }
 
         private static byte[] Payload(byte token, params byte[][] parts)

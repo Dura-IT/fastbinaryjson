@@ -28,7 +28,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(Cases))]
         public void ToObject_OneStep_MatchesTwoStep(EquivalenceCase testCase)
         {
-            byte[] bytes = BJSON.ToBJSON(testCase.Build(), testCase.Parameters());
+            byte[] bytes = Bjson.ToBjson(testCase.Build(), testCase.Parameters());
 
             Outcome twoStep = Read(bytes, testCase, oneStep: false);
             Outcome oneStep = Read(bytes, testCase, oneStep: true);
@@ -60,7 +60,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(MutationSources))]
         public void ToObject_DamagedInput_BothThrowOrBothMatch(EquivalenceCase source)
         {
-            byte[] original = BJSON.ToBJSON(source.Build(), source.Parameters());
+            byte[] original = Bjson.ToBjson(source.Build(), source.Parameters());
             Random random = new Random(20260930 + original.Length);
             int succeeded = 0;
 
@@ -99,7 +99,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         public static IEnumerable<EquivalenceCase> MutationSources()
         {
-            Func<BJSONParameters> untyped = () => new BJSONParameters { UseTypedArrays = false };
+            Func<BjsonParameters> untyped = () => new BjsonParameters { UseTypedArrays = false };
             yield return new EquivalenceCase("primitives", GoldenCorpus.BuildPrimitives, untyped, typeof(Primitives));
             yield return new EquivalenceCase("invoice", GoldenCorpus.BuildInvoice, untyped, typeof(Invoice));
             yield return new EquivalenceCase("shapes", GoldenCorpus.BuildShapes, untyped, typeof(ShapeBox));
@@ -126,9 +126,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToObject_SharedReference_IsOneInstanceOnBothPaths()
         {
-            byte[] bytes = BJSON.ToBJSON(GoldenCorpus.BuildSharedReference());
+            byte[] bytes = Bjson.ToBjson(GoldenCorpus.BuildSharedReference());
 
-            ReferenceBox restored = (ReferenceBox)ReadWith(bytes, typeof(ReferenceBox), new BJSONParameters(), oneStep: true)!;
+            ReferenceBox restored = (ReferenceBox)ReadWith(bytes, typeof(ReferenceBox), new BjsonParameters(), oneStep: true)!;
 
             restored.Third.Should().BeSameAs(restored.First);
             restored.Second.Should().NotBeSameAs(restored.First);
@@ -140,7 +140,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             EqNode a = new EqNode { Name = "a" };
             a.Next = new EqNode { Name = "b", Next = a };
 
-            EqNode restored = (EqNode)ReadWith(BJSON.ToBJSON(a), typeof(EqNode), new BJSONParameters(), oneStep: true)!;
+            EqNode restored = (EqNode)ReadWith(Bjson.ToBjson(a), typeof(EqNode), new BjsonParameters(), oneStep: true)!;
 
             restored.Next!.Name.Should().Be("b");
             restored.Next.Next.Should().BeSameAs(restored);
@@ -155,9 +155,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void ToObject_ObjectMemberWithoutType_FallsBackAndStillMatches()
         {
             EqKitchenSink value = EqKitchenSink.Build();
-            byte[] bytes = BJSON.ToBJSON(value);
+            byte[] bytes = Bjson.ToBjson(value);
 
-            Outcome oneStep = Read(bytes, new EquivalenceCase("bag", () => value, () => new BJSONParameters(), typeof(EqKitchenSink)), oneStep: true);
+            Outcome oneStep = Read(bytes, new EquivalenceCase("bag", () => value, () => new BjsonParameters(), typeof(EqKitchenSink)), oneStep: true);
 
             oneStep.Error.Should().BeNull();
             oneStep.Fallbacks.Should().BeGreaterThan(0);
@@ -171,8 +171,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToObject_PrimitiveMembers_AreSetWithoutBoxing()
         {
-            byte[] bytes = BJSON.ToBJSON(EqTypedMembers.Build());
-            Deserializer deserializer = new Deserializer(new BJSONParameters());
+            byte[] bytes = Bjson.ToBjson(EqTypedMembers.Build());
+            Deserializer deserializer = new Deserializer(new BjsonParameters());
 
             deserializer.ToObject<EqTypedMembers>(bytes);
 
@@ -185,10 +185,10 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToObject_ReadOnlyMembers_AreSetWithoutBoxing()
         {
-            BJSONParameters parameters = new BJSONParameters { ShowReadOnlyProperties = true };
+            BjsonParameters parameters = new BjsonParameters { ShowReadOnlyProperties = true };
             Deserializer deserializer = new Deserializer(parameters);
 
-            EqReadOnlyMembers restored = deserializer.ToObject<EqReadOnlyMembers>(BJSON.ToBJSON(EqReadOnlyMembers.Build(), parameters))!;
+            EqReadOnlyMembers restored = deserializer.ToObject<EqReadOnlyMembers>(Bjson.ToBjson(EqReadOnlyMembers.Build(), parameters))!;
 
             restored.PrivateSet.Should().Be(42);
             restored.GetOnly.Should().Be(EqReadOnlyMembers.Build().GetOnly);
@@ -206,9 +206,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             {
                 Point = new EqPoint { X = 3, Y = -4 },
             };
-            Deserializer deserializer = new Deserializer(new BJSONParameters());
+            Deserializer deserializer = new Deserializer(new BjsonParameters());
 
-            EqPointHolder restored = deserializer.ToObject<EqPointHolder>(BJSON.ToBJSON(value))!;
+            EqPointHolder restored = deserializer.ToObject<EqPointHolder>(Bjson.ToBjson(value))!;
 
             restored.Point.Should().Be(new EqPoint { X = 3, Y = -4 });
             deserializer.TypedSets.Should().Be(0);
@@ -229,7 +229,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 );
             }
 
-            foreach ((string name, Func<BJSONParameters> parameters, bool extensions) in Variants())
+            foreach ((string name, Func<BjsonParameters> parameters, bool extensions) in Variants())
             {
                 yield return Case("flat", PayloadFactory.CreateFlatPrimitives, name, parameters, true);
                 yield return Case("order", PayloadFactory.CreateNestedOrder, name, parameters, true);
@@ -248,11 +248,11 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 yield return Case("typed-members", EqTypedMembers.Build, name, parameters, true);
             }
 
-            Func<BJSONParameters> showReadOnly = () => new BJSONParameters { ShowReadOnlyProperties = true };
+            Func<BjsonParameters> showReadOnly = () => new BjsonParameters { ShowReadOnlyProperties = true };
             yield return Case("read-only-members", EqReadOnlyMembers.Build, "show-read-only", showReadOnly, true);
 
             // No $type, so the declared type decides the members - and their tokens do not match.
-            Func<BJSONParameters> noExtensions = () => new BJSONParameters { UseExtensions = false };
+            Func<BjsonParameters> noExtensions = () => new BjsonParameters { UseExtensions = false };
             yield return new EquivalenceCase("token-wider-than-member/no-extensions", EqWidths.Build, noExtensions, typeof(EqWidened), MustSucceed: false);
             yield return new EquivalenceCase(
                 "token-into-nullable-member/no-extensions",
@@ -263,22 +263,22 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             );
         }
 
-        private static IEnumerable<(string Name, Func<BJSONParameters> Parameters, bool Extensions)> Variants()
+        private static IEnumerable<(string Name, Func<BjsonParameters> Parameters, bool Extensions)> Variants()
         {
-            yield return ("defaults", () => new BJSONParameters(), true);
-            yield return ("utf8", () => new BJSONParameters { UseUnicodeStrings = false }, true);
-            yield return ("no-global-types", () => new BJSONParameters { UsingGlobalTypes = false }, true);
-            yield return ("nulls", () => new BJSONParameters { SerializeNulls = true }, true);
-            yield return ("untyped-arrays", () => new BJSONParameters { UseTypedArrays = false }, true);
-            yield return ("utc", () => new BJSONParameters { UseUTCDateTime = true }, true);
-            yield return ("no-extensions", () => new BJSONParameters { UseExtensions = false }, false);
+            yield return ("defaults", () => new BjsonParameters(), true);
+            yield return ("utf8", () => new BjsonParameters { UseUnicodeStrings = false }, true);
+            yield return ("no-global-types", () => new BjsonParameters { UsingGlobalTypes = false }, true);
+            yield return ("nulls", () => new BjsonParameters { SerializeNulls = true }, true);
+            yield return ("untyped-arrays", () => new BjsonParameters { UseTypedArrays = false }, true);
+            yield return ("utc", () => new BjsonParameters { UseUtcDateTime = true }, true);
+            yield return ("no-extensions", () => new BjsonParameters { UseExtensions = false }, false);
         }
 
         private static EquivalenceCase Case<T>(
             string shape,
             Func<T> build,
             string variant,
-            Func<BJSONParameters> parameters,
+            Func<BjsonParameters> parameters,
             bool standard,
             bool mustSucceed = true
         )
@@ -403,7 +403,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             }
         }
 
-        private static object? ReadWith(byte[] bytes, Type type, BJSONParameters parameters, bool oneStep)
+        private static object? ReadWith(byte[] bytes, Type type, BjsonParameters parameters, bool oneStep)
         {
             return new Deserializer(parameters) { OneStep = oneStep }.ToObject(bytes, type);
         }
@@ -417,7 +417,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
     public sealed record EquivalenceCase(
         string Name,
         Func<object> Build,
-        Func<BJSONParameters> Parameters,
+        Func<BjsonParameters> Parameters,
         Type Type,
         bool MustSucceed = true,
         bool StandardShape = false

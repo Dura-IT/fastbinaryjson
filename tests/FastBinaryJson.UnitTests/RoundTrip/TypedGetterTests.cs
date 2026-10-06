@@ -15,20 +15,20 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * (nullables, an enum, a string, DateTimeOffset, a struct, a static).
      */
     [TestFixture]
-    [TestOf(typeof(BJSONSerializer))]
+    [TestOf(typeof(BjsonSerializer))]
     public sealed class TypedGetterTests
     {
         internal static IEnumerable<TestCaseData> ParameterSets()
         {
-            yield return new TestCaseData(new BJSONParameters()).SetArgDisplayNames("defaults");
-            yield return new TestCaseData(new BJSONParameters { UseUnicodeStrings = false }).SetArgDisplayNames("utf8");
-            yield return new TestCaseData(new BJSONParameters { UseUTCDateTime = true }).SetArgDisplayNames("utc");
-            yield return new TestCaseData(new BJSONParameters { UseExtensions = false, UsingGlobalTypes = false }).SetArgDisplayNames("no-extensions");
-            yield return new TestCaseData(new BJSONParameters { SerializeNulls = true }).SetArgDisplayNames("nulls-serialized");
+            yield return new TestCaseData(new BjsonParameters()).SetArgDisplayNames("defaults");
+            yield return new TestCaseData(new BjsonParameters { UseUnicodeStrings = false }).SetArgDisplayNames("utf8");
+            yield return new TestCaseData(new BjsonParameters { UseUtcDateTime = true }).SetArgDisplayNames("utc");
+            yield return new TestCaseData(new BjsonParameters { UseExtensions = false, UsingGlobalTypes = false }).SetArgDisplayNames("no-extensions");
+            yield return new TestCaseData(new BjsonParameters { SerializeNulls = true }).SetArgDisplayNames("nulls-serialized");
         }
 
         [TestCaseSource(nameof(ParameterSets))]
-        public void ToBJSON_Primitives_WriteTheBoxingPathsBytes(BJSONParameters parameters)
+        public void ToBjson_Primitives_WriteTheBoxingPathsBytes(BjsonParameters parameters)
         {
             TypedGetterSubject value = TypedGetterSubject.Create();
 
@@ -36,7 +36,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         }
 
         [TestCaseSource(nameof(ParameterSets))]
-        public void ToBJSON_ExtremeValues_WriteTheBoxingPathsBytes(BJSONParameters parameters)
+        public void ToBjson_ExtremeValues_WriteTheBoxingPathsBytes(BjsonParameters parameters)
         {
             TypedGetterSubject value = TypedGetterSubject.CreateExtremes();
 
@@ -44,21 +44,21 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         }
 
         [Test]
-        public void ToBJSON_Primitives_RoundTrip()
+        public void ToBjson_Primitives_RoundTrip()
         {
             TypedGetterSubject value = TypedGetterSubject.Create();
 
-            TypedGetterSubject restored = BJSON.ToObject<TypedGetterSubject>(BJSON.ToBJSON(value))!;
+            TypedGetterSubject restored = Bjson.ToObject<TypedGetterSubject>(Bjson.ToBjson(value))!;
 
             // ReadOnlyInt is written - the byte comparisons cover it - but a private setter is only
             // read back with ShowReadOnlyProperties, which is off by default.
             restored.Should().BeEquivalentTo(value, o => o.IncludingFields().Excluding(s => s.ReadOnlyInt));
         }
 
-        private static byte[] Write(object value, BJSONParameters parameters, bool typed)
+        private static byte[] Write(object value, BjsonParameters parameters, bool typed)
         {
             parameters.FixValues();
-            using (BJSONSerializer serializer = new BJSONSerializer(parameters.MakeCopy()) { TypedGetters = typed })
+            using (BjsonSerializer serializer = new BjsonSerializer(parameters.MakeCopy()) { TypedGetters = typed })
                 return serializer.ConvertToBJSON(value);
         }
     }

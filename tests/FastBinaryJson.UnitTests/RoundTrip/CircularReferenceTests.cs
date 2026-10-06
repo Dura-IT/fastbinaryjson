@@ -34,7 +34,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 Second = shared,
             };
 
-            EqStructsThenShared restored = Read<EqStructsThenShared>(BJSON.ToBJSON(value), oneStep);
+            EqStructsThenShared restored = Read<EqStructsThenShared>(Bjson.ToBjson(value), oneStep);
 
             restored.A.Should().Be(value.A);
             restored.B.Should().Be(value.B);
@@ -57,7 +57,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 B = new EqPoint { X = 5, Y = 6 },
             };
 
-            EqStructsThenShared restored = Read<EqStructsThenShared>(BJSON.ToBJSON(value), oneStep);
+            EqStructsThenShared restored = Read<EqStructsThenShared>(Bjson.ToBjson(value), oneStep);
 
             restored.A.Should().Be(value.A);
             restored.B.Should().Be(value.B);
@@ -80,7 +80,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 Second = shared,
             };
 
-            EqRecordsThenShared restored = Read<EqRecordsThenShared>(BJSON.ToBJSON(value), oneStep);
+            EqRecordsThenShared restored = Read<EqRecordsThenShared>(Bjson.ToBjson(value), oneStep);
 
             restored.B!.Name.Should().Be("b");
             restored.First!.Name.Should().Be("shared");
@@ -89,7 +89,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         private static T Read<T>(byte[] bytes, bool oneStep)
         {
-            return new Deserializer(new BJSONParameters()) { OneStep = oneStep }.ToObject<T>(bytes)!;
+            return new Deserializer(new BjsonParameters()) { OneStep = oneStep }.ToObject<T>(bytes)!;
         }
     }
 

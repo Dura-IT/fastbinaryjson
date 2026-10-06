@@ -11,16 +11,16 @@ namespace DuraIT.FastBinaryJson
         // Exactly one of these is populated, decided by what Parse returned - so both are
         // genuinely nullable, and every use below asserts the one the caller implied.
         private IDictionary<string, object>? _dictionary { get; set; }
-        private List<object>? _list { get; set; }
+        private IList<object>? _list { get; set; }
 
         public DynamicJson(byte[] json)
         {
-            var parse = BJSON.Parse(json);
+            var parse = Bjson.Parse(json);
 
             if (parse is IDictionary<string, object> parsedDictionary)
                 _dictionary = parsedDictionary;
             else if (parse is TypedArray typedArray)
-                _list = typedArray.data;
+                _list = typedArray.Data;
             else
                 _list = (List<object>?)parse;
         }

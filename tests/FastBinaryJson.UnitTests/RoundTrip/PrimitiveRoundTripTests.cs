@@ -13,11 +13,11 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      *
      * The typed and the untyped read path are asserted separately on purpose. A typed property can
      * be repaired by converting at assignment time, so a green typed test says nothing about what
-     * BJSON.Parse hands back to a caller reading an untyped graph - which is the path where a wrong
+     * Bjson.Parse hands back to a caller reading an untyped graph - which is the path where a wrong
      * CLR type is silent rather than an exception.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class PrimitiveRoundTripTests
     {
         [TestCase('Z')]
@@ -26,9 +26,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCase(char.MaxValue)]
         public void Char_TypedProperty_RoundTrips(char value)
         {
-            byte[] bytes = BJSON.ToBJSON(new CharHolder { Value = value });
+            byte[] bytes = Bjson.ToBjson(new CharHolder { Value = value });
 
-            CharHolder restored = BJSON.ToObject<CharHolder>(bytes)!;
+            CharHolder restored = Bjson.ToObject<CharHolder>(bytes)!;
 
             restored.Value.Should().Be(value);
         }
@@ -36,9 +36,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void Char_Untyped_RoundTripsAsChar()
         {
-            byte[] bytes = BJSON.ToBJSON('Z');
+            byte[] bytes = Bjson.ToBjson('Z');
 
-            object? parsed = BJSON.Parse(bytes);
+            object? parsed = Bjson.Parse(bytes);
 
             parsed.Should().BeOfType<char>("ParseChar casts the Int16 it reads back to char");
             parsed.Should().Be('Z');
@@ -48,16 +48,16 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         /// Pins that the fix is on the read side only.
         /// </summary>
         /// <remarks>
-        /// WriteChar was always correct - it writes TOKENS.CHAR and the value as Int16 - so the
+        /// WriteChar was always correct - it writes Tokens.Char and the value as Int16 - so the
         /// bytes for a char must not have moved. The golden fixtures cover the same ground for the
         /// corpus types; this states it for the primitive on its own, where it is the whole point.
         /// </remarks>
         [Test]
         public void Char_Bytes_AreTokenAndInt16()
         {
-            byte[] bytes = BJSON.ToBJSON('Z');
+            byte[] bytes = Bjson.ToBjson('Z');
 
-            bytes.Should().Equal(TOKENS.CHAR, 0x5A, 0x00);
+            bytes.Should().Equal(Tokens.Char, 0x5A, 0x00);
         }
 
         [TestCase((sbyte)0)]
@@ -67,9 +67,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCase(sbyte.MaxValue)]
         public void SByte_TypedProperty_RoundTrips(sbyte value)
         {
-            byte[] bytes = BJSON.ToBJSON(new SByteHolder { Value = value });
+            byte[] bytes = Bjson.ToBjson(new SByteHolder { Value = value });
 
-            SByteHolder restored = BJSON.ToObject<SByteHolder>(bytes)!;
+            SByteHolder restored = Bjson.ToObject<SByteHolder>(bytes)!;
 
             restored.Value.Should().Be(value);
         }
@@ -77,9 +77,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void SByte_Untyped_RoundTripsAsSByte()
         {
-            byte[] bytes = BJSON.ToBJSON((sbyte)-42);
+            byte[] bytes = Bjson.ToBjson((sbyte)-42);
 
-            object? parsed = BJSON.Parse(bytes);
+            object? parsed = Bjson.Parse(bytes);
 
             parsed.Should().BeOfType<sbyte>("sbyte has its own token, so the reader knows the value is signed");
             parsed.Should().Be((sbyte)-42);
@@ -89,16 +89,16 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         /// Pins the added token, because this one is a wire-format change.
         /// </summary>
         /// <remarks>
-        /// sbyte shared TOKENS.BYTE with byte, which made the two indistinguishable on the wire, so
-        /// unlike char there was nothing for the reader to recover. TOKENS.SBYTE is what makes the
+        /// sbyte shared Tokens.Byte with byte, which made the two indistinguishable on the wire, so
+        /// unlike char there was nothing for the reader to recover. Tokens.SByte is what makes the
         /// sign part of the format.
         /// </remarks>
         [Test]
         public void SByte_Bytes_AreDedicatedTokenAndTwosComplement()
         {
-            byte[] bytes = BJSON.ToBJSON((sbyte)-42);
+            byte[] bytes = Bjson.ToBjson((sbyte)-42);
 
-            bytes.Should().Equal(TOKENS.SBYTE, 0xD6);
+            bytes.Should().Equal(Tokens.SByte, 0xD6);
         }
 
         /// <summary>
@@ -113,15 +113,15 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void SByte_LegacyByteToken_StillRestoresIntoTypedProperty()
         {
-            BJSONParameters parameters = new BJSONParameters { UseExtensions = false };
-            byte[] legacy = BJSON.ToBJSON(new SByteHolder { Value = -42 }, parameters);
+            BjsonParameters parameters = new BjsonParameters { UseExtensions = false };
+            byte[] legacy = Bjson.ToBjson(new SByteHolder { Value = -42 }, parameters);
 
-            int token = Array.IndexOf(legacy, TOKENS.SBYTE);
+            int token = Array.IndexOf(legacy, Tokens.SByte);
             token.Should().BeGreaterThanOrEqualTo(0);
             legacy[token + 1].Should().Be(0xD6, "the byte after the token must be the value, or the wrong token was found");
-            legacy[token] = TOKENS.BYTE;
+            legacy[token] = Tokens.Byte;
 
-            SByteHolder restored = BJSON.ToObject<SByteHolder>(legacy, parameters)!;
+            SByteHolder restored = Bjson.ToObject<SByteHolder>(legacy, parameters)!;
 
             restored.Value.Should().Be(-42, "a byte assigned to an sbyte property is reinterpreted, which recovers the sign");
         }
@@ -132,15 +132,15 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         /// <remarks>
         /// Reading an untyped graph out of a legacy stream still yields a byte. There is no declared
         /// property type to convert against and the old bytes do not record the sign, so nothing can
-        /// recover it. Only data written with TOKENS.SBYTE round-trips untyped.
+        /// recover it. Only data written with Tokens.SByte round-trips untyped.
         /// </remarks>
         [Test]
         public void SByte_LegacyByteToken_Untyped_IsStillAByte()
         {
-            byte[] legacy = BJSON.ToBJSON((sbyte)-42);
-            legacy[0] = TOKENS.BYTE;
+            byte[] legacy = Bjson.ToBjson((sbyte)-42);
+            legacy[0] = Tokens.Byte;
 
-            object? parsed = BJSON.Parse(legacy);
+            object? parsed = Bjson.Parse(legacy);
 
             parsed.Should().BeOfType<byte>();
             parsed.Should().Be((byte)214);
@@ -163,7 +163,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 Value = new PlainStruct { Number = 1, Text = "x" },
             };
 
-            StructHolder restored = BJSON.ToObject<StructHolder>(BJSON.ToBJSON(source))!;
+            StructHolder restored = Bjson.ToObject<StructHolder>(Bjson.ToBjson(source))!;
 
             restored.Value.Number.Should().Be(1);
             restored.Value.Text.Should().Be("x");

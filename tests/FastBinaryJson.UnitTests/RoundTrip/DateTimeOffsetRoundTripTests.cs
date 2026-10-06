@@ -10,7 +10,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
     /*
      * DateTimeOffset, which upstream could not serialize at all.
      *
-     * TOKENS.DATETIMEOFFSET = 27 was declared and never written or read - a dead token. WriteValue
+     * Tokens.DateTimeOffset = 27 was declared and never written or read - a dead token. WriteValue
      * had no branch for the type, so it fell through to WriteObject, which emitted a dynamic getter
      * over DateTimeOffset's members and produced invalid IL: InvalidProgramException from generated
      * code, not a clean unsupported-type error.
@@ -25,7 +25,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * native form is only reached by callers who never had a working path.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class DateTimeOffsetRoundTripTests
     {
         [TearDown]
@@ -33,7 +33,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             // Registration is process-wide, so a test that registers has to undo it or it decides
             // the outcome of every later fixture that touches the same type.
-            Reflection.Instance.ClearCustomTypes();
+            TypeReflector.Instance.ClearCustomTypes();
         }
 
         [TestCase(2)]
@@ -45,7 +45,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             DateTimeOffset value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromHours(offsetHours));
 
-            OffsetHolder restored = BJSON.ToObject<OffsetHolder>(BJSON.ToBJSON(new OffsetHolder { Value = value }))!;
+            OffsetHolder restored = Bjson.ToObject<OffsetHolder>(Bjson.ToBjson(new OffsetHolder { Value = value }))!;
 
             restored.Value.Should().Be(value);
             restored.Value.Offset.Should().Be(value.Offset, "the offset is part of the value, not a rendering of it");
@@ -56,7 +56,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             DateTimeOffset value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromMinutes(330)).AddTicks(1234567);
 
-            OffsetHolder restored = BJSON.ToObject<OffsetHolder>(BJSON.ToBJSON(new OffsetHolder { Value = value }))!;
+            OffsetHolder restored = Bjson.ToObject<OffsetHolder>(Bjson.ToBjson(new OffsetHolder { Value = value }))!;
 
             restored.Value.Should().Be(value, "the encoding stores raw ticks, and the offset is a whole number of minutes");
         }
@@ -66,7 +66,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             DateTimeOffset value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromHours(2));
 
-            object? parsed = BJSON.Parse(BJSON.ToBJSON(value));
+            object? parsed = Bjson.Parse(Bjson.ToBjson(value));
 
             parsed.Should().BeOfType<DateTimeOffset>();
             parsed.Should().Be(value);
@@ -80,16 +80,16 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             DateTimeOffset value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromHours(2));
 
-            byte[] bytes = BJSON.ToBJSON(value, new BJSONParameters { UseExtensions = false });
+            byte[] bytes = Bjson.ToBjson(value, new BjsonParameters { UseExtensions = false });
 
             bytes.Should().HaveCount(11);
-            bytes[0].Should().Be(TOKENS.DATETIMEOFFSET, "the token was declared by upstream and left unused");
+            bytes[0].Should().Be(Tokens.DateTimeOffset, "the token was declared by upstream and left unused");
             BitConverter.ToInt64(bytes, 1).Should().Be(value.Ticks);
             BitConverter.ToInt16(bytes, 9).Should().Be(120, "+02:00 is 120 minutes, written signed so western offsets work");
         }
 
         /// <summary>
-        /// UseUTCDateTime is a DateTime setting and must not touch this type.
+        /// UseUtcDateTime is a DateTime setting and must not touch this type.
         /// </summary>
         /// <remarks>
         /// A DateTime carries no offset, so that parameter exists to decide which clock it means. A
@@ -99,9 +99,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void DateTimeOffset_UseUTCDateTime_DoesNotShiftTheValue()
         {
             DateTimeOffset value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromHours(2));
-            BJSONParameters parameters = new BJSONParameters { UseUTCDateTime = true };
+            BjsonParameters parameters = new BjsonParameters { UseUtcDateTime = true };
 
-            OffsetHolder restored = BJSON.ToObject<OffsetHolder>(BJSON.ToBJSON(new OffsetHolder { Value = value }, parameters), parameters)!;
+            OffsetHolder restored = Bjson.ToObject<OffsetHolder>(Bjson.ToBjson(new OffsetHolder { Value = value }, parameters), parameters)!;
 
             restored.Value.Should().Be(value);
             restored.Value.Offset.Should().Be(TimeSpan.FromHours(2));
@@ -121,16 +121,16 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void DateTimeOffset_RegisteredCustomType_StillWins()
         {
             DateTimeOffset value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromHours(2));
-            BJSON.RegisterCustomType(
+            Bjson.RegisterCustomType(
                 typeof(DateTimeOffset),
                 x => ((DateTimeOffset)x).ToString("o"),
                 x => DateTimeOffset.Parse(x, CultureInfo.InvariantCulture)
             );
 
-            byte[] bytes = BJSON.ToBJSON(value, new BJSONParameters { UseExtensions = false });
+            byte[] bytes = Bjson.ToBjson(value, new BjsonParameters { UseExtensions = false });
 
-            bytes[0].Should().NotBe(TOKENS.DATETIMEOFFSET, "a registration takes precedence, so the value is written as a string");
-            BJSON.ToObject<DateTimeOffset>(bytes).Should().Be(value);
+            bytes[0].Should().NotBe(Tokens.DateTimeOffset, "a registration takes precedence, so the value is written as a string");
+            Bjson.ToObject<DateTimeOffset>(bytes).Should().Be(value);
         }
 
         [Test]
@@ -138,7 +138,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             DateTimeOffset value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromHours(2));
 
-            NullableOffsetHolder restored = BJSON.ToObject<NullableOffsetHolder>(BJSON.ToBJSON(new NullableOffsetHolder { Value = value }))!;
+            NullableOffsetHolder restored = Bjson.ToObject<NullableOffsetHolder>(Bjson.ToBjson(new NullableOffsetHolder { Value = value }))!;
 
             restored.Value.Should().Be(value);
         }
@@ -148,7 +148,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             DateTime value = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Unspecified);
 
-            NullableClockHolder restored = BJSON.ToObject<NullableClockHolder>(BJSON.ToBJSON(new NullableClockHolder { Moment = value }))!;
+            NullableClockHolder restored = Bjson.ToObject<NullableClockHolder>(Bjson.ToBjson(new NullableClockHolder { Moment = value }))!;
 
             restored.Moment.Should().Be(value);
         }

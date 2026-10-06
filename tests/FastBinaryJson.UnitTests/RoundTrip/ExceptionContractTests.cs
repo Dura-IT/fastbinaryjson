@@ -13,7 +13,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * handler written for the base type keeps working.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class ExceptionContractTests
     {
         private const int DeeperThanTheSerializerAllows = 40;
@@ -23,11 +23,11 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = { 0xFE };
 
-            FluentActions.Invoking(() => BJSON.Parse(bytes)).Should().Throw<BjsonException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<BjsonException>();
         }
 
         [Test]
-        public void ToBJSON_GraphDeeperThanTheLimit_ThrowsBjsonException()
+        public void ToBjson_GraphDeeperThanTheLimit_ThrowsBjsonException()
         {
             var root = new Node();
             Node current = root;
@@ -37,7 +37,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 current = current.Child;
             }
 
-            FluentActions.Invoking(() => BJSON.ToBJSON(root)).Should().Throw<BjsonException>();
+            FluentActions.Invoking(() => Bjson.ToBjson(root)).Should().Throw<BjsonException>();
         }
 
         [Test]
@@ -51,46 +51,46 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         }
 
         [Test]
-        public void ToBJSON_NullParameters_ThrowsArgumentNull()
+        public void ToBjson_NullParameters_ThrowsArgumentNull()
         {
-            FluentActions.Invoking(() => BJSON.ToBJSON(new Node(), null!)).Should().Throw<ArgumentNullException>().WithParameterName("param");
+            FluentActions.Invoking(() => Bjson.ToBjson(new Node(), null!)).Should().Throw<ArgumentNullException>().WithParameterName("param");
         }
 
         [Test]
         public void ToObject_NullParameters_ThrowsArgumentNull()
         {
-            byte[] bytes = BJSON.ToBJSON(new Node());
+            byte[] bytes = Bjson.ToBjson(new Node());
 
-            FluentActions.Invoking(() => BJSON.ToObject(bytes, (BJSONParameters)null!)).Should().Throw<ArgumentNullException>().WithParameterName("param");
+            FluentActions.Invoking(() => Bjson.ToObject(bytes, (BjsonParameters)null!)).Should().Throw<ArgumentNullException>().WithParameterName("param");
         }
 
         [Test]
         public void ToObjectGeneric_NullParameters_ThrowsArgumentNull()
         {
-            byte[] bytes = BJSON.ToBJSON(new Node());
+            byte[] bytes = Bjson.ToBjson(new Node());
 
-            FluentActions.Invoking(() => BJSON.ToObject<Node>(bytes, null!)).Should().Throw<ArgumentNullException>().WithParameterName("param");
+            FluentActions.Invoking(() => Bjson.ToObject<Node>(bytes, null!)).Should().Throw<ArgumentNullException>().WithParameterName("param");
         }
 
         [Test]
         public void FillObject_NullInput_ThrowsArgumentNull()
         {
-            byte[] bytes = BJSON.ToBJSON(new Node());
+            byte[] bytes = Bjson.ToBjson(new Node());
 
-            FluentActions.Invoking(() => BJSON.FillObject(null!, bytes)).Should().Throw<ArgumentNullException>().WithParameterName("input");
+            FluentActions.Invoking(() => Bjson.FillObject(null!, bytes)).Should().Throw<ArgumentNullException>().WithParameterName("input");
         }
 
         [Test]
-        public void Reflection_NullArguments_ThrowArgumentNull()
+        public void TypeReflector_NullArguments_ThrowArgumentNull()
         {
-            Reflection reflection = Reflection.Instance;
+            TypeReflector reflection = TypeReflector.Instance;
 
             FluentActions.Invoking(() => reflection.GetTypeAssemblyName(null!)).Should().Throw<ArgumentNullException>().WithParameterName("t");
             FluentActions.Invoking(() => reflection.GetGenericArguments(null!)).Should().Throw<ArgumentNullException>().WithParameterName("t");
             FluentActions.Invoking(() => reflection.GetGenericTypeDefinition(null!)).Should().Throw<ArgumentNullException>().WithParameterName("t");
             FluentActions.Invoking(() => reflection.Getproperties(null!, "name", false)).Should().Throw<ArgumentNullException>().WithParameterName("type");
-            FluentActions.Invoking(() => Reflection.UnicodeGetBytes(null!)).Should().Throw<ArgumentNullException>().WithParameterName("str");
-            FluentActions.Invoking(() => Reflection.UnicodeGetString(null!)).Should().Throw<ArgumentNullException>().WithParameterName("b");
+            FluentActions.Invoking(() => TypeReflector.UnicodeGetBytes(null!)).Should().Throw<ArgumentNullException>().WithParameterName("str");
+            FluentActions.Invoking(() => TypeReflector.UnicodeGetString(null!)).Should().Throw<ArgumentNullException>().WithParameterName("b");
         }
 
         public sealed class Node

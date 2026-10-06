@@ -14,15 +14,15 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * Nested members now get a new instance, the same as ToObject gives them.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class FillObjectTests
     {
         [TestCase(true)]
         [TestCase(false)]
         public void FillObject_NestedClassMember_IsFilledIntoItsOwnInstance(bool useExtensions)
         {
-            BJSONParameters parameters = new BJSONParameters { UseExtensions = useExtensions };
-            byte[] bytes = BJSON.ToBJSON(
+            BjsonParameters parameters = new BjsonParameters { UseExtensions = useExtensions };
+            byte[] bytes = Bjson.ToBjson(
                 new Outer
                 {
                     Name = "outer",
@@ -32,7 +32,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             );
 
             Outer target = new Outer();
-            BJSON.FillObject(target, bytes);
+            Bjson.FillObject(target, bytes);
 
             target.Name.Should().Be("outer");
             target.Inner.Should().NotBeNull().And.BeOfType<Inner>();

@@ -18,18 +18,18 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * Every case runs on both read paths.
      */
     [TestFixture]
-    [TestOf(typeof(BJSONSerializer))]
+    [TestOf(typeof(BjsonSerializer))]
     public sealed class WriterIdentityTests
     {
         [TestCase(true)]
         [TestCase(false)]
-        public void ToBJSON_DistinctEntitiesWithEqualIds_KeepEachOnesMembers(bool oneStep)
+        public void ToBjson_DistinctEntitiesWithEqualIds_KeepEachOnesMembers(bool oneStep)
         {
             IdHolder value = new IdHolder();
             value.Items.Add(new IdEntity { Id = 1, Name = "original" });
             value.Items.Add(new IdEntity { Id = 1, Name = "edited" });
 
-            IdHolder restored = Read<IdHolder>(BJSON.ToBJSON(value), oneStep);
+            IdHolder restored = Read<IdHolder>(Bjson.ToBjson(value), oneStep);
 
             restored.Items.Select(i => i.Name).Should().Equal("original", "edited");
             restored.Items[1].Should().NotBeSameAs(restored.Items[0]);
@@ -37,7 +37,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         [TestCase(true)]
         [TestCase(false)]
-        public void ToBJSON_DistinctEqualRecords_RestoreAsSeparateInstances(bool oneStep)
+        public void ToBjson_DistinctEqualRecords_RestoreAsSeparateInstances(bool oneStep)
         {
             EqRecordsThenShared value = new EqRecordsThenShared
             {
@@ -45,7 +45,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 B = new EqRecord { Name = "same" },
             };
 
-            EqRecordsThenShared restored = Read<EqRecordsThenShared>(BJSON.ToBJSON(value), oneStep);
+            EqRecordsThenShared restored = Read<EqRecordsThenShared>(Bjson.ToBjson(value), oneStep);
 
             restored.A!.Name.Should().Be("same");
             restored.B!.Name.Should().Be("same");
@@ -54,14 +54,14 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         [TestCase(true)]
         [TestCase(false)]
-        public void ToBJSON_SameInstanceTwice_RestoresOneInstance(bool oneStep)
+        public void ToBjson_SameInstanceTwice_RestoresOneInstance(bool oneStep)
         {
             IdEntity shared = new IdEntity { Id = 7, Name = "shared" };
             IdHolder value = new IdHolder();
             value.Items.Add(shared);
             value.Items.Add(shared);
 
-            IdHolder restored = Read<IdHolder>(BJSON.ToBJSON(value), oneStep);
+            IdHolder restored = Read<IdHolder>(Bjson.ToBjson(value), oneStep);
 
             restored.Items[0].Name.Should().Be("shared");
             restored.Items[1].Should().BeSameAs(restored.Items[0]);
@@ -69,7 +69,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         private static T Read<T>(byte[] bytes, bool oneStep)
         {
-            return new Deserializer(new BJSONParameters()) { OneStep = oneStep }.ToObject<T>(bytes)!;
+            return new Deserializer(new BjsonParameters()) { OneStep = oneStep }.ToObject<T>(bytes)!;
         }
     }
 

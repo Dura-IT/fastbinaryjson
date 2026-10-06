@@ -13,11 +13,11 @@ using System.Text;
 
 namespace DuraIT.FastBinaryJson.Internal
 {
-    public struct Getters
+    internal struct Getters
     {
         public string Name;
         public string? memberName;
-        public Reflection.GenericGetter Getter;
+        public TypeReflector.GenericGetter Getter;
         public bool ReadOnly;
 
         /*
@@ -29,7 +29,7 @@ namespace DuraIT.FastBinaryJson.Internal
         internal byte[]? KeyUtf8;
 
         /*
-         * The writer's boxing-free getter: a Reflection.TypedGetter<T> for a member whose type is
+         * The writer's boxing-free getter: a TypeReflector.TypedGetter<T> for a member whose type is
          * exactly the primitive T, and TypedToken, the token WriteValue writes T with. Null on every
          * other member, which keeps the boxing Getter.
          */
@@ -37,7 +37,7 @@ namespace DuraIT.FastBinaryJson.Internal
         internal byte TypedToken;
     }
 
-    public enum myPropInfoType
+    internal enum PropertyKind
     {
         Int,
         Long,
@@ -65,23 +65,23 @@ namespace DuraIT.FastBinaryJson.Internal
          * against the previous version.
          *
          * SByte is here because an sbyte property has to be told what to do with a byte. A stream
-         * written before TOKENS.SBYTE existed carries BYTE, and an unconverted byte cannot be
+         * written before Tokens.SByte existed carries BYTE, and an unconverted byte cannot be
          * assigned to an sbyte property at all.
          */
         SByte,
     }
 
-    public class myPropInfo
+    internal sealed class PropertyMetadata
     {
         public Type pt = null!;
         public Type? bt;
         public Type? changeType;
-        public Reflection.GenericSetter? setter;
-        public Reflection.GenericGetter? getter;
+        public TypeReflector.GenericSetter? setter;
+        public TypeReflector.GenericGetter? getter;
         public Type[]? GenericTypes;
         public string Name = null!;
         public string? memberName;
-        public myPropInfoType Type;
+        public PropertyKind Type;
         public bool CanWrite;
 
         public bool IsClass;
@@ -91,7 +91,7 @@ namespace DuraIT.FastBinaryJson.Internal
         public bool IsInterface;
 
         /*
-         * The one-step reader's boxing-free setter: a Reflection.TypedSetter<T> for the member's
+         * The one-step reader's boxing-free setter: a TypeReflector.TypedSetter<T> for the member's
          * primitive type T (or T?), and typedToken, the token T is written with. Null on everything
          * else - non-primitive members, struct targets, static members - which only ever take the
          * boxing setter. Internal because this class is public and these are not part of it.
@@ -100,26 +100,23 @@ namespace DuraIT.FastBinaryJson.Internal
         internal byte typedToken;
     }
 
-    public sealed class Reflection
+    internal sealed class TypeReflector
     {
         // Singleton pattern 4 from : http://csharpindepth.com/articles/general/singleton.aspx
-        private static readonly Reflection instance = new Reflection();
+        private static readonly TypeReflector instance = new TypeReflector();
 
         // Explicit static constructor to tell C# compiler
         // not to mark type as beforefieldinit
-        static Reflection() { }
+        static TypeReflector() { }
 
-        private Reflection() { }
+        private TypeReflector() { }
 
-        public static Reflection Instance
+        public static TypeReflector Instance
         {
             get { return instance; }
         }
 
-        public static bool RDBMode;
-
-        public delegate string Serialize(object data);
-        public delegate object Deserialize(string data);
+        public static bool RdbMode { get; set; }
 
         public delegate object GenericSetter(object target, object value);
         internal delegate void TypedSetter<in T>(object target, T value);
@@ -133,7 +130,9 @@ namespace DuraIT.FastBinaryJson.Internal
         private SafeDictionary<Type, CreateObject> _constrcache = new SafeDictionary<Type, CreateObject>(10);
         private readonly SafeDictionary<Type, CreateList?> _conlistcache = new SafeDictionary<Type, CreateList?>(10);
         private SafeDictionary<Type, Getters[]> _getterscache = new SafeDictionary<Type, Getters[]>(10);
-        private SafeDictionary<string, Dictionary<string, myPropInfo>> _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>(10);
+        private SafeDictionary<string, Dictionary<string, PropertyMetadata>> _propertycache = new SafeDictionary<string, Dictionary<string, PropertyMetadata>>(
+            10
+        );
 
         // Companion of _propertycache, same key, reset wherever it is.
         private SafeDictionary<string, WireNameMap> _wirenamecache = new SafeDictionary<string, WireNameMap>(10);
@@ -242,8 +241,8 @@ namespace DuraIT.FastBinaryJson.Internal
 
         #region json custom types
         // JSON custom
-        internal SafeDictionary<Type, Serialize> _customSerializer = new SafeDictionary<Type, Serialize>();
-        internal SafeDictionary<Type, Deserialize> _customDeserializer = new SafeDictionary<Type, Deserialize>();
+        internal SafeDictionary<Type, CustomTypeSerializer> _customSerializer = new SafeDictionary<Type, CustomTypeSerializer>();
+        internal SafeDictionary<Type, CustomTypeDeserializer> _customDeserializer = new SafeDictionary<Type, CustomTypeDeserializer>();
 
         /*
          * Resolution results per exact type, misses included, so the base-chain walk below is paid
@@ -253,16 +252,16 @@ namespace DuraIT.FastBinaryJson.Internal
          * every object that reaches the fallback in WriteValue, so without a cache a deep hierarchy
          * with any registration present would walk its whole chain per object, every time.
          */
-        private SafeDictionary<Type, Serialize?> _serializerForType = new SafeDictionary<Type, Serialize?>();
-        private SafeDictionary<Type, Deserialize?> _deserializerForType = new SafeDictionary<Type, Deserialize?>();
+        private SafeDictionary<Type, CustomTypeSerializer?> _serializerForType = new SafeDictionary<Type, CustomTypeSerializer?>();
+        private SafeDictionary<Type, CustomTypeDeserializer?> _deserializerForType = new SafeDictionary<Type, CustomTypeDeserializer?>();
 
         internal object CreateCustom(string v, Type type)
         {
-            TryGetCustomDeserializer(type, out Deserialize? d);
+            TryGetCustomDeserializer(type, out CustomTypeDeserializer? d);
             return d!(v);
         }
 
-        internal void RegisterCustomType(Type type, Serialize serializer, Deserialize deserializer)
+        internal void RegisterCustomType(Type type, CustomTypeSerializer serializer, CustomTypeDeserializer deserializer)
         {
             if (type != null && serializer != null && deserializer != null)
             {
@@ -270,14 +269,14 @@ namespace DuraIT.FastBinaryJson.Internal
                 _customDeserializer.Add(type, deserializer);
                 // A new registration can shadow a base one and can turn an earlier miss into a hit,
                 // so the resolved results are no longer trustworthy.
-                _serializerForType = new SafeDictionary<Type, Serialize?>();
-                _deserializerForType = new SafeDictionary<Type, Deserialize?>();
+                _serializerForType = new SafeDictionary<Type, CustomTypeSerializer?>();
+                _deserializerForType = new SafeDictionary<Type, CustomTypeDeserializer?>();
                 // reset property cache
                 Instance.ResetPropertyCache();
             }
         }
 
-        internal bool TryGetCustomSerializer(Type t, out Serialize? serializer)
+        internal bool TryGetCustomSerializer(Type t, out CustomTypeSerializer? serializer)
         {
             serializer = null;
             if (_customSerializer.Count() == 0)
@@ -292,7 +291,7 @@ namespace DuraIT.FastBinaryJson.Internal
             return serializer != null;
         }
 
-        internal bool TryGetCustomDeserializer(Type t, out Deserialize? deserializer)
+        internal bool TryGetCustomDeserializer(Type t, out CustomTypeDeserializer? deserializer)
         {
             deserializer = null;
             if (_customDeserializer.Count() == 0)
@@ -347,10 +346,10 @@ namespace DuraIT.FastBinaryJson.Internal
         /// </remarks>
         internal void ClearCustomTypes()
         {
-            _customSerializer = new SafeDictionary<Type, Serialize>();
-            _customDeserializer = new SafeDictionary<Type, Deserialize>();
-            _serializerForType = new SafeDictionary<Type, Serialize?>();
-            _deserializerForType = new SafeDictionary<Type, Deserialize?>();
+            _customSerializer = new SafeDictionary<Type, CustomTypeSerializer>();
+            _customDeserializer = new SafeDictionary<Type, CustomTypeDeserializer>();
+            _serializerForType = new SafeDictionary<Type, CustomTypeSerializer?>();
+            _deserializerForType = new SafeDictionary<Type, CustomTypeDeserializer?>();
             ResetPropertyCache();
         }
 
@@ -407,7 +406,7 @@ namespace DuraIT.FastBinaryJson.Internal
             }
         }
 
-        public Dictionary<string, myPropInfo> Getproperties(Type type, string typename, bool ShowReadOnlyProperties)
+        public Dictionary<string, PropertyMetadata> Getproperties(Type type, string typename, bool ShowReadOnlyProperties)
         {
 #if NET10_0_OR_GREATER
             ArgumentNullException.ThrowIfNull(type);
@@ -415,14 +414,14 @@ namespace DuraIT.FastBinaryJson.Internal
             if (type == null)
                 throw new ArgumentNullException(nameof(type));
 #endif
-            Dictionary<string, myPropInfo>? sd = null;
+            Dictionary<string, PropertyMetadata>? sd = null;
             if (_propertycache.TryGetValue(typename, out sd))
             {
                 return sd!;
             }
             else
             {
-                sd = new Dictionary<string, myPropInfo>(10, StringComparer.OrdinalIgnoreCase);
+                sd = new Dictionary<string, PropertyMetadata>(10, StringComparer.OrdinalIgnoreCase);
                 /*
                  * Lookups ignore case because a wire key is matched whatever case it was written in. A [DataMember(Name = ...)] member is keyed under that name, and also under
                  * its C# name as an alias: the writer only started writing DataMember names in this
@@ -430,7 +429,7 @@ namespace DuraIT.FastBinaryJson.Internal
                  * every primary key and only where the key is still free, so an alias can never take
                  * a name that belongs to another member.
                  */
-                List<KeyValuePair<string, myPropInfo>> aliases = new List<KeyValuePair<string, myPropInfo>>();
+                List<KeyValuePair<string, PropertyMetadata>> aliases = new List<KeyValuePair<string, PropertyMetadata>>();
                 var bf = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
                 PropertyInfo[] pr = type.GetProperties(bf);
                 foreach (PropertyInfo p in pr)
@@ -438,14 +437,14 @@ namespace DuraIT.FastBinaryJson.Internal
                     if (p.GetIndexParameters().Length > 0) // Property is an indexer
                         continue;
 
-                    myPropInfo d = CreateMyProp(p.PropertyType, p.Name);
-                    d.setter = Reflection.CreateSetMethod(type, p, ShowReadOnlyProperties);
+                    PropertyMetadata d = CreateMyProp(p.PropertyType, p.Name);
+                    d.setter = TypeReflector.CreateSetMethod(type, p, ShowReadOnlyProperties);
                     if (d.setter != null)
                     {
                         d.CanWrite = true;
                         AddTypedSetter(d, type, p, ShowReadOnlyProperties);
                     }
-                    d.getter = Reflection.CreateGetMethod(type, p);
+                    d.getter = TypeReflector.CreateGetMethod(type, p);
                     var att = p.GetCustomAttributes(true);
                     foreach (var at in att)
                     {
@@ -459,17 +458,17 @@ namespace DuraIT.FastBinaryJson.Internal
                 FieldInfo[] fi = type.GetFields(bf);
                 foreach (FieldInfo f in fi)
                 {
-                    myPropInfo d = CreateMyProp(f.FieldType, f.Name);
+                    PropertyMetadata d = CreateMyProp(f.FieldType, f.Name);
                     if (!f.IsLiteral)
                     {
                         if (!f.IsInitOnly)
-                            d.setter = Reflection.CreateSetField(type, f);
+                            d.setter = TypeReflector.CreateSetField(type, f);
                         if (d.setter != null)
                         {
                             d.CanWrite = true;
                             AddTypedSetter(d, type, f);
                         }
-                        d.getter = Reflection.CreateGetField(type, f);
+                        d.getter = TypeReflector.CreateGetField(type, f);
                         var att = f.GetCustomAttributes(true);
                         foreach (var at in att)
                         {
@@ -482,7 +481,7 @@ namespace DuraIT.FastBinaryJson.Internal
                     }
                 }
 
-                foreach (KeyValuePair<string, myPropInfo> alias in aliases.Where(alias => !sd.ContainsKey(alias.Key)))
+                foreach (KeyValuePair<string, PropertyMetadata> alias in aliases.Where(alias => !sd.ContainsKey(alias.Key)))
                 {
                     sd.Add(alias.Key, alias.Value);
                 }
@@ -492,7 +491,12 @@ namespace DuraIT.FastBinaryJson.Internal
             }
         }
 
-        private static void AddMemberKeys(Dictionary<string, myPropInfo> sd, List<KeyValuePair<string, myPropInfo>> aliases, myPropInfo d, string name)
+        private static void AddMemberKeys(
+            Dictionary<string, PropertyMetadata> sd,
+            List<KeyValuePair<string, PropertyMetadata>> aliases,
+            PropertyMetadata d,
+            string name
+        )
         {
             if (d.memberName == null)
             {
@@ -501,7 +505,7 @@ namespace DuraIT.FastBinaryJson.Internal
             }
 
             sd.Add(d.memberName, d);
-            aliases.Add(new KeyValuePair<string, myPropInfo>(name, d));
+            aliases.Add(new KeyValuePair<string, PropertyMetadata>(name, d));
         }
 
         internal WireNameMap GetWireNameMap(Type type, string typename, bool ShowReadOnlyProperties)
@@ -514,55 +518,55 @@ namespace DuraIT.FastBinaryJson.Internal
             return map;
         }
 
-        private myPropInfo CreateMyProp(Type t, string name)
+        private PropertyMetadata CreateMyProp(Type t, string name)
         {
-            myPropInfo d = new myPropInfo();
-            myPropInfoType d_type = myPropInfoType.Unknown;
+            PropertyMetadata d = new PropertyMetadata();
+            PropertyKind d_type = PropertyKind.Unknown;
 
             if (t == typeof(int) || t == typeof(int?))
-                d_type = myPropInfoType.Int;
+                d_type = PropertyKind.Int;
             else if (t == typeof(long) || t == typeof(long?))
-                d_type = myPropInfoType.Long;
+                d_type = PropertyKind.Long;
             else if (t == typeof(string))
-                d_type = myPropInfoType.String;
+                d_type = PropertyKind.String;
             else if (t == typeof(bool) || t == typeof(bool?))
-                d_type = myPropInfoType.Bool;
+                d_type = PropertyKind.Bool;
             else if (t == typeof(DateTime) || t == typeof(DateTime?))
-                d_type = myPropInfoType.DateTime;
+                d_type = PropertyKind.DateTime;
             else if (t.IsEnum)
-                d_type = myPropInfoType.Enum;
+                d_type = PropertyKind.Enum;
             else if (t == typeof(Guid) || t == typeof(Guid?))
-                d_type = myPropInfoType.Guid;
+                d_type = PropertyKind.Guid;
             else if (t == typeof(sbyte) || t == typeof(sbyte?))
-                d_type = myPropInfoType.SByte;
+                d_type = PropertyKind.SByte;
             else if (t == typeof(StringDictionary))
-                d_type = myPropInfoType.StringDictionary;
+                d_type = PropertyKind.StringDictionary;
             else if (t == typeof(NameValueCollection))
-                d_type = myPropInfoType.NameValue;
+                d_type = PropertyKind.NameValue;
             else if (t.IsArray)
             {
                 d.bt = t.GetElementType();
                 if (t == typeof(byte[]))
-                    d_type = myPropInfoType.ByteArray;
+                    d_type = PropertyKind.ByteArray;
                 else
-                    d_type = myPropInfoType.Array;
+                    d_type = PropertyKind.Array;
             }
             else if (NameContainsDictionary(t))
             {
-                d.GenericTypes = Reflection.Instance.GetGenericArguments(t);
+                d.GenericTypes = TypeReflector.Instance.GetGenericArguments(t);
                 if (d.GenericTypes.Length > 0 && d.GenericTypes[0] == typeof(string))
-                    d_type = myPropInfoType.StringKeyDictionary;
+                    d_type = PropertyKind.StringKeyDictionary;
                 else
-                    d_type = myPropInfoType.Dictionary;
+                    d_type = PropertyKind.Dictionary;
             }
             else if (t == typeof(Hashtable))
-                d_type = myPropInfoType.Hashtable;
+                d_type = PropertyKind.Hashtable;
             else if (t == typeof(DataSet))
-                d_type = myPropInfoType.DataSet;
+                d_type = PropertyKind.DataSet;
             else if (t == typeof(DataTable))
-                d_type = myPropInfoType.DataTable;
+                d_type = PropertyKind.DataTable;
             else if (IsTypeRegistered(t))
-                d_type = myPropInfoType.Custom;
+                d_type = PropertyKind.Custom;
 
             if (t.IsValueType && !t.IsPrimitive && !t.IsEnum && t != typeof(decimal))
                 d.IsStruct = true;
@@ -573,7 +577,7 @@ namespace DuraIT.FastBinaryJson.Internal
             if (t.IsGenericType)
             {
                 d.IsGenericType = true;
-                d.bt = Reflection.Instance.GetGenericArguments(t)[0];
+                d.bt = TypeReflector.Instance.GetGenericArguments(t)[0];
             }
 
             d.pt = t;
@@ -587,7 +591,7 @@ namespace DuraIT.FastBinaryJson.Internal
         private static Type GetChangeType(Type conversionType)
         {
             if (conversionType.IsGenericType && conversionType.GetGenericTypeDefinition().Equals(typeof(Nullable<>)))
-                return Reflection.Instance.GetGenericArguments(conversionType)[0];
+                return TypeReflector.Instance.GetGenericArguments(conversionType)[0];
 
             return conversionType;
         }
@@ -629,7 +633,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 }
 
                 Type? t = Type.GetType(typename);
-                if (RDBMode && t == null) // RaptorDB : loading runtime assemblies
+                if (RdbMode && t == null) // RaptorDB : loading runtime assemblies
                 {
                     t = Type.GetType(
                         typename,
@@ -747,7 +751,7 @@ namespace DuraIT.FastBinaryJson.Internal
         }
 
         // Writes through what CreateSetMethod writes through: the set method, or the backing field it falls back to.
-        private static void AddTypedSetter(myPropInfo d, Type type, PropertyInfo property, bool ShowReadOnlyProperties)
+        private static void AddTypedSetter(PropertyMetadata d, Type type, PropertyInfo property, bool ShowReadOnlyProperties)
         {
             MethodInfo? setMethod = property.GetSetMethod(ShowReadOnlyProperties);
             if (setMethod == null)
@@ -762,7 +766,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 BuildTypedSetter(d, type, property.PropertyType, property.DeclaringType!, setMethod, null);
         }
 
-        private static void AddTypedSetter(myPropInfo d, Type type, FieldInfo field)
+        private static void AddTypedSetter(PropertyMetadata d, Type type, FieldInfo field)
         {
             if (!field.IsStatic)
                 BuildTypedSetter(d, type, field.FieldType, field.DeclaringType!, null, field);
@@ -777,7 +781,7 @@ namespace DuraIT.FastBinaryJson.Internal
         /// runs implicitly. Struct targets are left out: their boxing setter copies the struct out of
         /// its box and boxes it again per member, so an unboxed value would save nothing there.
         /// </remarks>
-        private static void BuildTypedSetter(myPropInfo d, Type type, Type memberType, Type declaringType, MethodInfo? setMethod, FieldInfo? field)
+        private static void BuildTypedSetter(PropertyMetadata d, Type type, Type memberType, Type declaringType, MethodInfo? setMethod, FieldInfo? field)
         {
             if (!type.IsClass)
                 return;
@@ -814,37 +818,37 @@ namespace DuraIT.FastBinaryJson.Internal
         private static byte TypedToken(Type t)
         {
             if (t == typeof(int))
-                return TOKENS.INT;
+                return Tokens.Int32;
             if (t == typeof(long))
-                return TOKENS.LONG;
+                return Tokens.Int64;
             if (t == typeof(bool))
-                return TOKENS.TRUE;
+                return Tokens.True;
             if (t == typeof(DateTime))
-                return TOKENS.DATETIME;
+                return Tokens.DateTime;
             if (t == typeof(Guid))
-                return TOKENS.GUID;
+                return Tokens.Guid;
             if (t == typeof(double))
-                return TOKENS.DOUBLE;
+                return Tokens.Double;
             if (t == typeof(float))
-                return TOKENS.FLOAT;
+                return Tokens.Single;
             if (t == typeof(decimal))
-                return TOKENS.DECIMAL;
+                return Tokens.Decimal;
             if (t == typeof(short))
-                return TOKENS.SHORT;
+                return Tokens.Int16;
             if (t == typeof(ushort))
-                return TOKENS.USHORT;
+                return Tokens.UInt16;
             if (t == typeof(uint))
-                return TOKENS.UINT;
+                return Tokens.UInt32;
             if (t == typeof(ulong))
-                return TOKENS.ULONG;
+                return Tokens.UInt64;
             if (t == typeof(byte))
-                return TOKENS.BYTE;
+                return Tokens.Byte;
             if (t == typeof(char))
-                return TOKENS.CHAR;
+                return Tokens.Char;
             if (t == typeof(TimeSpan))
-                return TOKENS.TIMESPAN;
+                return Tokens.TimeSpan;
             if (t == typeof(DateTimeOffset))
-                return TOKENS.DATETIMEOFFSET;
+                return Tokens.DateTimeOffset;
             return 0;
         }
 
@@ -887,7 +891,7 @@ namespace DuraIT.FastBinaryJson.Internal
         private static byte WrittenToken(Type t)
         {
             if (t == typeof(sbyte))
-                return TOKENS.SBYTE;
+                return Tokens.SByte;
             if (t == typeof(DateTimeOffset))
                 return 0;
 
@@ -1107,7 +1111,7 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Getters[] GetGetters(
             Type type, /*bool ShowReadOnlyProperties,*/
-            List<Type> IgnoreAttributes
+            IList<Type> IgnoreAttributes
         )
         {
 #if NET10_0_OR_GREATER
@@ -1200,7 +1204,7 @@ namespace DuraIT.FastBinaryJson.Internal
 
         internal void ResetPropertyCache()
         {
-            _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>();
+            _propertycache = new SafeDictionary<string, Dictionary<string, PropertyMetadata>>();
             _wirenamecache = new SafeDictionary<string, WireNameMap>();
         }
 
@@ -1210,7 +1214,7 @@ namespace DuraIT.FastBinaryJson.Internal
             _typecache = new SafeDictionary<string, Type?>(10);
             _constrcache = new SafeDictionary<Type, CreateObject>(10);
             _getterscache = new SafeDictionary<Type, Getters[]>(10);
-            _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>(10);
+            _propertycache = new SafeDictionary<string, Dictionary<string, PropertyMetadata>>(10);
             _wirenamecache = new SafeDictionary<string, WireNameMap>(10);
             _genericTypes = new SafeDictionary<Type, Type[]>(10);
             _genericTypeDef = new SafeDictionary<Type, Type>(10);

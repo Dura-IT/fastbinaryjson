@@ -23,23 +23,23 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * between them, and upstream's exact match never covered them either.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class CustomTypeTests
     {
         [TearDown]
         public void TearDown()
         {
-            Reflection.Instance.ClearCustomTypes();
+            TypeReflector.Instance.ClearCustomTypes();
         }
 
         [Test]
         public void CustomType_AppliesToAFrameworkSubclassInstance()
         {
-            BJSON.RegisterCustomType(typeof(IPAddress), x => x.ToString()!, x => IPAddress.Parse(x));
+            Bjson.RegisterCustomType(typeof(IPAddress), x => x.ToString()!, x => IPAddress.Parse(x));
 
             IPAddress.Loopback.GetType().Should().NotBe<IPAddress>("Loopback is a private ReadOnlyIPAddress subclass on .NET");
 
-            AddressHolder restored = BJSON.ToObject<AddressHolder>(BJSON.ToBJSON(new AddressHolder { Value = IPAddress.Loopback }))!;
+            AddressHolder restored = Bjson.ToObject<AddressHolder>(Bjson.ToBjson(new AddressHolder { Value = IPAddress.Loopback }))!;
 
             restored.Value.Should().Be(IPAddress.Loopback);
         }
@@ -47,9 +47,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void CustomType_AppliesToAUserDefinedSubclass()
         {
-            BJSON.RegisterCustomType(typeof(Animal), x => "animal:" + ((Animal)x).Name, x => new Animal { Name = Suffix(x) });
+            Bjson.RegisterCustomType(typeof(Animal), x => "animal:" + ((Animal)x).Name, x => new Animal { Name = Suffix(x) });
 
-            AnimalHolder restored = BJSON.ToObject<AnimalHolder>(BJSON.ToBJSON(new AnimalHolder { Value = new Dog { Name = "rex" } }))!;
+            AnimalHolder restored = Bjson.ToObject<AnimalHolder>(Bjson.ToBjson(new AnimalHolder { Value = new Dog { Name = "rex" } }))!;
 
             restored.Value.Name.Should().Be("rex", "the registration for the base type serialized the derived instance");
         }
@@ -60,12 +60,12 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void CustomType_NearestRegistrationWins()
         {
-            BJSON.RegisterCustomType(typeof(Animal), x => "animal:" + ((Animal)x).Name, x => new Animal { Name = Suffix(x) });
-            BJSON.RegisterCustomType(typeof(Dog), x => "dog:" + ((Dog)x).Name, x => new Dog { Name = Suffix(x) });
+            Bjson.RegisterCustomType(typeof(Animal), x => "animal:" + ((Animal)x).Name, x => new Animal { Name = Suffix(x) });
+            Bjson.RegisterCustomType(typeof(Dog), x => "dog:" + ((Dog)x).Name, x => new Dog { Name = Suffix(x) });
 
-            byte[] bytes = BJSON.ToBJSON(new Dog { Name = "rex" }, new BJSONParameters { UseExtensions = false });
+            byte[] bytes = Bjson.ToBjson(new Dog { Name = "rex" }, new BjsonParameters { UseExtensions = false });
 
-            BJSON.Parse(bytes).Should().Be("dog:rex");
+            Bjson.Parse(bytes).Should().Be("dog:rex");
         }
 
         /// <summary>
@@ -79,10 +79,10 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void CustomType_UnrelatedType_IsStillWrittenByReflection()
         {
-            BJSON.RegisterCustomType(typeof(Animal), x => "animal:" + ((Animal)x).Name, x => new Animal { Name = Suffix(x) });
+            Bjson.RegisterCustomType(typeof(Animal), x => "animal:" + ((Animal)x).Name, x => new Animal { Name = Suffix(x) });
 
-            AnimalHolder restored = BJSON.ToObject<AnimalHolder>(BJSON.ToBJSON(new AnimalHolder { Value = new Dog { Name = "rex" } }))!;
-            PartyHolder party = BJSON.ToObject<PartyHolder>(BJSON.ToBJSON(new PartyHolder { Name = "Acme" }))!;
+            AnimalHolder restored = Bjson.ToObject<AnimalHolder>(Bjson.ToBjson(new AnimalHolder { Value = new Dog { Name = "rex" } }))!;
+            PartyHolder party = Bjson.ToObject<PartyHolder>(Bjson.ToBjson(new PartyHolder { Name = "Acme" }))!;
 
             restored.Value.Name.Should().Be("rex");
             party.Name.Should().Be("Acme", "an unregistered type must not be routed through the Animal serializer");

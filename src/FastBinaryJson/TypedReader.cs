@@ -28,18 +28,18 @@ namespace DuraIT.FastBinaryJson
     internal sealed class TypedReader
     {
         // "$type" as each encoding writes it, so the head key of an object is recognised without decoding.
-        private static readonly byte[] TypeKeyUtf16 = Key(TOKENS.NAME_UNI, Reflection.UnicodeGetBytes("$type"));
-        private static readonly byte[] TypeKeyUtf8 = Key(TOKENS.NAME, Reflection.UTF8GetBytes("$type"));
+        private static readonly byte[] TypeKeyUtf16 = Key(Tokens.NameUtf16, TypeReflector.UnicodeGetBytes("$type"));
+        private static readonly byte[] TypeKeyUtf8 = Key(Tokens.Name, TypeReflector.UTF8GetBytes("$type"));
 
         private readonly Deserializer _deserializer;
-        private readonly BJsonParser _parser;
+        private readonly BjsonParser _parser;
 
         // The last $type value resolved with no $types table in play: where its bytes are, and its type.
         private int _lastTypeStart;
         private int _lastTypeLength;
         private Type? _lastType;
 
-        private TypedReader(Deserializer deserializer, BJsonParser parser)
+        private TypedReader(Deserializer deserializer, BjsonParser parser)
         {
             _deserializer = deserializer;
             _parser = parser;
@@ -55,14 +55,14 @@ namespace DuraIT.FastBinaryJson
             if (json.Length == 0)
                 return false;
 
-            BJSONParameters parameters = deserializer.Parameters;
-            TypedReader reader = new TypedReader(deserializer, new BJsonParser(json, parameters.UseUTCDateTime, parameters.v1_4TypedArray));
+            BjsonParameters parameters = deserializer.Parameters;
+            TypedReader reader = new TypedReader(deserializer, new BjsonParser(json, parameters.UseUtcDateTime, parameters.UseV14TypedArray));
 
             // The same shapes Deserializer.ToObject sends to ParseDictionary and RootList.
-            if (json[0] == TOKENS.DOC_START && IsPlainRootObject(type, genericDefinition))
+            if (json[0] == Tokens.DocStart && IsPlainRootObject(type, genericDefinition))
                 return reader.TryReadObject(type, null, false, out result);
 
-            if (json[0] == TOKENS.ARRAY_START && genericDefinition == typeof(List<>))
+            if (json[0] == Tokens.ArrayStart && genericDefinition == typeof(List<>))
             {
                 result = reader.ReadRootList(type);
                 return true;
@@ -84,7 +84,7 @@ namespace DuraIT.FastBinaryJson
         /// <summary>
         /// A member ConvertValue would build with ParseDictionary when handed a dictionary.
         /// </summary>
-        private static bool IsPlainObjectMember(myPropInfo pi)
+        private static bool IsPlainObjectMember(PropertyMetadata pi)
         {
             if (IsSpecialMember(pi))
                 return false;
@@ -97,27 +97,27 @@ namespace DuraIT.FastBinaryJson
         /// <summary>
         /// A member ConvertValue would build with CreateGenericList when handed a list.
         /// </summary>
-        private static bool IsPlainListMember(myPropInfo pi)
+        private static bool IsPlainListMember(PropertyMetadata pi)
         {
             return !IsSpecialMember(pi) && pi.IsGenericType && !pi.IsValueType;
         }
 
         // The members ConvertValue's switch handles itself - always left to it.
-        private static bool IsSpecialMember(myPropInfo pi)
+        private static bool IsSpecialMember(PropertyMetadata pi)
         {
             switch (pi.Type)
             {
-                case myPropInfoType.DataSet:
-                case myPropInfoType.DataTable:
-                case myPropInfoType.Custom:
-                case myPropInfoType.Enum:
-                case myPropInfoType.SByte:
-                case myPropInfoType.StringKeyDictionary:
-                case myPropInfoType.Hashtable:
-                case myPropInfoType.Dictionary:
-                case myPropInfoType.NameValue:
-                case myPropInfoType.StringDictionary:
-                case myPropInfoType.Array:
+                case PropertyKind.DataSet:
+                case PropertyKind.DataTable:
+                case PropertyKind.Custom:
+                case PropertyKind.Enum:
+                case PropertyKind.SByte:
+                case PropertyKind.StringKeyDictionary:
+                case PropertyKind.Hashtable:
+                case PropertyKind.Dictionary:
+                case PropertyKind.NameValue:
+                case PropertyKind.StringDictionary:
+                case PropertyKind.Array:
                     return true;
                 default:
                     return false;
@@ -150,7 +150,7 @@ namespace DuraIT.FastBinaryJson
             _parser.ReadToken(); // DOC_START
             byte t = ReadSkippingCommas();
 
-            if (t == TOKENS.TYPES_POINTER)
+            if (t == Tokens.TypesPointer)
             {
                 if (globaltypes != null && (!mayExtendSharedTypes || globaltypes.Count > 0))
                     return Abandon(start, circular, sharedTypes, addedTypes);
@@ -177,7 +177,7 @@ namespace DuraIT.FastBinaryJson
             Type? type = declared;
             string? firstMember = null;
             bool needsDeclaredType = true;
-            if (t != TOKENS.DOC_END)
+            if (t != Tokens.DocEnd)
             {
                 string name = ReadHeadName(t);
                 _parser.ReadColon();
@@ -189,7 +189,7 @@ namespace DuraIT.FastBinaryJson
                         return Abandon(start, circular, sharedTypes, addedTypes);
 
                     object? id = _parser.ReadValue(out bool broke);
-                    if (broke || _parser.PeekToken() != TOKENS.DOC_END)
+                    if (broke || _parser.PeekToken() != Tokens.DocEnd)
                         return Abandon(start, circular, sharedTypes, addedTypes);
 
                     _parser.ReadToken();
@@ -234,11 +234,11 @@ namespace DuraIT.FastBinaryJson
 
             object o = _deserializer.CreateInstance(type);
             int number = _deserializer.RegisterCircular(o);
-            WireNameMap members = Reflection.Instance.GetWireNameMap(type, type.FullName!, _deserializer.Parameters.ShowReadOnlyProperties);
+            WireNameMap members = TypeReflector.Instance.GetWireNameMap(type, type.FullName!, _deserializer.Parameters.ShowReadOnlyProperties);
             WireKey[] keys = members.Keys;
             int hint = 0;
 
-            if (t == TOKENS.DOC_END)
+            if (t == Tokens.DocEnd)
             {
                 result = o;
                 return true;
@@ -251,14 +251,14 @@ namespace DuraIT.FastBinaryJson
             while (!ended)
             {
                 t = _parser.ReadToken();
-                if (t == TOKENS.COMMA)
+                if (t == Tokens.Comma)
                     continue;
-                if (t == TOKENS.DOC_END)
+                if (t == Tokens.DocEnd)
                     break;
-                if (t == TOKENS.TYPES_POINTER)
+                if (t == Tokens.TypesPointer)
                     return Abandon(start, circular, sharedTypes, addedTypes);
 
-                myPropInfo? pi = ReadMemberKey(t, members, keys, ref hint, out bool special);
+                PropertyMetadata? pi = ReadMemberKey(t, members, keys, ref hint, out bool special);
                 _parser.ReadColon();
                 if (special)
                     return Abandon(start, circular, sharedTypes, addedTypes);
@@ -279,13 +279,13 @@ namespace DuraIT.FastBinaryJson
         /// Set when the value position held a structural token instead - the parser ends the object
         /// there, and so does this.
         /// </param>
-        private object ReadMember(object o, myPropInfo? pi, Dictionary<string, object>? globaltypes, out bool ended)
+        private object ReadMember(object o, PropertyMetadata? pi, Dictionary<string, object>? globaltypes, out bool ended)
         {
             ended = false;
             if (pi != null && pi.CanWrite)
             {
                 byte next = _parser.PeekToken();
-                if (next == TOKENS.DOC_START && IsPlainObjectMember(pi))
+                if (next == Tokens.DocStart && IsPlainObjectMember(pi))
                 {
                     object? value;
                     if (TryReadObject(pi.pt, globaltypes, false, out object? read))
@@ -296,7 +296,7 @@ namespace DuraIT.FastBinaryJson
                     return pi.setter!(o, value!);
                 }
 
-                if (next == TOKENS.ARRAY_START && IsPlainListMember(pi))
+                if (next == Tokens.ArrayStart && IsPlainListMember(pi))
                 {
                     _parser.ReadToken();
                     return pi.setter!(o, ReadGenericList(pi.pt, pi.bt, globaltypes));
@@ -340,7 +340,7 @@ namespace DuraIT.FastBinaryJson
         /// order every time; a member skipped for being null costs one more comparison, not a miss.
         /// Equal bytes are the same name, so a remembered key resolves exactly as decoding it does.
         /// </remarks>
-        private myPropInfo? ReadMemberKey(byte token, WireNameMap members, WireKey[] keys, ref int hint, out bool special)
+        private PropertyMetadata? ReadMemberKey(byte token, WireNameMap members, WireKey[] keys, ref int hint, out bool special)
         {
             int keyStart = _parser.Index - 1;
             for (int i = 0; i < keys.Length; i++)
@@ -360,9 +360,9 @@ namespace DuraIT.FastBinaryJson
 
             string name = _parser.ReadName(token);
             special = IsSpecialName(name);
-            myPropInfo? member = special ? null : members.Find(name);
+            PropertyMetadata? member = special ? null : members.Find(name);
             // Only the one-byte length forms, so a remembered key never exceeds 257 bytes.
-            if (token == TOKENS.NAME || token == TOKENS.NAME_UNI)
+            if (token == Tokens.Name || token == Tokens.NameUtf16)
                 members.Remember(_parser.CopyFrom(keyStart), member, special);
 
             return member;
@@ -450,66 +450,66 @@ namespace DuraIT.FastBinaryJson
         /// from an older or different writer) takes the boxing path and converts or throws there.
         /// </remarks>
         /// <exception cref="InvalidOperationException">If a member carries a token with no reader here.</exception>
-        private bool TrySetTyped(object o, myPropInfo pi)
+        private bool TrySetTyped(object o, PropertyMetadata pi)
         {
             byte next = _parser.PeekToken();
-            if (next != pi.typedToken && (pi.typedToken != TOKENS.TRUE || next != TOKENS.FALSE))
+            if (next != pi.typedToken && (pi.typedToken != Tokens.True || next != Tokens.False))
                 return false;
 
             _parser.ReadToken();
             Delegate setter = pi.typedSetter!;
             switch (next)
             {
-                case TOKENS.INT:
-                    ((Reflection.TypedSetter<int>)setter)(o, _parser.ParseInt());
+                case Tokens.Int32:
+                    ((TypeReflector.TypedSetter<int>)setter)(o, _parser.ParseInt());
                     break;
-                case TOKENS.LONG:
-                    ((Reflection.TypedSetter<long>)setter)(o, _parser.ParseLong());
+                case Tokens.Int64:
+                    ((TypeReflector.TypedSetter<long>)setter)(o, _parser.ParseLong());
                     break;
-                case TOKENS.TRUE:
-                    ((Reflection.TypedSetter<bool>)setter)(o, true);
+                case Tokens.True:
+                    ((TypeReflector.TypedSetter<bool>)setter)(o, true);
                     break;
-                case TOKENS.FALSE:
-                    ((Reflection.TypedSetter<bool>)setter)(o, false);
+                case Tokens.False:
+                    ((TypeReflector.TypedSetter<bool>)setter)(o, false);
                     break;
-                case TOKENS.DATETIME:
-                    ((Reflection.TypedSetter<DateTime>)setter)(o, _parser.ParseDateTime());
+                case Tokens.DateTime:
+                    ((TypeReflector.TypedSetter<DateTime>)setter)(o, _parser.ParseDateTime());
                     break;
-                case TOKENS.GUID:
-                    ((Reflection.TypedSetter<Guid>)setter)(o, _parser.ParseGuid());
+                case Tokens.Guid:
+                    ((TypeReflector.TypedSetter<Guid>)setter)(o, _parser.ParseGuid());
                     break;
-                case TOKENS.DOUBLE:
-                    ((Reflection.TypedSetter<double>)setter)(o, _parser.ParseDouble());
+                case Tokens.Double:
+                    ((TypeReflector.TypedSetter<double>)setter)(o, _parser.ParseDouble());
                     break;
-                case TOKENS.FLOAT:
-                    ((Reflection.TypedSetter<float>)setter)(o, _parser.ParseFloat());
+                case Tokens.Single:
+                    ((TypeReflector.TypedSetter<float>)setter)(o, _parser.ParseFloat());
                     break;
-                case TOKENS.DECIMAL:
-                    ((Reflection.TypedSetter<decimal>)setter)(o, _parser.ParseDecimal());
+                case Tokens.Decimal:
+                    ((TypeReflector.TypedSetter<decimal>)setter)(o, _parser.ParseDecimal());
                     break;
-                case TOKENS.SHORT:
-                    ((Reflection.TypedSetter<short>)setter)(o, _parser.ParseShort());
+                case Tokens.Int16:
+                    ((TypeReflector.TypedSetter<short>)setter)(o, _parser.ParseShort());
                     break;
-                case TOKENS.USHORT:
-                    ((Reflection.TypedSetter<ushort>)setter)(o, _parser.ParseUShort());
+                case Tokens.UInt16:
+                    ((TypeReflector.TypedSetter<ushort>)setter)(o, _parser.ParseUShort());
                     break;
-                case TOKENS.UINT:
-                    ((Reflection.TypedSetter<uint>)setter)(o, _parser.ParseUint());
+                case Tokens.UInt32:
+                    ((TypeReflector.TypedSetter<uint>)setter)(o, _parser.ParseUint());
                     break;
-                case TOKENS.ULONG:
-                    ((Reflection.TypedSetter<ulong>)setter)(o, _parser.ParseULong());
+                case Tokens.UInt64:
+                    ((TypeReflector.TypedSetter<ulong>)setter)(o, _parser.ParseULong());
                     break;
-                case TOKENS.BYTE:
-                    ((Reflection.TypedSetter<byte>)setter)(o, _parser.ParseByte());
+                case Tokens.Byte:
+                    ((TypeReflector.TypedSetter<byte>)setter)(o, _parser.ParseByte());
                     break;
-                case TOKENS.CHAR:
-                    ((Reflection.TypedSetter<char>)setter)(o, _parser.ParseChar());
+                case Tokens.Char:
+                    ((TypeReflector.TypedSetter<char>)setter)(o, _parser.ParseChar());
                     break;
-                case TOKENS.TIMESPAN:
-                    ((Reflection.TypedSetter<TimeSpan>)setter)(o, _parser.ParsTimeSpan());
+                case Tokens.TimeSpan:
+                    ((TypeReflector.TypedSetter<TimeSpan>)setter)(o, _parser.ParsTimeSpan());
                     break;
-                case TOKENS.DATETIMEOFFSET:
-                    ((Reflection.TypedSetter<DateTimeOffset>)setter)(o, _parser.ParseDateTimeOffset());
+                case Tokens.DateTimeOffset:
+                    ((TypeReflector.TypedSetter<DateTimeOffset>)setter)(o, _parser.ParseDateTimeOffset());
                     break;
                 default:
                     throw new InvalidOperationException("No typed reader for token " + next + ".");
@@ -533,14 +533,14 @@ namespace DuraIT.FastBinaryJson
                     if (ob is List<object> list)
                         return bt!.IsGenericType ? list : list.ToArray();
                     if (ob is TypedArray typed)
-                        return typed.data.ToArray();
+                        return typed.DataList.ToArray();
 
                     return ob;
                 }
             );
 
             // Created after the elements are read, so it gets the capacity CreateGenericList gives it.
-            IList col = (IList)Reflection.Instance.FastCreateList(pt, items.Count);
+            IList col = (IList)TypeReflector.Instance.FastCreateList(pt, items.Count);
             foreach (object? item in items)
                 col.Add(item);
 
@@ -552,14 +552,14 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         private object ReadRootList(Type type)
         {
-            Type[] gtypes = Reflection.Instance.GetGenericArguments(type);
+            Type[] gtypes = TypeReflector.Instance.GetGenericArguments(type);
             // Shared by every element, as in RootList: the first element's $types table lands here.
             Dictionary<string, object> globals = new Dictionary<string, object>();
 
             _parser.ReadToken(); // ARRAY_START
             List<object?> items = ReadElements(gtypes[0], globals, true, ob => ob);
 
-            IList o = (IList)Reflection.Instance.FastCreateList(type, items.Count);
+            IList o = (IList)TypeReflector.Instance.FastCreateList(type, items.Count);
             foreach (object? item in items)
                 o.Add(item);
 
@@ -579,7 +579,7 @@ namespace DuraIT.FastBinaryJson
             {
                 object? item;
                 // An object element is added as built, never through convert - as in both originals.
-                bool isObject = _parser.PeekToken() == TOKENS.DOC_START;
+                bool isObject = _parser.PeekToken() == Tokens.DocStart;
                 if (isObject)
                 {
                     if (!TryReadObject(bt, globaltypes, mayExtendSharedTypes, out object? read))
@@ -602,9 +602,9 @@ namespace DuraIT.FastBinaryJson
                     t = (byte)item!;
                 }
 
-                if (t == TOKENS.COMMA)
+                if (t == Tokens.Comma)
                     continue;
-                if (t == TOKENS.ARRAY_END)
+                if (t == Tokens.ArrayEnd)
                     break;
             }
 
@@ -614,7 +614,7 @@ namespace DuraIT.FastBinaryJson
         private byte ReadSkippingCommas()
         {
             byte t = _parser.ReadToken();
-            while (t == TOKENS.COMMA)
+            while (t == Tokens.Comma)
                 t = _parser.ReadToken();
 
             return t;

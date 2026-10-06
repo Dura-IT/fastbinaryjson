@@ -44,7 +44,7 @@ namespace FastBinaryJson.UnitTests.Golden
      * not define.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class GoldenFileTests
     {
         private const string RegenerateVariable = "FBJ_REGEN_GOLDEN";
@@ -97,7 +97,7 @@ namespace FastBinaryJson.UnitTests.Golden
                 bytesOnlyReason: "UseTypedArrays off leaves a root array with no type to restore to"
             );
 
-            yield return GoldenCase.For("string-array-typed-v14", GoldenCorpus.BuildStringArray, () => With(p => p.v1_4TypedArray = true));
+            yield return GoldenCase.For("string-array-typed-v14", GoldenCorpus.BuildStringArray, () => With(p => p.UseV14TypedArray = true));
 
             yield return GoldenCase.For("string-array-typed", GoldenCorpus.BuildStringArray, Defaults);
 
@@ -105,11 +105,11 @@ namespace FastBinaryJson.UnitTests.Golden
 
             yield return GoldenCase.For("dictionary-int-key", GoldenCorpus.BuildIntKeyedDictionary, Defaults);
 
-            // Was bytes only until the UseUTCDateTime read path stopped converting: write sent the
+            // Was bytes only until the UseUtcDateTime read path stopped converting: write sent the
             // value through ToUniversalTime and read sent it through ToLocalTime, so the restored
             // value depended on the reading machine's time zone even though the bytes did not. The
             // read-back is asserted for real now, on every platform the matrix runs.
-            yield return GoldenCase.For("utc-datetime", GoldenCorpus.BuildUtcClock, () => With(p => p.UseUTCDateTime = true));
+            yield return GoldenCase.For("utc-datetime", GoldenCorpus.BuildUtcClock, () => With(p => p.UseUtcDateTime = true));
         }
 
         /// <summary>
@@ -135,8 +135,8 @@ namespace FastBinaryJson.UnitTests.Golden
         [TestCaseSource(nameof(Cases))]
         public void Serialize_MatchesCommittedBytes(GoldenCase testCase)
         {
-            BJSON.ClearReflectionCache();
-            byte[] actual = BJSON.ToBJSON(testCase.Build(), testCase.Parameters());
+            Bjson.ClearReflectionCache();
+            byte[] actual = Bjson.ToBjson(testCase.Build(), testCase.Parameters());
 
             string path = FixturePath(testCase.Name);
 
@@ -192,7 +192,7 @@ namespace FastBinaryJson.UnitTests.Golden
                 return;
             }
 
-            BJSON.ClearReflectionCache();
+            Bjson.ClearReflectionCache();
             object restored = testCase.Deserialize(File.ReadAllBytes(path), testCase.Parameters());
 
             // WithStrictOrdering is load-bearing. BeEquivalentTo ignores collection order by
@@ -228,8 +228,8 @@ namespace FastBinaryJson.UnitTests.Golden
                 return;
             }
 
-            BJSON.ClearReflectionCache();
-            ReferenceBox restored = BJSON.ToObject<ReferenceBox>(File.ReadAllBytes(path), Defaults())!;
+            Bjson.ClearReflectionCache();
+            ReferenceBox restored = Bjson.ToObject<ReferenceBox>(File.ReadAllBytes(path), Defaults())!;
 
             restored.Third.Should().BeSameAs(restored.First, "the two fields were the same instance when written, and $i encodes that");
             restored.Second.Should().NotBeSameAs(restored.First, "the middle value was a distinct instance");
@@ -266,21 +266,21 @@ namespace FastBinaryJson.UnitTests.Golden
                 .Should()
                 .BeGreaterThanOrEqualTo(0, "the file has to hold the back-reference this test exists to read");
 
-            BJSON.ClearReflectionCache();
+            Bjson.ClearReflectionCache();
             EqStructsThenShared restored = new Deserializer(Defaults()) { OneStep = oneStep }.ToObject<EqStructsThenShared>(bytes)!;
 
             restored.A.Should().Be(new EqPoint { X = 5, Y = 6 });
             restored.B.Should().Be(new EqPoint { X = 5, Y = 6 });
         }
 
-        private static BJSONParameters Defaults()
+        private static BjsonParameters Defaults()
         {
-            return new BJSONParameters();
+            return new BjsonParameters();
         }
 
-        private static BJSONParameters With(Action<BJSONParameters> configure)
+        private static BjsonParameters With(Action<BjsonParameters> configure)
         {
-            BJSONParameters parameters = new BJSONParameters();
+            BjsonParameters parameters = new BjsonParameters();
             configure(parameters);
             return parameters;
         }

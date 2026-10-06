@@ -20,13 +20,13 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * stream written before this fork carries that - those must keep loading.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class DataMemberTests
     {
         [Test]
         public void ToObject_PropertyWithDataMemberName_IsRestored()
         {
-            AliasedProperty restored = BJSON.ToObject<AliasedProperty>(BJSON.ToBJSON(new AliasedProperty { Value = "kept", Plain = 7 }))!;
+            AliasedProperty restored = Bjson.ToObject<AliasedProperty>(Bjson.ToBjson(new AliasedProperty { Value = "kept", Plain = 7 }))!;
 
             restored.Plain.Should().Be(7, "the member without a DataMember name is the control");
             restored.Value.Should().Be("kept");
@@ -35,17 +35,17 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToObject_FieldWithDataMemberName_IsRestored()
         {
-            AliasedField restored = BJSON.ToObject<AliasedField>(BJSON.ToBJSON(new AliasedField { Value = 42 }))!;
+            AliasedField restored = Bjson.ToObject<AliasedField>(Bjson.ToBjson(new AliasedField { Value = 42 }))!;
 
             restored.Value.Should().Be(42);
         }
 
         [Test]
-        public void ToBJSON_PropertyWithDataMemberName_WritesTheDataMemberName()
+        public void ToBjson_PropertyWithDataMemberName_WritesTheDataMemberName()
         {
-            byte[] bytes = BJSON.ToBJSON(new AliasedProperty { Value = "kept", Plain = 7 }, new BJSONParameters { UseExtensions = false });
+            byte[] bytes = Bjson.ToBjson(new AliasedProperty { Value = "kept", Plain = 7 }, new BjsonParameters { UseExtensions = false });
 
-            BJSON.Parse(bytes).Should().BeAssignableTo<Dictionary<string, object>>().Which.Keys.Should().BeEquivalentTo("Alias", "Plain");
+            Bjson.Parse(bytes).Should().BeAssignableTo<Dictionary<string, object>>().Which.Keys.Should().BeEquivalentTo("Alias", "Plain");
         }
 
         /// <summary>
@@ -55,10 +55,10 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToObject_StreamWrittenWithCSharpName_StillRestoresTheMember()
         {
-            BJSONParameters parameters = new BJSONParameters { UseExtensions = false };
-            byte[] legacy = BJSON.ToBJSON(new UnaliasedProperty { Value = "kept", Plain = 7 }, parameters);
+            BjsonParameters parameters = new BjsonParameters { UseExtensions = false };
+            byte[] legacy = Bjson.ToBjson(new UnaliasedProperty { Value = "kept", Plain = 7 }, parameters);
 
-            AliasedProperty restored = BJSON.ToObject<AliasedProperty>(legacy, parameters)!;
+            AliasedProperty restored = Bjson.ToObject<AliasedProperty>(legacy, parameters)!;
 
             restored.Value.Should().Be("kept");
             restored.Plain.Should().Be(7);
@@ -67,7 +67,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToObject_DataMemberNameEqualToLowercasedName_IsRestored()
         {
-            LowercaseAlias restored = BJSON.ToObject<LowercaseAlias>(BJSON.ToBJSON(new LowercaseAlias { Count = 3 }))!;
+            LowercaseAlias restored = Bjson.ToObject<LowercaseAlias>(Bjson.ToBjson(new LowercaseAlias { Count = 3 }))!;
 
             restored.Count.Should().Be(3);
         }

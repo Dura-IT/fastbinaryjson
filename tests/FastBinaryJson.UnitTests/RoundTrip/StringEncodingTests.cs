@@ -18,34 +18,34 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * byte[] path to the same expectations - so the two targets are held to one answer.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class StringEncodingTests
     {
-        private static readonly BJSONParameters Utf8 = new BJSONParameters { UseUnicodeStrings = false };
+        private static readonly BjsonParameters Utf8 = new BjsonParameters { UseUnicodeStrings = false };
 
-        private static readonly BJSONParameters Utf16 = new BJSONParameters { UseUnicodeStrings = true };
+        private static readonly BjsonParameters Utf16 = new BjsonParameters { UseUnicodeStrings = true };
 
         // One, two, three and four UTF-8 bytes per code point, so byte count and char count diverge.
         private static readonly string[] Pieces = { "a", "é", "€", "😀" };
 
         [Test]
-        public void ToBJSON_LongUtf8String_WritesExactUtf8Bytes()
+        public void ToBjson_LongUtf8String_WritesExactUtf8Bytes()
         {
             string value = MixedText(5000);
 
-            byte[] bytes = BJSON.ToBJSON(value, Utf8);
+            byte[] bytes = Bjson.ToBjson(value, Utf8);
 
-            bytes.Should().Equal(Expected(TOKENS.STRING, new UTF8Encoding().GetBytes(value)));
+            bytes.Should().Equal(Expected(Tokens.Utf8String, new UTF8Encoding().GetBytes(value)));
         }
 
         [Test]
-        public void ToBJSON_Utf16String_WritesExactUtf16Bytes()
+        public void ToBjson_Utf16String_WritesExactUtf16Bytes()
         {
             string value = MixedText(5000);
 
-            byte[] bytes = BJSON.ToBJSON(value, Utf16);
+            byte[] bytes = Bjson.ToBjson(value, Utf16);
 
-            bytes.Should().Equal(Expected(TOKENS.UNICODE_STRING, Encoding.Unicode.GetBytes(value)));
+            bytes.Should().Equal(Expected(Tokens.Utf16String, Encoding.Unicode.GetBytes(value)));
         }
 
         /// <summary>
@@ -53,21 +53,21 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         /// U+FFFD. The span path must make the same substitution, not throw and not drop it.
         /// </summary>
         [Test]
-        public void ToBJSON_Utf8LoneSurrogate_ReplacesLikeUpstream()
+        public void ToBjson_Utf8LoneSurrogate_ReplacesLikeUpstream()
         {
             string value = "a\uD800b";
 
-            byte[] bytes = BJSON.ToBJSON(value, Utf8);
+            byte[] bytes = Bjson.ToBjson(value, Utf8);
 
-            bytes.Should().Equal(Expected(TOKENS.STRING, new byte[] { 0x61, 0xEF, 0xBF, 0xBD, 0x62 }));
+            bytes.Should().Equal(Expected(Tokens.Utf8String, new byte[] { 0x61, 0xEF, 0xBF, 0xBD, 0x62 }));
         }
 
         [TestCaseSource(nameof(BothEncodings))]
-        public void ToBJSON_StringsOfMixedLengthInOneGraph_RoundTripEachExactly(BJSONParameters parameters)
+        public void ToBjson_StringsOfMixedLengthInOneGraph_RoundTripEachExactly(BjsonParameters parameters)
         {
             List<string> values = new List<string> { MixedText(3000), "short", MixedText(700), string.Empty, "é", MixedText(4000) };
 
-            object? restored = BJSON.Parse(BJSON.ToBJSON(values, parameters));
+            object? restored = Bjson.Parse(Bjson.ToBjson(values, parameters));
 
             restored.Should().BeAssignableTo<List<object>>().Which.Should().Equal(values);
         }
@@ -77,7 +77,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         /// Interleaving short and long keys with long values grows the output across both paths.
         /// </summary>
         [TestCaseSource(nameof(BothEncodings))]
-        public void ToBJSON_LongAndShortKeysInterleaved_RoundTripEachExactly(BJSONParameters parameters)
+        public void ToBjson_LongAndShortKeysInterleaved_RoundTripEachExactly(BjsonParameters parameters)
         {
             Dictionary<string, string> values = new Dictionary<string, string>
             {
@@ -87,7 +87,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 ["c"] = string.Empty,
             };
 
-            object? restored = BJSON.Parse(BJSON.ToBJSON(values, parameters));
+            object? restored = Bjson.Parse(Bjson.ToBjson(values, parameters));
 
             restored.Should().BeAssignableTo<Dictionary<string, object>>().Which.Should().Equal(values.ToDictionary(x => x.Key, x => (object)x.Value));
         }

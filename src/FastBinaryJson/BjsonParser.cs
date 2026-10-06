@@ -7,13 +7,13 @@ using System.Runtime.InteropServices;
 
 namespace DuraIT.FastBinaryJson
 {
-    internal sealed class BJsonParser
+    internal sealed class BjsonParser
     {
         readonly byte[] _json;
         readonly bool _useUTC;
         readonly bool _v1_4TA;
 
-        internal BJsonParser(byte[] json, bool useUTC, bool v1_4TA)
+        internal BjsonParser(byte[] json, bool useUTC, bool v1_4TA)
         {
             this._json = json;
             _v1_4TA = v1_4TA;
@@ -33,11 +33,11 @@ namespace DuraIT.FastBinaryJson
             while (!breakparse)
             {
                 byte t = GetToken();
-                if (t == TOKENS.COMMA)
+                if (t == Tokens.Comma)
                     continue;
-                if (t == TOKENS.DOC_END)
+                if (t == Tokens.DocEnd)
                     break;
-                if (t == TOKENS.TYPES_POINTER)
+                if (t == Tokens.TypesPointer)
                 {
                     // save curr index position
                     int savedindex = Index;
@@ -85,13 +85,13 @@ namespace DuraIT.FastBinaryJson
 
         internal string ReadName(byte token)
         {
-            if (token == TOKENS.NAME)
+            if (token == Tokens.Name)
                 return ParseName();
-            if (token == TOKENS.NAME_UNI)
+            if (token == Tokens.NameUtf16)
                 return ParseName2();
-            if (token == TOKENS.NAME_LONG)
+            if (token == Tokens.NameLong)
                 return ParseLongName(false);
-            if (token == TOKENS.NAME_UNI_LONG)
+            if (token == Tokens.NameUtf16Long)
                 return ParseLongName(true);
 
             throw new BjsonException("excpecting a name field");
@@ -99,7 +99,7 @@ namespace DuraIT.FastBinaryJson
 
         internal void ReadColon()
         {
-            if (GetToken() != TOKENS.COLON)
+            if (GetToken() != Tokens.Colon)
                 throw new BjsonException("expecting a colon");
         }
 
@@ -178,7 +178,7 @@ namespace DuraIT.FastBinaryJson
         {
             chars = default;
             byte token = _json[Index];
-            if (token != TOKENS.STRING && token != TOKENS.UNICODE_STRING)
+            if (token != Tokens.Utf8String && token != Tokens.Utf16String)
                 return false;
 
             int length = Helper.ToInt32(_json, Index + 1);
@@ -186,7 +186,7 @@ namespace DuraIT.FastBinaryJson
             Helper.CheckLength(_json, start, length, "String");
 
             ReadOnlySpan<byte> bytes = new ReadOnlySpan<byte>(_json, start, length);
-            if (token == TOKENS.UNICODE_STRING)
+            if (token == Tokens.Utf16String)
             {
                 chars = MemoryMarshal.Cast<byte, char>(bytes);
             }
@@ -196,7 +196,7 @@ namespace DuraIT.FastBinaryJson
                 if (length > buffer.Length)
                     return false;
 
-                chars = buffer.Slice(0, Reflection.UTF8GetChars(bytes, buffer));
+                chars = buffer.Slice(0, TypeReflector.UTF8GetChars(bytes, buffer));
             }
 
             Index = start + length;
@@ -233,7 +233,7 @@ namespace DuraIT.FastBinaryJson
 #if NET10_0_OR_GREATER
             string s = NameCache.FromUtf16(_json, Index, c);
 #else
-            string s = Reflection.UnicodeGetString(_json, Index, c);
+            string s = TypeReflector.UnicodeGetString(_json, Index, c);
 #endif
             Index += c;
             return s;
@@ -245,7 +245,7 @@ namespace DuraIT.FastBinaryJson
 #if NET10_0_OR_GREATER
             string s = NameCache.FromUtf8(_json, Index, c);
 #else
-            string s = Reflection.UTF8GetString(_json, Index, c);
+            string s = TypeReflector.UTF8GetString(_json, Index, c);
 #endif
             Index += c;
             return s;
@@ -263,7 +263,7 @@ namespace DuraIT.FastBinaryJson
         {
             int c = Helper.ToInt32(_json, Index);
             Index += 4;
-            string s = unicode ? Reflection.UnicodeGetString(_json, Index, c) : Reflection.UTF8GetString(_json, Index, c);
+            string s = unicode ? TypeReflector.UnicodeGetString(_json, Index, c) : TypeReflector.UTF8GetString(_json, Index, c);
             Index += c;
             return s;
         }
@@ -285,9 +285,9 @@ namespace DuraIT.FastBinaryJson
                 else
                     t = (byte)o!;
 
-                if (t == TOKENS.COMMA)
+                if (t == Tokens.Comma)
                     continue;
-                if (t == TOKENS.ARRAY_END)
+                if (t == Tokens.ArrayEnd)
                     break;
             }
             return array;
@@ -299,65 +299,65 @@ namespace DuraIT.FastBinaryJson
             breakparse = false;
             switch (t)
             {
-                case TOKENS.BYTE:
+                case Tokens.Byte:
                     return ParseByte();
-                case TOKENS.SBYTE:
+                case Tokens.SByte:
                     return ParseSByte();
-                case TOKENS.DATETIMEOFFSET:
+                case Tokens.DateTimeOffset:
                     return ParseDateTimeOffset();
-                case TOKENS.BYTEARRAY:
+                case Tokens.ByteArray:
                     return ParseByteArray();
-                case TOKENS.CHAR:
+                case Tokens.Char:
                     return ParseChar();
-                case TOKENS.DATETIME:
+                case Tokens.DateTime:
                     return ParseDateTime();
-                case TOKENS.DECIMAL:
+                case Tokens.Decimal:
                     return ParseDecimal();
-                case TOKENS.DOUBLE:
+                case Tokens.Double:
                     return ParseDouble();
-                case TOKENS.FLOAT:
+                case Tokens.Single:
                     return ParseFloat();
-                case TOKENS.GUID:
+                case Tokens.Guid:
                     return ParseGuid();
-                case TOKENS.INT:
+                case Tokens.Int32:
                     return ParseInt();
-                case TOKENS.LONG:
+                case Tokens.Int64:
                     return ParseLong();
-                case TOKENS.SHORT:
+                case Tokens.Int16:
                     return ParseShort();
-                case TOKENS.UINT:
+                case Tokens.UInt32:
                     return ParseUint();
-                case TOKENS.ULONG:
+                case Tokens.UInt64:
                     return ParseULong();
-                case TOKENS.USHORT:
+                case Tokens.UInt16:
                     return ParseUShort();
-                case TOKENS.UNICODE_STRING:
+                case Tokens.Utf16String:
                     return ParseUnicodeString();
-                case TOKENS.STRING:
+                case Tokens.Utf8String:
                     return ParseString();
-                case TOKENS.DOC_START:
+                case Tokens.DocStart:
                     return ParseObject();
-                case TOKENS.ARRAY_START:
+                case Tokens.ArrayStart:
                     return ParseArray();
-                case TOKENS.TRUE:
+                case Tokens.True:
                     return true;
-                case TOKENS.FALSE:
+                case Tokens.False:
                     return false;
-                case TOKENS.NULL:
+                case Tokens.Null:
                     return null;
-                case TOKENS.ARRAY_END:
+                case Tokens.ArrayEnd:
                     breakparse = true;
-                    return TOKENS.ARRAY_END;
-                case TOKENS.DOC_END:
+                    return Tokens.ArrayEnd;
+                case Tokens.DocEnd:
                     breakparse = true;
-                    return TOKENS.DOC_END;
-                case TOKENS.COMMA:
+                    return Tokens.DocEnd;
+                case Tokens.Comma:
                     breakparse = true;
-                    return TOKENS.COMMA;
-                case TOKENS.ARRAY_TYPED:
-                case TOKENS.ARRAY_TYPED_LONG:
+                    return Tokens.Comma;
+                case Tokens.TypedArray:
+                case Tokens.TypedArrayLong:
                     return ParseTypedArray(t);
-                case TOKENS.TIMESPAN:
+                case Tokens.TimeSpan:
                     return ParsTimeSpan();
             }
 
@@ -377,17 +377,17 @@ namespace DuraIT.FastBinaryJson
         private TypedArray ParseTypedArray(byte token)
         {
             TypedArray ar = new TypedArray();
-            if (token == TOKENS.ARRAY_TYPED)
+            if (token == Tokens.TypedArray)
             {
                 if (_v1_4TA)
-                    ar.typename = ParseName();
+                    ar.TypeName = ParseName();
                 else
-                    ar.typename = ParseName2();
+                    ar.TypeName = ParseName2();
             }
             else
-                ar.typename = ParseNameLong();
+                ar.TypeName = ParseNameLong();
 
-            ar.count = ParseInt();
+            ar.Count = ParseInt();
 
             bool breakparse = false;
             while (!breakparse)
@@ -396,15 +396,15 @@ namespace DuraIT.FastBinaryJson
                 byte b = 0;
                 if (!breakparse)
                 {
-                    ar.data.Add(o!);
+                    ar.DataList.Add(o!);
                     b = GetToken();
                 }
                 else
                     b = (byte)o!;
 
-                if (b == TOKENS.COMMA)
+                if (b == Tokens.Comma)
                     continue;
-                if (b == TOKENS.ARRAY_END)
+                if (b == Tokens.ArrayEnd)
                     break;
             }
             return ar;
@@ -414,7 +414,7 @@ namespace DuraIT.FastBinaryJson
         {
             short c = Helper.ToInt16(_json, Index);
             Index += 2;
-            string s = Reflection.UnicodeGetString(_json, Index, c);
+            string s = TypeReflector.UnicodeGetString(_json, Index, c);
             Index += c;
             return s;
         }
@@ -507,7 +507,7 @@ namespace DuraIT.FastBinaryJson
             int c = Helper.ToInt32(_json, Index);
             Index += 4;
 
-            string s = Reflection.UnicodeGetString(_json, Index, c);
+            string s = TypeReflector.UnicodeGetString(_json, Index, c);
             Index += c;
             return s;
         }
@@ -517,7 +517,7 @@ namespace DuraIT.FastBinaryJson
             int c = Helper.ToInt32(_json, Index);
             Index += 4;
 
-            string s = Reflection.UTF8GetString(_json, Index, c);
+            string s = TypeReflector.UTF8GetString(_json, Index, c);
             Index += c;
             return s;
         }
@@ -548,7 +548,7 @@ namespace DuraIT.FastBinaryJson
          * where it was read. Under TZ=UTC the two cancelled out, which is how it went unnoticed.
          *
          * Labelling the ticks instead of converting them is what makes the round trip symmetric. No
-         * byte changes - this is a read-side fix - but a caller using UseUTCDateTime now receives
+         * byte changes - this is a read-side fix - but a caller using UseUtcDateTime now receives
          * the instant that was written rather than a local rendering of it.
          */
         internal DateTime ParseDateTime()

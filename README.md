@@ -50,20 +50,20 @@ ones who cannot move runtime quickly.
 ```csharp
 using DuraIT.FastBinaryJson;
 
-byte[] bytes = BJSON.ToBJSON(myObject);
-MyType back = BJSON.ToObject<MyType>(bytes);
+byte[] bytes = Bjson.ToBjson(myObject);
+MyType back = Bjson.ToObject<MyType>(bytes);
 ```
 
 Untyped, when the target type is not known at the call site:
 
 ```csharp
-object graph = BJSON.Parse(bytes);
+object graph = Bjson.Parse(bytes);
 ```
 
-Settings go through `BJSONParameters`, per call or globally:
+Settings go through `BjsonParameters`, per call or globally:
 
 ```csharp
-byte[] smaller = BJSON.ToBJSON(myObject, new BJSONParameters
+byte[] smaller = Bjson.ToBjson(myObject, new BjsonParameters
 {
     UseUnicodeStrings = false,   // UTF-8: smaller output than the default UTF-16
     UsingGlobalTypes = true      // one $types table instead of repeating type names
@@ -94,7 +94,7 @@ the original. The `char` fix is read-side only, so its output is byte-identical 
 `DateTimeOffset` uses a token the original declared but never wrote, so no existing payload can
 contain one.
 
-A sixth defect was found while fixing these: `UseUTCDateTime` converted on write and again on read,
+A sixth defect was found while fixing these: `UseUtcDateTime` converted on write and again on read,
 so a value came back shifted by the reading machine's time zone. The bytes were always correct. That
 fix is read-side only as well.
 

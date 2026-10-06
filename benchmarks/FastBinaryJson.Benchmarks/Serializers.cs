@@ -26,20 +26,20 @@ namespace FastBinaryJson.Benchmarks
     /// </summary>
     public sealed class FastBinaryJsonArm : ISerializerArm
     {
-        private readonly global::DuraIT.FastBinaryJson.BJSONParameters _parameters;
+        private readonly global::DuraIT.FastBinaryJson.BjsonParameters _parameters;
         private readonly string _name;
 
         public FastBinaryJsonArm(bool useUnicodeStrings)
         {
             _name = useUnicodeStrings ? "fastBinaryJSON (UTF-16)" : "fastBinaryJSON (UTF-8)";
-            _parameters = new global::DuraIT.FastBinaryJson.BJSONParameters { UseUnicodeStrings = useUnicodeStrings };
+            _parameters = new global::DuraIT.FastBinaryJson.BjsonParameters { UseUnicodeStrings = useUnicodeStrings };
         }
 
         public string Name => _name;
 
-        public byte[] Serialize<T>(T value) => global::DuraIT.FastBinaryJson.BJSON.ToBJSON(value!, _parameters);
+        public byte[] Serialize<T>(T value) => global::DuraIT.FastBinaryJson.Bjson.ToBjson(value!, _parameters);
 
-        public T Deserialize<T>(byte[] bytes) => global::DuraIT.FastBinaryJson.BJSON.ToObject<T>(bytes, _parameters)!;
+        public T Deserialize<T>(byte[] bytes) => global::DuraIT.FastBinaryJson.Bjson.ToObject<T>(bytes, _parameters)!;
     }
 
     /// <summary>

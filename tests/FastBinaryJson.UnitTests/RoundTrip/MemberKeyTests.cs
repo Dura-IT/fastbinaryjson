@@ -39,9 +39,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
             foreach (bool unicode in new[] { true, false, true })
             {
-                BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = unicode };
+                BjsonParameters parameters = new BjsonParameters { UseUnicodeStrings = unicode };
 
-                List<KeyEncodingNode> restored = BJSON.ToObject<List<KeyEncodingNode>>(BJSON.ToBJSON(value, parameters), parameters)!;
+                List<KeyEncodingNode> restored = Bjson.ToObject<List<KeyEncodingNode>>(Bjson.ToBjson(value, parameters), parameters)!;
 
                 restored.Should().BeEquivalentTo(value, o => o.WithStrictOrdering(), "unicode = {0}", unicode);
             }
@@ -55,7 +55,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCase(false)]
         public void ToObject_MembersSkippedForNull_ReadsEveryObject(bool unicode)
         {
-            BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = unicode };
+            BjsonParameters parameters = new BjsonParameters { UseUnicodeStrings = unicode };
             List<KeySkipNode> value = new List<KeySkipNode>
             {
                 new KeySkipNode
@@ -90,7 +90,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 },
             };
 
-            List<KeySkipNode> restored = BJSON.ToObject<List<KeySkipNode>>(BJSON.ToBJSON(value, parameters), parameters)!;
+            List<KeySkipNode> restored = Bjson.ToObject<List<KeySkipNode>>(Bjson.ToBjson(value, parameters), parameters)!;
 
             restored.Should().BeEquivalentTo(value, o => o.WithStrictOrdering());
         }
@@ -103,13 +103,13 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToObject_MembersInAnotherOrder_ReadsEachByName()
         {
-            BJSONParameters parameters = new BJSONParameters { UseExtensions = false, UsingGlobalTypes = false };
-            byte[] inOrder = BJSON.ToBJSON(new KeyOrderAB { First = 1, Second = "one" }, parameters);
-            byte[] reversed = BJSON.ToBJSON(new KeyOrderBA { Second = "two", First = 2 }, parameters);
+            BjsonParameters parameters = new BjsonParameters { UseExtensions = false, UsingGlobalTypes = false };
+            byte[] inOrder = Bjson.ToBjson(new KeyOrderAB { First = 1, Second = "one" }, parameters);
+            byte[] reversed = Bjson.ToBjson(new KeyOrderBA { Second = "two", First = 2 }, parameters);
 
-            KeyOrderAB first = BJSON.ToObject<KeyOrderAB>(inOrder, parameters)!;
-            KeyOrderAB second = BJSON.ToObject<KeyOrderAB>(reversed, parameters)!;
-            KeyOrderAB third = BJSON.ToObject<KeyOrderAB>(inOrder, parameters)!;
+            KeyOrderAB first = Bjson.ToObject<KeyOrderAB>(inOrder, parameters)!;
+            KeyOrderAB second = Bjson.ToObject<KeyOrderAB>(reversed, parameters)!;
+            KeyOrderAB third = Bjson.ToObject<KeyOrderAB>(inOrder, parameters)!;
 
             first.Should().BeEquivalentTo(new KeyOrderAB { First = 1, Second = "one" });
             second.Should().BeEquivalentTo(new KeyOrderAB { First = 2, Second = "two" });
@@ -123,8 +123,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToObject_SpecialKeyAfterTheHead_FallsBackEveryTime()
         {
-            BJSONParameters parameters = new BJSONParameters { UseExtensions = false, UsingGlobalTypes = false };
-            byte[] bytes = BJSON.ToBJSON(new Dictionary<string, object> { ["First"] = 7, ["$x"] = 8 }, parameters);
+            BjsonParameters parameters = new BjsonParameters { UseExtensions = false, UsingGlobalTypes = false };
+            byte[] bytes = Bjson.ToBjson(new Dictionary<string, object> { ["First"] = 7, ["$x"] = 8 }, parameters);
 
             for (int read = 0; read < 2; read++)
             {

@@ -21,7 +21,7 @@ namespace DuraIT.FastBinaryJson
      *
      * The split lives in the small raw-write and Encode helpers at the bottom, not in the callers.
      */
-    internal sealed class BJSONSerializer : IDisposable
+    internal sealed class BjsonSerializer : IDisposable
     {
 #if NET10_0_OR_GREATER
         private readonly PooledByteBuffer _output = new PooledByteBuffer();
@@ -48,7 +48,7 @@ namespace DuraIT.FastBinaryJson
          * lost every other member, and equal records or structs came back as one shared instance.
          */
         private readonly Dictionary<object, int> _cirobj = new Dictionary<object, int>(ReferenceComparer.Instance);
-        private readonly BJSONParameters _params;
+        private readonly BjsonParameters _params;
 
         private void Dispose(bool disposing)
         {
@@ -67,7 +67,7 @@ namespace DuraIT.FastBinaryJson
             GC.SuppressFinalize(this);
         }
 
-        internal BJSONSerializer(BJSONParameters param)
+        internal BjsonSerializer(BjsonParameters param)
         {
             _params = param;
             _MAX_DEPTH = param.SerializerMaxDepth;
@@ -103,7 +103,7 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteTypes(Dictionary<Type, int> dic)
         {
-            _output.WriteByte(TOKENS.DOC_START);
+            _output.WriteByte(Tokens.DocStart);
 
             bool pendingSeparator = false;
 
@@ -112,11 +112,11 @@ namespace DuraIT.FastBinaryJson
                 if (pendingSeparator)
                     WriteComma();
 
-                WritePair(entry.Value.ToString(CultureInfo.InvariantCulture), Reflection.Instance.GetTypeAssemblyName(entry.Key));
+                WritePair(entry.Value.ToString(CultureInfo.InvariantCulture), TypeReflector.Instance.GetTypeAssemblyName(entry.Key));
 
                 pendingSeparator = true;
             }
-            _output.WriteByte(TOKENS.DOC_END);
+            _output.WriteByte(Tokens.DocEnd);
         }
 
         private void WriteValue(object? obj)
@@ -179,7 +179,7 @@ namespace DuraIT.FastBinaryJson
                 WriteArray(sequence);
             else if (obj is Enum enumValue)
                 WriteEnum(enumValue);
-            else if (Reflection.Instance.IsTypeRegistered(obj.GetType()))
+            else if (TypeReflector.Instance.IsTypeRegistered(obj.GetType()))
                 WriteCustom(obj);
             /*
              * Deliberately AFTER the custom-type check rather than up with the other primitives.
@@ -198,13 +198,13 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteSByte(sbyte p)
         {
-            _output.WriteByte(TOKENS.SBYTE);
+            _output.WriteByte(Tokens.SByte);
             _output.WriteByte(unchecked((byte)p));
         }
 
         private void WriteTimeSpan(TimeSpan obj)
         {
-            _output.WriteByte(TOKENS.TIMESPAN);
+            _output.WriteByte(Tokens.TimeSpan);
             WriteInt64Raw(obj.Ticks);
         }
 
@@ -217,16 +217,16 @@ namespace DuraIT.FastBinaryJson
             {
                 token = false;
                 // array type name - byte[] on netstandard2.0, a PendingString on net10.0
-                var b = Encode(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!), unicode: !_params.v1_4TypedArray);
+                var b = Encode(TypeReflector.Instance.GetTypeAssemblyName(t.GetElementType()!), unicode: !_params.UseV14TypedArray);
                 if (b.Length < 256)
                 {
-                    _output.WriteByte(TOKENS.ARRAY_TYPED);
+                    _output.WriteByte(Tokens.TypedArray);
                     _output.WriteByte((byte)b.Length);
                     WriteBytesRaw(b);
                 }
                 else
                 {
-                    _output.WriteByte(TOKENS.ARRAY_TYPED_LONG);
+                    _output.WriteByte(Tokens.TypedArrayLong);
                     WriteInt16Raw(unchecked((short)b.Length));
                     WriteBytesRaw(b);
                 }
@@ -234,7 +234,7 @@ namespace DuraIT.FastBinaryJson
                 WriteInt32Raw(array.Count);
             }
             if (token)
-                _output.WriteByte(TOKENS.ARRAY_START);
+                _output.WriteByte(Tokens.ArrayStart);
 
             foreach (object obj in array)
             {
@@ -245,60 +245,60 @@ namespace DuraIT.FastBinaryJson
 
                 pendingSeperator = true;
             }
-            _output.WriteByte(TOKENS.ARRAY_END);
+            _output.WriteByte(Tokens.ArrayEnd);
         }
 
         private void WriteNV(NameValueCollection nameValueCollection)
         {
-            _output.WriteByte(TOKENS.DOC_START);
+            _output.WriteByte(Tokens.DocStart);
 
             bool pendingSeparator = false;
 
             foreach (string key in nameValueCollection)
             {
                 if (pendingSeparator)
-                    _output.WriteByte(TOKENS.COMMA);
+                    _output.WriteByte(Tokens.Comma);
 
                 WritePair(key, nameValueCollection[key]);
 
                 pendingSeparator = true;
             }
-            _output.WriteByte(TOKENS.DOC_END);
+            _output.WriteByte(Tokens.DocEnd);
         }
 
         private void WriteSD(StringDictionary stringDictionary)
         {
-            _output.WriteByte(TOKENS.DOC_START);
+            _output.WriteByte(Tokens.DocStart);
 
             bool pendingSeparator = false;
 
             foreach (DictionaryEntry entry in stringDictionary)
             {
                 if (pendingSeparator)
-                    _output.WriteByte(TOKENS.COMMA);
+                    _output.WriteByte(Tokens.Comma);
 
                 WritePair((string)entry.Key, entry.Value);
 
                 pendingSeparator = true;
             }
-            _output.WriteByte(TOKENS.DOC_END);
+            _output.WriteByte(Tokens.DocEnd);
         }
 
         private void WriteUShort(ushort p)
         {
-            _output.WriteByte(TOKENS.USHORT);
+            _output.WriteByte(Tokens.UInt16);
             WriteInt16Raw(unchecked((short)p));
         }
 
         private void WriteShort(short p)
         {
-            _output.WriteByte(TOKENS.SHORT);
+            _output.WriteByte(Tokens.Int16);
             WriteInt16Raw(p);
         }
 
         private void WriteFloat(float p)
         {
-            _output.WriteByte(TOKENS.FLOAT);
+            _output.WriteByte(Tokens.Single);
 #if NET10_0_OR_GREATER
             WriteInt32Raw(BitConverter.SingleToInt32Bits(p));
 #else
@@ -309,7 +309,7 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteDouble(double p)
         {
-            _output.WriteByte(TOKENS.DOUBLE);
+            _output.WriteByte(Tokens.Double);
 #if NET10_0_OR_GREATER
             WriteInt64Raw(BitConverter.DoubleToInt64Bits(p));
 #else
@@ -320,13 +320,13 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteByte(byte p)
         {
-            _output.WriteByte(TOKENS.BYTE);
+            _output.WriteByte(Tokens.Byte);
             _output.WriteByte(p);
         }
 
         private void WriteDecimal(decimal p)
         {
-            _output.WriteByte(TOKENS.DECIMAL);
+            _output.WriteByte(Tokens.Decimal);
 #if NET10_0_OR_GREATER
             Span<int> b = stackalloc int[4];
             _ = decimal.GetBits(p, b);
@@ -339,31 +339,31 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteULong(ulong p)
         {
-            _output.WriteByte(TOKENS.ULONG);
+            _output.WriteByte(Tokens.UInt64);
             WriteInt64Raw(unchecked((long)p));
         }
 
         private void WriteUInt(uint p)
         {
-            _output.WriteByte(TOKENS.UINT);
+            _output.WriteByte(Tokens.UInt32);
             WriteInt32Raw(unchecked((int)p));
         }
 
         private void WriteLong(long p)
         {
-            _output.WriteByte(TOKENS.LONG);
+            _output.WriteByte(Tokens.Int64);
             WriteInt64Raw(p);
         }
 
         private void WriteChar(char p)
         {
-            _output.WriteByte(TOKENS.CHAR);
+            _output.WriteByte(Tokens.Char);
             WriteInt16Raw(unchecked((short)p));
         }
 
         private void WriteBytes(byte[] p)
         {
-            _output.WriteByte(TOKENS.BYTEARRAY);
+            _output.WriteByte(Tokens.ByteArray);
             WriteInt32Raw(p.Length);
             WriteBytesRaw(p);
         }
@@ -371,30 +371,30 @@ namespace DuraIT.FastBinaryJson
         private void WriteBool(bool p)
         {
             if (p)
-                _output.WriteByte(TOKENS.TRUE);
+                _output.WriteByte(Tokens.True);
             else
-                _output.WriteByte(TOKENS.FALSE);
+                _output.WriteByte(Tokens.False);
         }
 
         private void WriteNull()
         {
-            _output.WriteByte(TOKENS.NULL);
+            _output.WriteByte(Tokens.Null);
         }
 
         private void WriteCustom(object obj)
         {
-            Reflection.Instance.TryGetCustomSerializer(obj.GetType(), out Reflection.Serialize? s);
+            TypeReflector.Instance.TryGetCustomSerializer(obj.GetType(), out CustomTypeSerializer? s);
             WriteString(s!(obj));
         }
 
         private void WriteColon()
         {
-            _output.WriteByte(TOKENS.COLON);
+            _output.WriteByte(Tokens.Colon);
         }
 
         private void WriteComma()
         {
-            _output.WriteByte(TOKENS.COMMA);
+            _output.WriteByte(Tokens.Comma);
         }
 
         private void WriteEnum(Enum e)
@@ -404,13 +404,13 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteInt(int i)
         {
-            _output.WriteByte(TOKENS.INT);
+            _output.WriteByte(Tokens.Int32);
             WriteInt32Raw(i);
         }
 
         private void WriteGuid(Guid g)
         {
-            _output.WriteByte(TOKENS.GUID);
+            _output.WriteByte(Tokens.Guid);
 #if NET10_0_OR_GREATER
             Span<byte> b = stackalloc byte[16];
             g.TryWriteBytes(b);
@@ -423,10 +423,10 @@ namespace DuraIT.FastBinaryJson
         private void WriteDateTime(DateTime dateTime)
         {
             DateTime dt = dateTime;
-            if (_params.UseUTCDateTime)
+            if (_params.UseUtcDateTime)
                 dt = dateTime.ToUniversalTime();
 
-            _output.WriteByte(TOKENS.DATETIME);
+            _output.WriteByte(Tokens.DateTime);
             WriteInt64Raw(dt.Ticks);
         }
 
@@ -434,17 +434,17 @@ namespace DuraIT.FastBinaryJson
         /// Writes a DateTimeOffset as raw clock ticks plus its offset in whole minutes.
         /// </summary>
         /// <remarks>
-        /// TOKENS.DATETIMEOFFSET was declared by upstream and never written, so this fills in a dead
+        /// Tokens.DateTimeOffset was declared by upstream and never written, so this fills in a dead
         /// token and no existing stream is affected.
         ///
-        /// UseUTCDateTime is not consulted. It exists to decide which clock a DateTime means, and a
+        /// UseUtcDateTime is not consulted. It exists to decide which clock a DateTime means, and a
         /// DateTimeOffset already carries that answer - normalizing it would discard the offset the
         /// caller chose. The offset is signed and written as two bytes, which covers the whole
         /// permitted range of -14:00 to +14:00 with room to spare.
         /// </remarks>
         private void WriteDateTimeOffset(DateTimeOffset value)
         {
-            _output.WriteByte(TOKENS.DATETIMEOFFSET);
+            _output.WriteByte(Tokens.DateTimeOffset);
             WriteInt64Raw(value.Ticks);
             WriteInt16Raw(unchecked((short)(int)value.Offset.TotalMinutes));
         }
@@ -503,7 +503,7 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteDataset(DataSet ds)
         {
-            _output.WriteByte(TOKENS.DOC_START);
+            _output.WriteByte(Tokens.DocStart);
             WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(ds) : ds.GetXmlSchema());
             WriteComma();
             bool tablesep = false;
@@ -515,14 +515,14 @@ namespace DuraIT.FastBinaryJson
                 WriteDataTableData(table);
             }
             // end dataset
-            _output.WriteByte(TOKENS.DOC_END);
+            _output.WriteByte(Tokens.DocEnd);
         }
 
         private void WriteDataTableData(DataTable table)
         {
             WriteName(table.TableName);
             WriteColon();
-            _output.WriteByte(TOKENS.ARRAY_START);
+            _output.WriteByte(Tokens.ArrayStart);
             DataColumnCollection cols = table.Columns;
             bool rowseparator = false;
             foreach (DataRow row in table.Rows)
@@ -530,7 +530,7 @@ namespace DuraIT.FastBinaryJson
                 if (rowseparator)
                     WriteComma();
                 rowseparator = true;
-                _output.WriteByte(TOKENS.ARRAY_START);
+                _output.WriteByte(Tokens.ArrayStart);
 
                 bool pendingSeperator = false;
                 foreach (DataColumn column in cols)
@@ -540,22 +540,22 @@ namespace DuraIT.FastBinaryJson
                     WriteValue(row[column]);
                     pendingSeperator = true;
                 }
-                _output.WriteByte(TOKENS.ARRAY_END);
+                _output.WriteByte(Tokens.ArrayEnd);
             }
 
-            _output.WriteByte(TOKENS.ARRAY_END);
+            _output.WriteByte(Tokens.ArrayEnd);
         }
 
         void WriteDataTable(DataTable dt)
         {
-            _output.WriteByte(TOKENS.DOC_START);
+            _output.WriteByte(Tokens.DocStart);
             this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(dt) : GetXmlSchema(dt));
             WriteComma();
 
             WriteDataTableData(dt);
 
             // end datatable
-            _output.WriteByte(TOKENS.DOC_END);
+            _output.WriteByte(Tokens.DocEnd);
         }
 
         bool _TypesWritten;
@@ -569,29 +569,29 @@ namespace DuraIT.FastBinaryJson
             {
                 if (_current_depth > 0)
                 {
-                    _output.WriteByte(TOKENS.DOC_START);
+                    _output.WriteByte(Tokens.DocStart);
                     WriteName("$i");
                     WriteColon();
                     WriteValue(i);
-                    _output.WriteByte(TOKENS.DOC_END);
+                    _output.WriteByte(Tokens.DocEnd);
                     return;
                 }
             }
             if (!_params.UsingGlobalTypes)
-                _output.WriteByte(TOKENS.DOC_START);
+                _output.WriteByte(Tokens.DocStart);
             else
             {
                 if (!_TypesWritten)
                 {
-                    _output.WriteByte(TOKENS.DOC_START);
+                    _output.WriteByte(Tokens.DocStart);
                     // write pointer to $types position
-                    _output.WriteByte(TOKENS.TYPES_POINTER);
+                    _output.WriteByte(Tokens.TypesPointer);
                     _typespointer = OutputLength; // place holder
                     WriteInt32Raw(0); // zero pointer for now
                     _TypesWritten = true;
                 }
                 else
-                    _output.WriteByte(TOKENS.DOC_START);
+                    _output.WriteByte(Tokens.DocStart);
             }
             _current_depth++;
             if (_current_depth > _MAX_DEPTH)
@@ -602,13 +602,13 @@ namespace DuraIT.FastBinaryJson
             if (_params.UseExtensions)
             {
                 if (!_params.UsingGlobalTypes)
-                    WritePairFast("$type", Reflection.Instance.GetTypeAssemblyName(t));
+                    WritePairFast("$type", TypeReflector.Instance.GetTypeAssemblyName(t));
                 else
                     WritePairFast("$type", GetGlobalTypeId(t));
                 append = true;
             }
 
-            Getters[] g = Reflection.Instance.GetGetters(
+            Getters[] g = TypeReflector.Instance.GetGetters(
                 t, /*_params.ShowReadOnlyProperties,*/
                 _params.IgnoreAttributes
             );
@@ -638,7 +638,7 @@ namespace DuraIT.FastBinaryJson
                     append = true;
                 }
             }
-            _output.WriteByte(TOKENS.DOC_END);
+            _output.WriteByte(Tokens.DocEnd);
             _current_depth--;
         }
 
@@ -659,53 +659,53 @@ namespace DuraIT.FastBinaryJson
             Delegate getter = p.TypedGetter!;
             switch (p.TypedToken)
             {
-                case TOKENS.INT:
-                    WriteInt(((Reflection.TypedGetter<int>)getter)(obj));
+                case Tokens.Int32:
+                    WriteInt(((TypeReflector.TypedGetter<int>)getter)(obj));
                     break;
-                case TOKENS.LONG:
-                    WriteLong(((Reflection.TypedGetter<long>)getter)(obj));
+                case Tokens.Int64:
+                    WriteLong(((TypeReflector.TypedGetter<long>)getter)(obj));
                     break;
-                case TOKENS.TRUE:
-                    WriteBool(((Reflection.TypedGetter<bool>)getter)(obj));
+                case Tokens.True:
+                    WriteBool(((TypeReflector.TypedGetter<bool>)getter)(obj));
                     break;
-                case TOKENS.DATETIME:
-                    WriteDateTime(((Reflection.TypedGetter<DateTime>)getter)(obj));
+                case Tokens.DateTime:
+                    WriteDateTime(((TypeReflector.TypedGetter<DateTime>)getter)(obj));
                     break;
-                case TOKENS.GUID:
-                    WriteGuid(((Reflection.TypedGetter<Guid>)getter)(obj));
+                case Tokens.Guid:
+                    WriteGuid(((TypeReflector.TypedGetter<Guid>)getter)(obj));
                     break;
-                case TOKENS.DOUBLE:
-                    WriteDouble(((Reflection.TypedGetter<double>)getter)(obj));
+                case Tokens.Double:
+                    WriteDouble(((TypeReflector.TypedGetter<double>)getter)(obj));
                     break;
-                case TOKENS.FLOAT:
-                    WriteFloat(((Reflection.TypedGetter<float>)getter)(obj));
+                case Tokens.Single:
+                    WriteFloat(((TypeReflector.TypedGetter<float>)getter)(obj));
                     break;
-                case TOKENS.DECIMAL:
-                    WriteDecimal(((Reflection.TypedGetter<decimal>)getter)(obj));
+                case Tokens.Decimal:
+                    WriteDecimal(((TypeReflector.TypedGetter<decimal>)getter)(obj));
                     break;
-                case TOKENS.SHORT:
-                    WriteShort(((Reflection.TypedGetter<short>)getter)(obj));
+                case Tokens.Int16:
+                    WriteShort(((TypeReflector.TypedGetter<short>)getter)(obj));
                     break;
-                case TOKENS.USHORT:
-                    WriteUShort(((Reflection.TypedGetter<ushort>)getter)(obj));
+                case Tokens.UInt16:
+                    WriteUShort(((TypeReflector.TypedGetter<ushort>)getter)(obj));
                     break;
-                case TOKENS.UINT:
-                    WriteUInt(((Reflection.TypedGetter<uint>)getter)(obj));
+                case Tokens.UInt32:
+                    WriteUInt(((TypeReflector.TypedGetter<uint>)getter)(obj));
                     break;
-                case TOKENS.ULONG:
-                    WriteULong(((Reflection.TypedGetter<ulong>)getter)(obj));
+                case Tokens.UInt64:
+                    WriteULong(((TypeReflector.TypedGetter<ulong>)getter)(obj));
                     break;
-                case TOKENS.BYTE:
-                    WriteByte(((Reflection.TypedGetter<byte>)getter)(obj));
+                case Tokens.Byte:
+                    WriteByte(((TypeReflector.TypedGetter<byte>)getter)(obj));
                     break;
-                case TOKENS.SBYTE:
-                    WriteSByte(((Reflection.TypedGetter<sbyte>)getter)(obj));
+                case Tokens.SByte:
+                    WriteSByte(((TypeReflector.TypedGetter<sbyte>)getter)(obj));
                     break;
-                case TOKENS.CHAR:
-                    WriteChar(((Reflection.TypedGetter<char>)getter)(obj));
+                case Tokens.Char:
+                    WriteChar(((TypeReflector.TypedGetter<char>)getter)(obj));
                     break;
-                case TOKENS.TIMESPAN:
-                    WriteTimeSpan(((Reflection.TypedGetter<TimeSpan>)getter)(obj));
+                case Tokens.TimeSpan:
+                    WriteTimeSpan(((TypeReflector.TypedGetter<TimeSpan>)getter)(obj));
                     break;
                 default:
                     throw new InvalidOperationException("No typed writer for token " + p.TypedToken + ".");
@@ -731,7 +731,7 @@ namespace DuraIT.FastBinaryJson
         // Written by WriteName and WriteColon themselves, so the cached bytes cannot differ from theirs.
         private byte[] EncodeKey(string name)
         {
-            using (BJSONSerializer scratch = new BJSONSerializer(_params))
+            using (BjsonSerializer scratch = new BjsonSerializer(_params))
             {
                 scratch.WriteName(name);
                 scratch.WriteColon();
@@ -775,7 +775,7 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteArray(IEnumerable array)
         {
-            _output.WriteByte(TOKENS.ARRAY_START);
+            _output.WriteByte(Tokens.ArrayStart);
 
             bool pendingSeperator = false;
 
@@ -788,12 +788,12 @@ namespace DuraIT.FastBinaryJson
 
                 pendingSeperator = true;
             }
-            _output.WriteByte(TOKENS.ARRAY_END);
+            _output.WriteByte(Tokens.ArrayEnd);
         }
 
         private void WriteStringDictionary(IDictionary dic)
         {
-            _output.WriteByte(TOKENS.DOC_START);
+            _output.WriteByte(Tokens.DocStart);
 
             bool pendingSeparator = false;
 
@@ -806,12 +806,12 @@ namespace DuraIT.FastBinaryJson
 
                 pendingSeparator = true;
             }
-            _output.WriteByte(TOKENS.DOC_END);
+            _output.WriteByte(Tokens.DocEnd);
         }
 
         private void WriteStringDictionary(IDictionary<string, object> dic)
         {
-            _output.WriteByte(TOKENS.DOC_START);
+            _output.WriteByte(Tokens.DocStart);
 
             bool pendingSeparator = false;
 
@@ -824,12 +824,12 @@ namespace DuraIT.FastBinaryJson
 
                 pendingSeparator = true;
             }
-            _output.WriteByte(TOKENS.DOC_END);
+            _output.WriteByte(Tokens.DocEnd);
         }
 
         private void WriteDictionary(IDictionary dic)
         {
-            _output.WriteByte(TOKENS.ARRAY_START);
+            _output.WriteByte(Tokens.ArrayStart);
 
             bool pendingSeparator = false;
 
@@ -837,15 +837,15 @@ namespace DuraIT.FastBinaryJson
             {
                 if (pendingSeparator)
                     WriteComma();
-                _output.WriteByte(TOKENS.DOC_START);
+                _output.WriteByte(Tokens.DocStart);
                 WritePair("k", entry.Key);
                 WriteComma();
                 WritePair("v", entry.Value);
-                _output.WriteByte(TOKENS.DOC_END);
+                _output.WriteByte(Tokens.DocEnd);
 
                 pendingSeparator = true;
             }
-            _output.WriteByte(TOKENS.ARRAY_END);
+            _output.WriteByte(Tokens.ArrayEnd);
         }
 
         /// <summary>
@@ -864,12 +864,12 @@ namespace DuraIT.FastBinaryJson
             var b = Encode(s, unicode);
             if (b.Length < 256)
             {
-                _output.WriteByte(unicode ? TOKENS.NAME_UNI : TOKENS.NAME);
+                _output.WriteByte(unicode ? Tokens.NameUtf16 : Tokens.Name);
                 _output.WriteByte((byte)b.Length);
             }
             else
             {
-                _output.WriteByte(unicode ? TOKENS.NAME_UNI_LONG : TOKENS.NAME_LONG);
+                _output.WriteByte(unicode ? Tokens.NameUtf16Long : Tokens.NameLong);
                 WriteInt32Raw(b.Length);
             }
 
@@ -879,7 +879,7 @@ namespace DuraIT.FastBinaryJson
         private void WriteString(string s)
         {
             bool unicode = _params.UseUnicodeStrings;
-            _output.WriteByte(unicode ? TOKENS.UNICODE_STRING : TOKENS.STRING);
+            _output.WriteByte(unicode ? Tokens.Utf16String : Tokens.Utf8String);
             var b = Encode(s, unicode);
             WriteInt32Raw(b.Length);
             WriteBytesRaw(b);
@@ -949,7 +949,7 @@ namespace DuraIT.FastBinaryJson
 
         // Only measures; WriteBytesRaw produces the bytes.
         private static PendingString Encode(string s, bool unicode) =>
-            new PendingString(s, unicode, unicode ? s.Length * sizeof(char) : Reflection.UTF8GetByteCount(s));
+            new PendingString(s, unicode, unicode ? s.Length * sizeof(char) : TypeReflector.UTF8GetByteCount(s));
 
         /// <summary>
         /// Writes the string's bytes into the output without an intermediate copy.
@@ -966,7 +966,7 @@ namespace DuraIT.FastBinaryJson
 
             // Counted and encoded by the same encoder instance, so the two cannot disagree; checked
             // anyway, because the header carrying the count is already written.
-            int written = Reflection.UTF8GetBytes(pending.Value, _output.GetSpan(pending.Length));
+            int written = TypeReflector.UTF8GetBytes(pending.Value, _output.GetSpan(pending.Length));
             if (written != pending.Length)
                 throw new InvalidOperationException($"UTF-8 encoder wrote {written} bytes after counting {pending.Length}.");
 
@@ -980,7 +980,7 @@ namespace DuraIT.FastBinaryJson
 
         private int OutputLength => _output.Length;
 #else
-        private static byte[] Encode(string s, bool unicode) => unicode ? Reflection.UnicodeGetBytes(s) : Reflection.UTF8GetBytes(s);
+        private static byte[] Encode(string s, bool unicode) => unicode ? TypeReflector.UnicodeGetBytes(s) : TypeReflector.UTF8GetBytes(s);
 
         private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes, 0, bytes.Length);
 

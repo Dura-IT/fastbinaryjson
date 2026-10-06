@@ -14,13 +14,13 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * 200-character one came back as 72 characters, and nothing threw. It serves dictionary keys as
      * well as property names, so it corrupted user data rather than only schema.
      *
-     * The fix adds a long form - TOKENS.NAME_LONG and NAME_UNI_LONG, with a four-byte length,
+     * The fix adds a long form - Tokens.NameLong and NAME_UNI_LONG, with a four-byte length,
      * mirroring how WriteString has always carried its own length. It is written only from 256
      * encoded bytes onwards, which is what keeps every name that worked before byte-identical; the
      * boundary tests below are what hold that.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class NameLengthTests
     {
         /// <summary>
@@ -41,8 +41,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             string key = new string('k', keyLength);
             Dictionary<string, string> source = new Dictionary<string, string> { { key, "value" } };
 
-            byte[] bytes = BJSON.ToBJSON(source);
-            Dictionary<string, string> restored = BJSON.ToObject<Dictionary<string, string>>(bytes)!;
+            byte[] bytes = Bjson.ToBjson(source);
+            Dictionary<string, string> restored = Bjson.ToObject<Dictionary<string, string>>(bytes)!;
 
             restored.Should().ContainKey(key).WhoseValue.Should().Be("value");
         }
@@ -65,10 +65,10 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             string key = new string('k', keyLength);
             Dictionary<string, string> source = new Dictionary<string, string> { { key, "value" } };
-            BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = false };
+            BjsonParameters parameters = new BjsonParameters { UseUnicodeStrings = false };
 
-            byte[] bytes = BJSON.ToBJSON(source, parameters);
-            Dictionary<string, string> restored = BJSON.ToObject<Dictionary<string, string>>(bytes, parameters)!;
+            byte[] bytes = Bjson.ToBjson(source, parameters);
+            Dictionary<string, string> restored = Bjson.ToObject<Dictionary<string, string>>(bytes, parameters)!;
 
             restored.Should().ContainKey(key).WhoseValue.Should().Be("value");
         }
@@ -82,7 +82,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             LongNameHolder source = new LongNameHolder();
             source.ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16XXXXXXXXXXXXXXXXXXXXXXXXXX = 42;
 
-            LongNameHolder restored = BJSON.ToObject<LongNameHolder>(BJSON.ToBJSON(source))!;
+            LongNameHolder restored = Bjson.ToObject<LongNameHolder>(Bjson.ToBjson(source))!;
 
             LongPropertyName.Length.Should().Be(130, "the name has to cross the 256 encoded byte threshold as UTF-16");
             restored
@@ -95,8 +95,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = WriteSingleKey(new string('k', 127), unicode: true);
 
-            bytes[0].Should().Be(TOKENS.DOC_START);
-            bytes[1].Should().Be(TOKENS.NAME_UNI, "254 encoded bytes still fits the original form, so these bytes must not move");
+            bytes[0].Should().Be(Tokens.DocStart);
+            bytes[1].Should().Be(Tokens.NameUtf16, "254 encoded bytes still fits the original form, so these bytes must not move");
             bytes[2].Should().Be(254);
         }
 
@@ -105,8 +105,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = WriteSingleKey(new string('k', 128), unicode: true);
 
-            bytes[0].Should().Be(TOKENS.DOC_START);
-            bytes[1].Should().Be(TOKENS.NAME_UNI_LONG);
+            bytes[0].Should().Be(Tokens.DocStart);
+            bytes[1].Should().Be(Tokens.NameUtf16Long);
             BitConverter.ToInt32(bytes, 2).Should().Be(256);
         }
 
@@ -115,7 +115,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = WriteSingleKey(new string('k', 255), unicode: false);
 
-            bytes[1].Should().Be(TOKENS.NAME, "255 is the largest length the original single byte can carry");
+            bytes[1].Should().Be(Tokens.Name, "255 is the largest length the original single byte can carry");
             bytes[2].Should().Be(255);
         }
 
@@ -124,7 +124,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = WriteSingleKey(new string('k', 256), unicode: false);
 
-            bytes[1].Should().Be(TOKENS.NAME_LONG);
+            bytes[1].Should().Be(Tokens.NameLong);
             BitConverter.ToInt32(bytes, 2).Should().Be(256);
         }
 
@@ -135,9 +135,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         private static byte[] WriteSingleKey(string key, bool unicode)
         {
             Dictionary<string, string> source = new Dictionary<string, string> { { key, "v" } };
-            BJSONParameters parameters = new BJSONParameters { UseExtensions = false, UseUnicodeStrings = unicode };
+            BjsonParameters parameters = new BjsonParameters { UseExtensions = false, UseUnicodeStrings = unicode };
 
-            return BJSON.ToBJSON(source, parameters);
+            return Bjson.ToBjson(source, parameters);
         }
 
         private sealed class LongNameHolder

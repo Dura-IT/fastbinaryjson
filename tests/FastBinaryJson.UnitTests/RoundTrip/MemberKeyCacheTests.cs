@@ -13,11 +13,11 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * long enough for the four-byte length form.
      */
     [TestFixture]
-    [TestOf(typeof(BJSONSerializer))]
+    [TestOf(typeof(BjsonSerializer))]
     public sealed class MemberKeyCacheTests
     {
         [Test]
-        public void ToBJSON_BothEncodingsAlternately_EachMatchesAFreshCache()
+        public void ToBjson_BothEncodingsAlternately_EachMatchesAFreshCache()
         {
             KeyCacheSubject value = new KeyCacheSubject
             {
@@ -25,20 +25,20 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 Renamed = 2,
                 AMemberNameLongEnoughThatItsUtf16EncodingNeedsTheFourByteLengthFormBecauseItRunsPastTwoHundredAndFiftyFiveBytesOnTheWireXXPadding = 3,
             };
-            BJSONParameters utf16 = new BJSONParameters { UseUnicodeStrings = true };
-            BJSONParameters utf8 = new BJSONParameters { UseUnicodeStrings = false };
+            BjsonParameters utf16 = new BjsonParameters { UseUnicodeStrings = true };
+            BjsonParameters utf8 = new BjsonParameters { UseUnicodeStrings = false };
 
-            BJSON.ClearReflectionCache();
-            byte[] fresh16 = BJSON.ToBJSON(value, utf16);
-            BJSON.ClearReflectionCache();
-            byte[] fresh8 = BJSON.ToBJSON(value, utf8);
-            BJSON.ClearReflectionCache();
+            Bjson.ClearReflectionCache();
+            byte[] fresh16 = Bjson.ToBjson(value, utf16);
+            Bjson.ClearReflectionCache();
+            byte[] fresh8 = Bjson.ToBjson(value, utf8);
+            Bjson.ClearReflectionCache();
 
             foreach (bool unicode in new[] { true, false, true, false })
-                BJSON.ToBJSON(value, unicode ? utf16 : utf8).Should().Equal(unicode ? fresh16 : fresh8, "unicode = {0}", unicode);
+                Bjson.ToBjson(value, unicode ? utf16 : utf8).Should().Equal(unicode ? fresh16 : fresh8, "unicode = {0}", unicode);
 
             fresh16.Should().NotEqual(fresh8, "the two encodings must not share one cached key");
-            BJSON.ToObject<KeyCacheSubject>(fresh8, utf8).Should().BeEquivalentTo(value);
+            Bjson.ToObject<KeyCacheSubject>(fresh8, utf8).Should().BeEquivalentTo(value);
         }
     }
 

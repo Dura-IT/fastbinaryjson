@@ -13,8 +13,8 @@ namespace FastBinaryJson.UnitTests.Golden
     public sealed record GoldenCase(
         string Name,
         Func<object> Build,
-        Func<BJSONParameters> Parameters,
-        Func<byte[], BJSONParameters, object> Deserialize,
+        Func<BjsonParameters> Parameters,
+        Func<byte[], BjsonParameters, object> Deserialize,
         string? BytesOnlyReason
     )
     {
@@ -27,10 +27,10 @@ namespace FastBinaryJson.UnitTests.Golden
         /// a root array written with UseTypedArrays off, for instance, yields List&lt;object&gt; and
         /// the cast inside ToObject fails with InvalidCastException.
         /// </remarks>
-        public static GoldenCase For<T>(string name, Func<T> build, Func<BJSONParameters> parameters, string? bytesOnlyReason = null)
+        public static GoldenCase For<T>(string name, Func<T> build, Func<BjsonParameters> parameters, string? bytesOnlyReason = null)
             where T : notnull
         {
-            return new GoldenCase(name, () => build(), parameters, (bytes, param) => BJSON.ToObject<T>(bytes, param)!, bytesOnlyReason);
+            return new GoldenCase(name, () => build(), parameters, (bytes, param) => Bjson.ToObject<T>(bytes, param)!, bytesOnlyReason);
         }
 
         public override string ToString()

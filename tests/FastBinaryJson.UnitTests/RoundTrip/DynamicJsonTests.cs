@@ -11,15 +11,15 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * missing and the binder threw: the fallback never worked.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class DynamicJsonTests
     {
         [Test]
         public void ToDynamic_MemberWrittenInOtherCase_IsFound()
         {
-            byte[] bytes = BJSON.ToBJSON(new Dictionary<string, object> { ["Name"] = "value" });
+            byte[] bytes = Bjson.ToBjson(new Dictionary<string, object> { ["Name"] = "value" });
 
-            dynamic parsed = BJSON.ToDynamic(bytes);
+            dynamic parsed = Bjson.ToDynamic(bytes);
 
             ((string)parsed.Name).Should().Be("value");
             ((string)parsed.name).Should().Be("value");

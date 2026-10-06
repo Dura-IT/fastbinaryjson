@@ -15,7 +15,7 @@ namespace DuraIT.FastBinaryJson.Internal
     /// allocated once per element only to be looked up and dropped.
     ///
     /// The answer is the one <see cref="Deserializer.ResolveType"/> gives: a $types entry first, then
-    /// <see cref="Reflection.GetTypeFromCache"/>. Only that second step is cached here, keyed by the
+    /// <see cref="TypeReflector.GetTypeFromCache"/>. Only that second step is cached here, keyed by the
     /// exact name it was asked for, and only after it returned - a denylisted name throws before it is
     /// added, so it throws again every time. Bounded like <see cref="NameCache"/>, because the names
     /// come from the stream; past the bound a name is resolved through the allocating path as before.
@@ -49,7 +49,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 return cached;
 
             string key = new string(name);
-            Type? resolved = Reflection.Instance.GetTypeFromCache(key, true);
+            Type? resolved = TypeReflector.Instance.GetTypeFromCache(key, true);
             if (Volatile.Read(ref _count) < MaxTypes && Types.TryAdd(key, resolved))
                 Interlocked.Increment(ref _count);
 

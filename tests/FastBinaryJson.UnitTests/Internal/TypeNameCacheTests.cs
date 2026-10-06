@@ -125,7 +125,7 @@ namespace FastBinaryJson.UnitTests.Internal
         [TestCase(false)]
         public void ToObject_RootListElements_ResolveTypeInPlace(bool unicode)
         {
-            BJSONParameters parameters = new BJSONParameters { UseUnicodeStrings = unicode };
+            BjsonParameters parameters = new BjsonParameters { UseUnicodeStrings = unicode };
             List<EqBase> value = new List<EqBase>
             {
                 new EqLeft { Left = 1 },
@@ -134,7 +134,7 @@ namespace FastBinaryJson.UnitTests.Internal
             };
             Deserializer deserializer = new Deserializer(parameters);
 
-            List<EqBase> restored = deserializer.ToObject<List<EqBase>>(BJSON.ToBJSON(value, parameters))!;
+            List<EqBase> restored = deserializer.ToObject<List<EqBase>>(Bjson.ToBjson(value, parameters))!;
 
             restored.Should().BeEquivalentTo(value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering());
             deserializer.TypesResolvedInPlace.Should().Be(3);
@@ -142,7 +142,7 @@ namespace FastBinaryJson.UnitTests.Internal
 
         private static Deserializer NewDeserializer()
         {
-            return new Deserializer(new BJSONParameters());
+            return new Deserializer(new BjsonParameters());
         }
     }
 }

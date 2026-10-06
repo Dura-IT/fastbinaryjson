@@ -30,7 +30,7 @@ namespace FastBinaryJson.Benchmarks.Benchmarks
 
 #pragma warning disable CA1822 // BenchmarkDotNet looks its setup hooks up as instance methods.
         [IterationSetup]
-        public void ClearCache() => global::DuraIT.FastBinaryJson.BJSON.ClearReflectionCache();
+        public void ClearCache() => global::DuraIT.FastBinaryJson.Bjson.ClearReflectionCache();
 #pragma warning restore CA1822
 
         [Benchmark(Description = "First serialize after cache clear")]

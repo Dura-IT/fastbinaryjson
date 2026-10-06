@@ -10,9 +10,9 @@ namespace FastBinaryJson.UnitTests.Internal
     [TestOf(typeof(WireNameMap))]
     public sealed class WireNameMapTests
     {
-        private static readonly myPropInfo Name = new myPropInfo();
+        private static readonly PropertyMetadata Name = new PropertyMetadata();
 
-        private static readonly myPropInfo Age = new myPropInfo();
+        private static readonly PropertyMetadata Age = new PropertyMetadata();
 
         [TestCase("name")]
         [TestCase("Name")]
@@ -90,7 +90,7 @@ namespace FastBinaryJson.UnitTests.Internal
 
         private static WireNameMap CreateMap()
         {
-            return new WireNameMap(new Dictionary<string, myPropInfo> { ["name"] = Name, ["age"] = Age });
+            return new WireNameMap(new Dictionary<string, PropertyMetadata> { ["name"] = Name, ["age"] = Age });
         }
     }
 }
