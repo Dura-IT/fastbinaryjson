@@ -37,18 +37,15 @@ jobs:
         with:
           dotnet-version: "10.0.x"
           cache: true
-          cache-dependency-path: '**/*.csproj'
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
 
       - name: Restore
         run: dotnet restore FastBinaryJson.slnx
 
-      # Both configurations are built and tested, which is not redundant here.
-      # Upstream's Release configuration never compiled at all (AllowUnsafeBlocks
-      # was scoped to Debug, giving 10x CS0227), and the NET4 define was
-      # Debug-only - that one gates [DataMember(Name=...)] handling, so the two
-      # configurations would not have been wire-compatible with each other. PR #1
-      # hoisted both properties to project level; these two steps are what keeps
-      # that fixed.
+      # Both configurations are built and tested: the library's output differs by define and by
+      # target, and a break in only one of them is exactly what a single build would hide.
       - name: Build (Debug)
         run: dotnet build FastBinaryJson.slnx --no-restore -c Debug --nologo
 
@@ -59,6 +56,18 @@ jobs:
         run: >
           dotnet test tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj
           -c Debug --no-build --nologo
+
+      # The netstandard2.0 asset is the one consumers with stored data get, and it has per-target
+      # code paths (#if NET10_0_OR_GREATER) that the net10.0 run never executes.
+      - name: Test netstandard2.0 asset (Debug)
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests.Netstandard20/FastBinaryJson.UnitTests.Netstandard20.csproj
+          -c Debug --no-build --nologo
+
+      - name: Test netstandard2.0 asset (Release)
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests.Netstandard20/FastBinaryJson.UnitTests.Netstandard20.csproj
+          -c Release --no-build --nologo
 
       - name: Test (Release, with coverage)
         run: >
