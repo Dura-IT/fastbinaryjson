@@ -414,9 +414,9 @@ namespace DuraIT.FastBinaryJson
         /// Resolves a string $type value without allocating its name. Returns false, having read
         /// nothing, when the value is not a string the cache can take - the caller reads it as before.
         /// </summary>
+#if NET10_0_OR_GREATER
         private bool TryResolveTypeInPlace(Dictionary<string, object>? globaltypes, out Type? type)
         {
-#if NET10_0_OR_GREATER
             // Covers every assembly-qualified name in practice; a longer UTF-8 one takes the old path.
             Span<char> buffer = stackalloc char[512];
             if (_parser.TryReadStringChars(buffer, out ReadOnlySpan<char> name))
@@ -425,10 +425,18 @@ namespace DuraIT.FastBinaryJson
                 _deserializer.TypesResolvedInPlace++;
                 return true;
             }
-#endif
+
             type = null;
             return false;
         }
+#else
+        // No span reader on this target, so the name is always read the long way.
+        private static bool TryResolveTypeInPlace(Dictionary<string, object>? _, out Type? type)
+        {
+            type = null;
+            return false;
+        }
+#endif
 
         /// <summary>
         /// Sets a primitive member straight from its token, without boxing, when the token is the

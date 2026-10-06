@@ -84,7 +84,7 @@ namespace DuraIT.FastBinaryJson
                 // add $types
                 if (_params.UsingGlobalTypes && _globalTypes != null && _globalTypes.Count > 0)
                 {
-                    var pointer = (int)_output.Length;
+                    var pointer = OutputLength;
                     WriteName("$types");
                     WriteColon();
                     WriteTypes(_globalTypes);
@@ -586,7 +586,7 @@ namespace DuraIT.FastBinaryJson
                     _output.WriteByte(TOKENS.DOC_START);
                     // write pointer to $types position
                     _output.WriteByte(TOKENS.TYPES_POINTER);
-                    _typespointer = (int)_output.Length; // place holder
+                    _typespointer = OutputLength; // place holder
                     WriteInt32Raw(0); // zero pointer for now
                     _TypesWritten = true;
                 }
@@ -977,6 +977,8 @@ namespace DuraIT.FastBinaryJson
 
         // Idempotent: called from ConvertToBJSON's finally and again from Dispose.
         private void ReleasePooled() => _output.Dispose();
+
+        private int OutputLength => _output.Length;
 #else
         private static byte[] Encode(string s, bool unicode) => unicode ? Reflection.UnicodeGetBytes(s) : Reflection.UTF8GetBytes(s);
 
@@ -986,6 +988,8 @@ namespace DuraIT.FastBinaryJson
         {
             // Nothing is pooled on this target.
         }
+
+        private int OutputLength => checked((int)_output.Length);
 #endif
 
         #endregion

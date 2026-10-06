@@ -132,6 +132,16 @@ namespace DuraIT.FastBinaryJson.Internal
                 throw new ArgumentOutOfRangeException(nameof(startIndex));
         }
 
+        /// <summary>
+        /// Throws when a length read from the payload runs past the end of it.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">If <paramref name="length"/> is negative or runs past the payload.</exception>
+        internal static void CheckLength(byte[] json, int start, int length, string what)
+        {
+            if (length < 0 || start > json.Length - length)
+                throw new ArgumentOutOfRangeException(nameof(length), what + " length runs past the end of the payload.");
+        }
+
         internal static byte[] GetBytes(long num, bool reverse)
         {
             byte[] buffer = BitConverter.GetBytes(num);

@@ -188,8 +188,7 @@ namespace DuraIT.FastBinaryJson
 
             int length = Helper.ToInt32(_json, _index + 1);
             int start = _index + 5;
-            if (length < 0 || start > _json.Length - length)
-                throw new ArgumentOutOfRangeException(paramName: null, "String length runs past the end of the payload.");
+            Helper.CheckLength(_json, start, length, "String");
 
             ReadOnlySpan<byte> bytes = new ReadOnlySpan<byte>(_json, start, length);
             if (token == TOKENS.UNICODE_STRING)
@@ -580,8 +579,7 @@ namespace DuraIT.FastBinaryJson
             int c = Helper.ToInt32(_json, _index);
             _index += 4;
             // Checked before allocating: a crafted length would otherwise allocate up to 2 GB first.
-            if (c < 0 || c > _json.Length - _index)
-                throw new ArgumentOutOfRangeException(paramName: null, "Byte array length runs past the end of the payload.");
+            Helper.CheckLength(_json, _index, c, "Byte array");
             byte[] b = new byte[c];
             Buffer.BlockCopy(_json, _index, b, 0, c);
             _index += c;
