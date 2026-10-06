@@ -62,8 +62,8 @@ namespace DuraIT.FastBinaryJson
         private static Tables? _spareTables;
 
         private Tables? _tables = TakeTables();
-        private Dictionary<Type, int> _globalTypes => _tables!.Types;
-        private Dictionary<object, int> _cirobj => _tables!.Seen;
+        private Dictionary<Type, int> GlobalTypes => _tables!.Types;
+        private Dictionary<object, int> SeenObjects => _tables!.Seen;
 
         private static Tables TakeTables()
         {
@@ -111,12 +111,12 @@ namespace DuraIT.FastBinaryJson
                 WriteValue(obj);
 
                 // add $types
-                if (_params.UsingGlobalTypes && _globalTypes.Count > 0)
+                if (_params.UsingGlobalTypes && GlobalTypes.Count > 0)
                 {
                     var pointer = OutputLength;
                     WriteName("$types");
                     WriteColon();
-                    WriteTypes(_globalTypes);
+                    WriteTypes(GlobalTypes);
                     PatchInt32(_typespointer, pointer);
                 }
 
@@ -590,8 +590,8 @@ namespace DuraIT.FastBinaryJson
         private void WriteObject(object obj)
         {
             int i;
-            if (!_cirobj.TryGetValue(obj, out i))
-                _cirobj.Add(obj, _cirobj.Count + 1);
+            if (!SeenObjects.TryGetValue(obj, out i))
+                SeenObjects.Add(obj, SeenObjects.Count + 1);
             else
             {
                 if (_currentDepth > 0)
@@ -769,10 +769,10 @@ namespace DuraIT.FastBinaryJson
         // The $types id for t, assigned in first-use order.
         private string GetGlobalTypeId(Type t)
         {
-            if (!_globalTypes.TryGetValue(t, out int dt))
+            if (!GlobalTypes.TryGetValue(t, out int dt))
             {
-                dt = _globalTypes.Count + 1;
-                _globalTypes.Add(t, dt);
+                dt = GlobalTypes.Count + 1;
+                GlobalTypes.Add(t, dt);
             }
 
             return dt.ToString(CultureInfo.InvariantCulture);

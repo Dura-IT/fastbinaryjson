@@ -1,5 +1,5 @@
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
 using System;
-using System.Collections.Generic;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
 using NUnit.Framework;
@@ -59,7 +59,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void ToBjson_FromInsideACustomSerializer_KeepsTheOuterCallIntact()
         {
-            Bjson.RegisterCustomType(typeof(Reentrant), _ => Convert.ToBase64String(Bjson.ToBjson(new Other { Value = 7 })), s => new Reentrant());
+            Bjson.RegisterCustomType(typeof(Reentrant), _ => Convert.ToBase64String(Bjson.ToBjson(new Other { Value = 7 })), _ => new Reentrant());
             var outer = new ReentrantHolder
             {
                 First = new Reentrant(),
