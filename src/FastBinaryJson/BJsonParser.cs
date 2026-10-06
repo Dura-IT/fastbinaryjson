@@ -11,8 +11,8 @@ namespace DuraIT.FastBinaryJson
     {
         readonly byte[] _json;
         int _index;
-        readonly bool _useUTC = true;
-        readonly bool _v1_4TA = false;
+        readonly bool _useUTC;
+        readonly bool _v1_4TA;
 
         internal BJsonParser(byte[] json, bool useUTC, bool v1_4TA)
         {
@@ -189,7 +189,7 @@ namespace DuraIT.FastBinaryJson
             int length = Helper.ToInt32(_json, _index + 1);
             int start = _index + 5;
             if (length < 0 || start > _json.Length - length)
-                throw new ArgumentOutOfRangeException(nameof(length), "String length runs past the end of the payload.");
+                throw new ArgumentOutOfRangeException(paramName: null, "String length runs past the end of the payload.");
 
             ReadOnlySpan<byte> bytes = new ReadOnlySpan<byte>(_json, start, length);
             if (token == TOKENS.UNICODE_STRING)
@@ -380,7 +380,7 @@ namespace DuraIT.FastBinaryJson
             return dt;
         }
 
-        private object ParseTypedArray(byte token)
+        private TypedArray ParseTypedArray(byte token)
         {
             TypedArray ar = new TypedArray();
             if (token == TOKENS.ARRAY_TYPED)
@@ -508,7 +508,7 @@ namespace DuraIT.FastBinaryJson
             return d;
         }
 
-        private object ParseUnicodeString()
+        private string ParseUnicodeString()
         {
             int c = Helper.ToInt32(_json, _index);
             _index += 4;
@@ -562,7 +562,7 @@ namespace DuraIT.FastBinaryJson
             long l = Helper.ToInt64(_json, _index);
             _index += 8;
 
-            return _useUTC ? new DateTime(l, DateTimeKind.Utc) : new DateTime(l);
+            return _useUTC ? new DateTime(l, DateTimeKind.Utc) : new DateTime(l, DateTimeKind.Unspecified);
         }
 
         internal DateTimeOffset ParseDateTimeOffset()
@@ -581,7 +581,7 @@ namespace DuraIT.FastBinaryJson
             _index += 4;
             // Checked before allocating: a crafted length would otherwise allocate up to 2 GB first.
             if (c < 0 || c > _json.Length - _index)
-                throw new ArgumentOutOfRangeException(nameof(c), "Byte array length runs past the end of the payload.");
+                throw new ArgumentOutOfRangeException(paramName: null, "Byte array length runs past the end of the payload.");
             byte[] b = new byte[c];
             Buffer.BlockCopy(_json, _index, b, 0, c);
             _index += c;

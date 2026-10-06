@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Data;
+using System.Globalization;
 using System.IO;
 using DuraIT.FastBinaryJson.Internal;
 #if NET10_0_OR_GREATER
@@ -29,7 +30,7 @@ namespace DuraIT.FastBinaryJson
 #endif
 
         private int _typespointer;
-        private readonly int _MAX_DEPTH = 20;
+        private readonly int _MAX_DEPTH;
         int _current_depth;
 
         /*
@@ -111,7 +112,7 @@ namespace DuraIT.FastBinaryJson
                 if (pendingSeparator)
                     WriteComma();
 
-                WritePair(entry.Value.ToString(), Reflection.Instance.GetTypeAssemblyName(entry.Key));
+                WritePair(entry.Value.ToString(CultureInfo.InvariantCulture), Reflection.Instance.GetTypeAssemblyName(entry.Key));
 
                 pendingSeparator = true;
             }
@@ -214,25 +215,23 @@ namespace DuraIT.FastBinaryJson
             var t = array.GetType();
             if (!t.IsGenericType) // != null) // non generic array
             {
+                token = false;
+                // array type name - byte[] on netstandard2.0, a PendingString on net10.0
+                var b = Encode(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!), unicode: !_params.v1_4TypedArray);
+                if (b.Length < 256)
                 {
-                    token = false;
-                    // array type name - byte[] on netstandard2.0, a PendingString on net10.0
-                    var b = Encode(Reflection.Instance.GetTypeAssemblyName(t.GetElementType()!), unicode: !_params.v1_4TypedArray);
-                    if (b.Length < 256)
-                    {
-                        _output.WriteByte(TOKENS.ARRAY_TYPED);
-                        _output.WriteByte((byte)b.Length);
-                        WriteBytesRaw(b);
-                    }
-                    else
-                    {
-                        _output.WriteByte(TOKENS.ARRAY_TYPED_LONG);
-                        WriteInt16Raw(unchecked((short)b.Length));
-                        WriteBytesRaw(b);
-                    }
-                    // array count
-                    WriteInt32Raw(array.Count);
+                    _output.WriteByte(TOKENS.ARRAY_TYPED);
+                    _output.WriteByte((byte)b.Length);
+                    WriteBytesRaw(b);
                 }
+                else
+                {
+                    _output.WriteByte(TOKENS.ARRAY_TYPED_LONG);
+                    WriteInt16Raw(unchecked((short)b.Length));
+                    WriteBytesRaw(b);
+                }
+                // array count
+                WriteInt32Raw(array.Count);
             }
             if (token)
                 _output.WriteByte(TOKENS.ARRAY_START);
@@ -330,7 +329,7 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(TOKENS.DECIMAL);
 #if NET10_0_OR_GREATER
             Span<int> b = stackalloc int[4];
-            decimal.GetBits(p, b);
+            _ = decimal.GetBits(p, b);
 #else
             var b = decimal.GetBits(p);
 #endif
@@ -505,10 +504,8 @@ namespace DuraIT.FastBinaryJson
         private void WriteDataset(DataSet ds)
         {
             _output.WriteByte(TOKENS.DOC_START);
-            {
-                WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(ds) : ds.GetXmlSchema());
-                WriteComma();
-            }
+            WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(ds) : ds.GetXmlSchema());
+            WriteComma();
             bool tablesep = false;
             foreach (DataTable table in ds.Tables)
             {
@@ -552,10 +549,8 @@ namespace DuraIT.FastBinaryJson
         void WriteDataTable(DataTable dt)
         {
             _output.WriteByte(TOKENS.DOC_START);
-            {
-                this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(dt) : GetXmlSchema(dt));
-                WriteComma();
-            }
+            this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(dt) : GetXmlSchema(dt));
+            WriteComma();
 
             WriteDataTableData(dt);
 
@@ -633,8 +628,7 @@ namespace DuraIT.FastBinaryJson
                 }
 
                 var o = p.Getter(obj);
-                if (!_params.SerializeNulls && (o == null || o is DBNull)) { }
-                else
+                if (_params.SerializeNulls || (o != null && o is not DBNull))
                 {
                     if (append)
                         WriteComma();
@@ -754,7 +748,7 @@ namespace DuraIT.FastBinaryJson
                 _globalTypes.Add(t, dt);
             }
 
-            return dt.ToString();
+            return dt.ToString(CultureInfo.InvariantCulture);
         }
 
         private void WritePairFast(string name, string value)
@@ -988,8 +982,10 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes, 0, bytes.Length);
 
-        // Nothing is pooled on this target.
-        private static void ReleasePooled() { }
+        private static void ReleasePooled()
+        {
+            // Nothing is pooled on this target.
+        }
 #endif
 
         #endregion

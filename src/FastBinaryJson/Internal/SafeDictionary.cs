@@ -83,7 +83,7 @@ namespace DuraIT.FastBinaryJson.Internal
         internal static unsafe int ToInt32(byte[] value, int startIndex)
         {
             CheckRange(value, startIndex, sizeof(int));
-            fixed (byte* numRef = &(value[startIndex]))
+            fixed (byte* numRef = &value[startIndex])
             {
                 return *((int*)numRef);
             }
@@ -104,9 +104,9 @@ namespace DuraIT.FastBinaryJson.Internal
         internal static unsafe long ToInt64(byte[] value, int startIndex)
         {
             CheckRange(value, startIndex, sizeof(long));
-            fixed (byte* numRef = &(value[startIndex]))
+            fixed (byte* numRef = &value[startIndex])
             {
-                return *(((long*)numRef));
+                return *(long*)numRef;
             }
         }
 
@@ -125,9 +125,9 @@ namespace DuraIT.FastBinaryJson.Internal
         internal static unsafe short ToInt16(byte[] value, int startIndex)
         {
             CheckRange(value, startIndex, sizeof(short));
-            fixed (byte* numRef = &(value[startIndex]))
+            fixed (byte* numRef = &value[startIndex])
             {
-                return *(((short*)numRef));
+                return *(short*)numRef;
             }
         }
 

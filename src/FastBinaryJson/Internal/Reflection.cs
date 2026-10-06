@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -121,8 +122,8 @@ namespace DuraIT.FastBinaryJson.Internal
         public delegate object Deserialize(string data);
 
         public delegate object GenericSetter(object target, object value);
-        internal delegate void TypedSetter<T>(object target, T value);
-        internal delegate T TypedGetter<T>(object target);
+        internal delegate void TypedSetter<in T>(object target, T value);
+        internal delegate T TypedGetter<out T>(object target);
         public delegate object GenericGetter(object obj);
         private delegate object CreateObject();
         private delegate object CreateList(int capacity);
@@ -169,7 +170,6 @@ namespace DuraIT.FastBinaryJson.Internal
         #region bjson custom types
         private static UTF8Encoding utf8 = new UTF8Encoding();
 
-        // TODO : optimize utf8
         public static byte[] UTF8GetBytes(string str)
         {
             return utf8.GetBytes(str);
@@ -339,6 +339,15 @@ namespace DuraIT.FastBinaryJson.Internal
             ResetPropertyCache();
         }
 
+        private static bool NameContainsDictionary(Type t)
+        {
+#if NET10_0_OR_GREATER
+            return t.Name.Contains("Dictionary", StringComparison.Ordinal);
+#else
+            return t.Name.IndexOf("Dictionary", StringComparison.Ordinal) >= 0;
+#endif
+        }
+
         internal bool IsTypeRegistered(Type t)
         {
             return TryGetCustomSerializer(t, out _);
@@ -408,7 +417,7 @@ namespace DuraIT.FastBinaryJson.Internal
                     var att = p.GetCustomAttributes(true);
                     foreach (var at in att)
                     {
-                        if (at is DataMemberAttribute dm && dm.Name != "")
+                        if (at is DataMemberAttribute dm && !string.IsNullOrEmpty(dm.Name))
                         {
                             d.memberName = dm.Name;
                         }
@@ -432,7 +441,7 @@ namespace DuraIT.FastBinaryJson.Internal
                         var att = f.GetCustomAttributes(true);
                         foreach (var at in att)
                         {
-                            if (at is DataMemberAttribute dm && dm.Name != "")
+                            if (at is DataMemberAttribute dm && !string.IsNullOrEmpty(dm.Name))
                             {
                                 d.memberName = dm.Name;
                             }
@@ -441,10 +450,9 @@ namespace DuraIT.FastBinaryJson.Internal
                     }
                 }
 
-                foreach (KeyValuePair<string, myPropInfo> alias in aliases)
+                foreach (KeyValuePair<string, myPropInfo> alias in aliases.Where(alias => !sd.ContainsKey(alias.Key)))
                 {
-                    if (!sd.ContainsKey(alias.Key))
-                        sd.Add(alias.Key, alias.Value);
+                    sd.Add(alias.Key, alias.Value);
                 }
 
                 _propertycache.Add(typename, sd);
@@ -508,7 +516,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 else
                     d_type = myPropInfoType.Array;
             }
-            else if (t.Name.Contains("Dictionary"))
+            else if (NameContainsDictionary(t))
             {
                 d.GenericTypes = Reflection.Instance.GetGenericArguments(t);
                 if (d.GenericTypes.Length > 0 && d.GenericTypes[0] == typeof(string))
@@ -579,9 +587,8 @@ namespace DuraIT.FastBinaryJson.Internal
                 if (blacklistChecking)
                 {
                     var tn = typename.Trim().ToLowerInvariant();
-                    foreach (var s in _blacklistTypes)
-                        if (tn.StartsWith(s, StringComparison.Ordinal))
-                            throw new BjsonException("Black list type encountered, possible attack vector when using $type : " + typename);
+                    if (_blacklistTypes.Any(s => tn.StartsWith(s, StringComparison.Ordinal)))
+                        throw new BjsonException("Black list type encountered, possible attack vector when using $type : " + typename);
                 }
 
                 Type? t = Type.GetType(typename);
@@ -591,7 +598,7 @@ namespace DuraIT.FastBinaryJson.Internal
                         typename,
                         (name) =>
                         {
-                            return AppDomain.CurrentDomain.GetAssemblies().Where(z => z.FullName == name.FullName).FirstOrDefault();
+                            return AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(z => z.FullName == name.FullName);
                         },
                         null,
                         true
@@ -641,7 +648,12 @@ namespace DuraIT.FastBinaryJson.Internal
             catch (Exception exc)
             {
                 throw new BjsonException(
-                    string.Format("Failed to fast create instance for type '{0}' from assembly '{1}'", objtype.FullName, objtype.AssemblyQualifiedName),
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "Failed to fast create instance for type '{0}' from assembly '{1}'",
+                        objtype.FullName,
+                        objtype.AssemblyQualifiedName
+                    ),
                     exc
                 );
             }
@@ -686,7 +698,12 @@ namespace DuraIT.FastBinaryJson.Internal
             catch (Exception exc)
             {
                 throw new BjsonException(
-                    string.Format("Failed to fast create instance for type '{0}' from assembly '{1}'", objtype.FullName, objtype.AssemblyQualifiedName),
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "Failed to fast create instance for type '{0}' from assembly '{1}'",
+                        objtype.FullName,
+                        objtype.AssemblyQualifiedName
+                    ),
                     exc
                 );
             }
@@ -886,7 +903,7 @@ namespace DuraIT.FastBinaryJson.Internal
             if (!getMethod!.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false))
                 return null;
 
-            var byteCode = getMethod.GetMethodBody()?.GetILAsByteArray() ?? new byte[0];
+            var byteCode = getMethod.GetMethodBody()?.GetILAsByteArray() ?? Array.Empty<byte>();
             int pos = 0;
             // Find the first LdFld instruction and parse its operand to a FieldInfo object.
             while (pos < byteCode.Length)
@@ -1072,25 +1089,13 @@ namespace DuraIT.FastBinaryJson.Internal
                 }
                 if (!p.CanWrite) // && (ShowReadOnlyProperties == false))//|| isAnonymous == false))
                     read_only = true; //continue;
-                if (IgnoreAttributes != null)
-                {
-                    bool found = false;
-                    foreach (var ignoreAttr in IgnoreAttributes)
-                    {
-                        if (p.IsDefined(ignoreAttr, false))
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found)
-                        continue;
-                }
+                if (IgnoreAttributes != null && IgnoreAttributes.Any(ignoreAttr => p.IsDefined(ignoreAttr, false)))
+                    continue;
                 string? mName = null;
                 var att = p.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
-                    if (at is DataMemberAttribute dm && dm.Name != "")
+                    if (at is DataMemberAttribute dm && !string.IsNullOrEmpty(dm.Name))
                     {
                         mName = dm.Name;
                     }
@@ -1117,25 +1122,13 @@ namespace DuraIT.FastBinaryJson.Internal
                 bool read_only = false;
                 if (f.IsInitOnly) // && (ShowReadOnlyProperties == false))//|| isAnonymous == false))
                     read_only = true; //continue;
-                if (IgnoreAttributes != null)
-                {
-                    bool found = false;
-                    foreach (var ignoreAttr in IgnoreAttributes)
-                    {
-                        if (f.IsDefined(ignoreAttr, false))
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found)
-                        continue;
-                }
+                if (IgnoreAttributes != null && IgnoreAttributes.Any(ignoreAttr => f.IsDefined(ignoreAttr, false)))
+                    continue;
                 string? mName = null;
                 var att = f.GetCustomAttributes(true);
                 foreach (var at in att)
                 {
-                    if (at is DataMemberAttribute dm && dm.Name != "")
+                    if (at is DataMemberAttribute dm && !string.IsNullOrEmpty(dm.Name))
                     {
                         mName = dm.Name;
                     }

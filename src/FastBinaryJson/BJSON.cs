@@ -4,11 +4,12 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Data;
 using System.IO;
+using System.Xml;
 using DuraIT.FastBinaryJson.Internal;
 
 namespace DuraIT.FastBinaryJson
 {
-    public sealed class TOKENS
+    public static class TOKENS
     {
         public const byte DOC_START = 1;
         public const byte DOC_END = 2;
@@ -141,7 +142,7 @@ namespace DuraIT.FastBinaryJson
         /// <summary>
         /// Backward compatible Typed array type name as UTF8 (default = false -> fast v1.5 unicode)
         /// </summary>
-        public bool v1_4TypedArray = false;
+        public bool v1_4TypedArray;
 
         public void FixValues()
         {
@@ -252,7 +253,8 @@ namespace DuraIT.FastBinaryJson
                 param.UsingGlobalTypes = false;
             }
 
-            return new BJSONSerializer(param).ConvertToBJSON(obj);
+            using var serializer = new BJSONSerializer(param);
+            return serializer.ConvertToBJSON(obj);
         }
 
         /// <summary>
@@ -506,7 +508,7 @@ namespace DuraIT.FastBinaryJson
             return ParseDictionary(ht, null, input.GetType(), input);
         }
 
-        private object RootHashTable(List<object> o)
+        private Hashtable RootHashTable(List<object> o)
         {
             Hashtable h = new Hashtable();
 
@@ -535,7 +537,7 @@ namespace DuraIT.FastBinaryJson
             foreach (var k in (IList)parse)
             {
                 _globalTypes = false;
-                object? v = k;
+                object? v;
                 if (k is Dictionary<string, object> keyDictionary)
                     v = ParseDictionary(keyDictionary, globals, gtypes[0], null);
                 else
@@ -567,14 +569,14 @@ namespace DuraIT.FastBinaryJson
                     _globalTypes = false;
                     object? v;
                     object k = kv.Key;
-                    if (t2.Name.StartsWith("Dictionary")) // deserialize a dictionary
+                    if (t2.Name.StartsWith("Dictionary", StringComparison.Ordinal)) // deserialize a dictionary
                         v = RootDictionary(kv.Value, t2);
                     else if (kv.Value is Dictionary<string, object> valueDictionary)
                         v = ParseDictionary(valueDictionary, null, t2, null);
                     else if (t2 == typeof(byte[]))
                         v = kv.Value;
                     else if (gtypes != null && t2.IsArray)
-                        v = CreateArray((List<object>)kv.Value, t2, arraytype, null);
+                        v = CreateArray((List<object>)kv.Value, arraytype, null);
                     else if (kv.Value is IList)
                         v = CreateGenericList((List<object>)kv.Value, t2, t1, null);
                     else
@@ -781,7 +783,7 @@ namespace DuraIT.FastBinaryJson
                 case myPropInfoType.StringDictionary:
                     return CreateSD((Dictionary<string, object>)v);
                 case myPropInfoType.Array:
-                    return CreateArray((List<object>)v, pi.pt, pi.bt, globaltypes);
+                    return CreateArray((List<object>)v, pi.bt, globaltypes);
             }
 
             if (pi.IsGenericType && !pi.IsValueType)
@@ -803,7 +805,7 @@ namespace DuraIT.FastBinaryJson
             }
 
             if (v is List<object> valueList)
-                return CreateArray(valueList, pi.pt, typeof(object), globaltypes);
+                return CreateArray(valueList, typeof(object), globaltypes);
 
             return v;
         }
@@ -839,7 +841,7 @@ namespace DuraIT.FastBinaryJson
                 else if (dd is Dictionary<string, object> ddDictionary)
                     oo = ParseDictionary(ddDictionary, globaltypes, t, null);
                 else if (dd is List<object> ddList)
-                    oo = CreateArray(ddList, t!, t!.GetElementType(), globaltypes);
+                    oo = CreateArray(ddList, t!.GetElementType(), globaltypes);
                 else
                     oo = dd;
                 a[i++] = oo;
@@ -874,7 +876,17 @@ namespace DuraIT.FastBinaryJson
             return Enum.Parse(pt, v.ToString()!);
         }
 
-        private object CreateArray(List<object> data, Type pt, Type? bt, Dictionary<string, object>? globalTypes)
+        /*
+         * A schema in the payload is untrusted input: prohibiting the DTD and the resolver keeps a
+         * crafted one from reading local files or reaching the network (XXE). The TextReader overload
+         * of ReadXmlSchema applies neither.
+         */
+        private static XmlReader CreateSchemaReader(string schemaXml)
+        {
+            return XmlReader.Create(new StringReader(schemaXml), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+        }
+
+        private Array CreateArray(List<object> data, Type? bt, Dictionary<string, object>? globalTypes)
         {
             if (bt == null)
                 bt = typeof(object);
@@ -892,7 +904,7 @@ namespace DuraIT.FastBinaryJson
                 if (ob is IDictionary)
                     col.SetValue(ParseDictionary((Dictionary<string, object>)ob, globalTypes, bt, null), i);
                 else if (ob is ICollection)
-                    col.SetValue(CreateArray((List<object>)ob, bt, arraytype, globalTypes), i);
+                    col.SetValue(CreateArray((List<object>)ob, arraytype, globalTypes), i);
                 else
                     col.SetValue(ob, i);
             }
@@ -953,7 +965,7 @@ namespace DuraIT.FastBinaryJson
                     if (values.Value is Array)
                         val = values.Value;
                     else
-                        val = CreateArray((List<object>)values.Value, t2, arraytype, globalTypes);
+                        val = CreateArray((List<object>)values.Value, arraytype, globalTypes);
                 }
                 else if (values.Value is IList)
                     val = CreateGenericList((List<object>)values.Value, t2, generictype, globalTypes);
@@ -1007,8 +1019,8 @@ namespace DuraIT.FastBinaryJson
 
             if (schema is string schemaXml)
             {
-                TextReader tr = new StringReader(schemaXml);
-                ds.ReadXmlSchema(tr);
+                using XmlReader schemaReader = CreateSchemaReader(schemaXml);
+                ds.ReadXmlSchema(schemaReader);
             }
             else
             {
@@ -1065,8 +1077,8 @@ namespace DuraIT.FastBinaryJson
 
             if (schema is string schemaXml)
             {
-                TextReader tr = new StringReader(schemaXml);
-                dt.ReadXmlSchema(tr);
+                using XmlReader schemaReader = CreateSchemaReader(schemaXml);
+                dt.ReadXmlSchema(schemaReader);
             }
             else
             {
@@ -1087,7 +1099,7 @@ namespace DuraIT.FastBinaryJson
                 if (rows == null)
                     continue;
 
-                if (!dt.TableName.Equals(pair.Key, StringComparison.InvariantCultureIgnoreCase))
+                if (!dt.TableName.Equals(pair.Key, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 ReadDataTable(rows, dt);
