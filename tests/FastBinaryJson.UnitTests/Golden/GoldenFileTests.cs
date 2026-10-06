@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using AwesomeAssertions;
@@ -266,8 +267,7 @@ namespace FastBinaryJson.UnitTests.Golden
                 .BeGreaterThanOrEqualTo(0, "the file has to hold the back-reference this test exists to read");
 
             BJSON.ClearReflectionCache();
-            EqStructsThenShared restored = (EqStructsThenShared)
-                new Deserializer(Defaults()) { OneStep = oneStep }.ToObject(bytes, typeof(EqStructsThenShared))!;
+            EqStructsThenShared restored = new Deserializer(Defaults()) { OneStep = oneStep }.ToObject<EqStructsThenShared>(bytes)!;
 
             restored.A.Should().Be(new EqPoint { X = 5, Y = 6 });
             restored.B.Should().Be(new EqPoint { X = 5, Y = 6 });
@@ -341,7 +341,7 @@ namespace FastBinaryJson.UnitTests.Golden
                     text.Append('>');
                 }
 
-                text.Append(bytes[i].ToString("x2"));
+                text.Append(bytes[i].ToString("x2", CultureInfo.InvariantCulture));
                 text.Append(' ');
             }
 

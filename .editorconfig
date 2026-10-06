@@ -55,6 +55,29 @@ dotnet_diagnostic.CA2211.severity = none
 # CA5394: the payload generators use a seeded Random; reproducibility is the point and nothing here is
 # security-sensitive.
 dotnet_diagnostic.CA5394.severity = none
+# CA1050, S3903: the ported upstream suite lives in a global-namespace class `tests`; moving it
+# changes the AssemblyQualifiedName of every nested model type.
+dotnet_diagnostic.CA1050.severity = none
+dotnet_diagnostic.S3903.severity = none
+# CA1008, CA1018, CA1813, S3376, S3993, S2344: the ported models include an attribute and enums
+# that are named and shaped as upstream wrote them, which is what the tests pin.
+dotnet_diagnostic.CA1008.severity = none
+dotnet_diagnostic.CA1018.severity = none
+dotnet_diagnostic.CA1813.severity = none
+dotnet_diagnostic.S3376.severity = none
+dotnet_diagnostic.S3993.severity = none
+dotnet_diagnostic.S2344.severity = none
+# S3218, S2094, S2292, CA1822, S2325: models shadow members, are empty marker types, keep backing
+# fields and instance-only properties because the serializer is run over exactly those shapes.
+dotnet_diagnostic.S3218.severity = none
+dotnet_diagnostic.S2094.severity = none
+dotnet_diagnostic.S2292.severity = none
+dotnet_diagnostic.CA1822.severity = none
+dotnet_diagnostic.S2325.severity = none
+# CA1062: NUnit supplies the arguments of [TestCase]/[TestCaseSource] methods; none of them is null.
+dotnet_diagnostic.CA1062.severity = none
+# CA1303: the timing smoke tests print progress to the console; nothing here is localised.
+dotnet_diagnostic.CA1303.severity = none
 
 # Benchmarks: a developer-only console harness, not shipped.
 [benchmarks/**.cs]

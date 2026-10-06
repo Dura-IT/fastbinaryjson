@@ -89,7 +89,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         private static T Read<T>(byte[] bytes, bool oneStep)
         {
-            return (T)new Deserializer(new BJSONParameters()) { OneStep = oneStep }.ToObject(bytes, typeof(T))!;
+            return new Deserializer(new BJSONParameters()) { OneStep = oneStep }.ToObject<T>(bytes)!;
         }
     }
 

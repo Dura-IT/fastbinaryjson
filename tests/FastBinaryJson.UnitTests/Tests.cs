@@ -6,6 +6,7 @@ using System.Collections.Specialized;
 using System.Data;
 using System.Diagnostics;
 using System.Dynamic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using DuraIT.FastBinaryJson;
@@ -40,8 +41,6 @@ using NUnit.Framework.Legacy;
  * test.
  */
 
-//namespace UnitTests
-//{
 public class tests
 {
     /*
@@ -58,19 +57,9 @@ public class tests
         Reflection.Instance.ClearCustomTypes();
     }
 
-    //[TestFixtureTearDown]
-    //public static void dteardown()
-    //{
-    //    ds = new DataSet();
-    //    GC.Collect();
-    //}
     #region [  helpers  ]
     static int thousandtimes = 1000;
     static int fivetimes = 5;
-    static DataSet ds = new DataSet();
-
-    //static bool exotic = false;
-    //static bool dsser = false;
 
     public enum Gender
     {
@@ -302,7 +291,8 @@ public class tests
         r.Field1 = "dsasdF";
         r.Field2 = 2312;
         r.date = DateTime.Now;
-        r.ds = CreateDataset().Tables[0];
+        using DataSet dataset = CreateDataset();
+        r.ds = dataset.Tables[0];
 
         var b = BJSON.ToBJSON(r);
 
@@ -319,7 +309,8 @@ public class tests
         r.Field1 = "dsasdF";
         r.Field2 = 2312;
         r.date = DateTime.Now;
-        r.ds = CreateDataset().Tables[0];
+        using DataSet dataset = CreateDataset();
+        r.ds = dataset.Tables[0];
 
         var b = BJSON.ToBJSON(r);
 
@@ -336,7 +327,8 @@ public class tests
         r.Field1 = "dsasdF";
         r.Field2 = 2312;
         r.date = DateTime.Now;
-        r.ds = CreateDataset().Tables[0];
+        using DataSet dataset = CreateDataset();
+        r.ds = dataset.Tables[0];
 
         var s = BJSON.ToBJSON(r);
 
@@ -349,7 +341,8 @@ public class tests
     public static void StringListTest()
     {
         List<string> ls = new List<string>();
-        ls.AddRange(new string[] { "a", "b", "c", "d" });
+        string[] letters = { "a", "b", "c", "d" };
+        ls.AddRange(letters);
 
         var s = BJSON.ToBJSON(ls);
 
@@ -362,11 +355,12 @@ public class tests
     public static void IntListTest()
     {
         List<int> ls = new List<int>();
-        ls.AddRange(new int[] { 1, 2, 3, 4, 5, 10 });
+        int[] numbers = { 1, 2, 3, 4, 5, 10 };
+        ls.AddRange(numbers);
 
         var s = BJSON.ToBJSON(ls);
 
-        var p = BJSON.Parse(s);
+        ClassicAssert.IsNotNull(BJSON.Parse(s));
         var o = BJSON.ToObject(s); // long[] {1,2,3,4,5,10}
 
         ClassicAssert.IsNotNull(o);
@@ -377,22 +371,22 @@ public class tests
     {
         var s = BJSON.ToBJSON(42);
         var o = BJSON.ToObject(s);
-        ClassicAssert.AreEqual(o, 42);
+        ClassicAssert.AreEqual(42, o);
 
         s = BJSON.ToBJSON("hello");
         o = BJSON.ToObject(s);
-        ClassicAssert.AreEqual(o, "hello");
+        ClassicAssert.AreEqual("hello", o);
     }
 
     [Test]
     public static void List_int()
     {
         List<int> ls = new List<int>();
-        ls.AddRange(new int[] { 1, 2, 3, 4, 5, 10 });
+        int[] numbers = { 1, 2, 3, 4, 5, 10 };
+        ls.AddRange(numbers);
 
         var s = BJSON.ToBJSON(ls);
-        Console.WriteLine(s);
-        var p = BJSON.Parse(s);
+        ClassicAssert.IsNotNull(BJSON.Parse(s));
         var o = BJSON.ToObject<List<int>>(s);
 
         ClassicAssert.IsNotNull(o);
@@ -702,7 +696,7 @@ public class tests
     public static void NullTest()
     {
         var s = BJSON.ToBJSON(null);
-        ClassicAssert.AreEqual(s[0], TOKENS.NULL);
+        ClassicAssert.AreEqual(TOKENS.NULL, s[0]);
         var o = BJSON.ToObject(s);
         ClassicAssert.AreEqual(null, o);
     }
@@ -710,7 +704,7 @@ public class tests
     [Test]
     public static void ZeroArray()
     {
-        var s = BJSON.ToBJSON(new object[] { });
+        var s = BJSON.ToBJSON(Array.Empty<object>());
         var o = BJSON.ToObject(s);
         var a = o as object[];
         ClassicAssert.AreEqual(0, a.Length);
@@ -759,7 +753,7 @@ public class tests
     [Test]
     public static void Datasets()
     {
-        var ds = CreateDataset();
+        using DataSet ds = CreateDataset();
 
         var s = BJSON.ToBJSON(ds);
 
@@ -783,7 +777,7 @@ public class tests
         {
             Name = "aaaaaa",
             Age = 10,
-            dob = DateTime.Parse("2000-01-01 00:00:00"),
+            dob = DateTime.Parse("2000-01-01 00:00:00", CultureInfo.InvariantCulture),
             inner = new { prop = 30 },
         };
 
@@ -797,7 +791,7 @@ public class tests
         ClassicAssert.AreEqual("aaaaaa", ss);
         ClassicAssert.AreEqual(10, oo);
         ClassicAssert.AreEqual(30, inp);
-        ClassicAssert.AreEqual(DateTime.Parse("2000-01-01 00:00:00"), dob);
+        ClassicAssert.AreEqual(DateTime.Parse("2000-01-01 00:00:00", CultureInfo.InvariantCulture), dob);
     }
 
     public class diclist
@@ -948,9 +942,7 @@ public class tests
     public static void NonDefaultConstructor()
     {
         var o = new nondefaultctor(10);
-        //BJSON.Parameters.ParametricConstructorOverride = true;
         var s = BJSON.ToBJSON(o);
-        //Console.WriteLine(s);
         var obj = BJSON.ToObject<nondefaultctor>(s, new BJSONParameters { ParametricConstructorOverride = true });
         ClassicAssert.AreEqual(10, obj.age);
         List<nondefaultctor> l = new List<nondefaultctor> { o, o, o };
@@ -958,7 +950,6 @@ public class tests
         var obj2 = BJSON.ToObject<List<nondefaultctor>>(s, new BJSONParameters { ParametricConstructorOverride = true });
         ClassicAssert.AreEqual(3, obj2.Count);
         ClassicAssert.AreEqual(10, obj2[1].age);
-        //BJSON.Parameters.ParametricConstructorOverride = false;
     }
 
     public class o1
@@ -993,7 +984,6 @@ public class tests
         o.child.child = o.o2obj;
 
         var s = BJSON.ToBJSON(o, new BJSONParameters());
-        //Console.WriteLine(BJSON.Beautify(s));
         var p = BJSON.ToObject<o1>(s);
         ClassicAssert.AreEqual(p, p.o2obj.parent);
         ClassicAssert.AreEqual(p.o2obj, p.child.child);
@@ -1018,22 +1008,18 @@ public class tests
             new List<object> { "aa", 3, "bb" },
         };
         var s = BJSON.ToBJSON(o);
-        //Console.WriteLine(s);
-        var i = BJSON.ToObject(s);
+        ClassicAssert.IsNotNull(BJSON.ToObject(s));
         var p = new lol { r = o };
         s = BJSON.ToBJSON(p);
-        //Console.WriteLine(s);
-        i = BJSON.ToObject(s);
+        var i = BJSON.ToObject(s);
         ClassicAssert.AreEqual(3, (i as lol).r[0].Count);
 
         var oo = new List<object[]> { new object[] { 1, 2, 3 }, new object[] { "a", 4, "b" } };
         s = BJSON.ToBJSON(oo);
-        //Console.WriteLine(s);
-        var ii = BJSON.ToObject(s);
+        ClassicAssert.IsNotNull(BJSON.ToObject(s));
         lol2 l = new lol2() { r = oo };
 
         s = BJSON.ToBJSON(l);
-        //Console.WriteLine(s);
         var iii = BJSON.ToObject(s);
         ClassicAssert.AreEqual(3, (iii as lol2).r[0].Length);
     }
@@ -1243,7 +1229,7 @@ public class tests
         var json = BJSON.ToBJSON(dict);
 
         var des = BJSON.ToObject<Dictionary<string, List<float>>>(json);
-        ClassicAssert.IsInstanceOf(typeof(List<float>), des["C"]);
+        ClassicAssert.IsInstanceOf<List<float>>(des["C"]);
     }
 
     [Test]
@@ -1260,7 +1246,6 @@ public class tests
 
             stopwatch.Restart();
             jsonText = BJSON.ToBJSON(c);
-            //Console.WriteLine(" size = " + jsonText.Length);
             for (int i = 0; i < thousandtimes; i++)
             {
                 deserializedStore = (colclass)BJSON.ToObject(jsonText);
@@ -1357,14 +1342,6 @@ public class tests
         CollectionAssert.AreEqual(dto.Collection, o.Collection);
     }
 
-    //[Test]
-    //public static void stringint()
-    //{
-    //    var s = BJSON.ToBJSON("42");
-
-    //    var o = BJSON.ToObject<long>(s);
-    //}
-
     [Test]
     public static void anonymoustype()
     {
@@ -1377,14 +1354,15 @@ public class tests
             },
             (x) =>
             {
-                return DateTimeOffset.Parse(x);
+                return DateTimeOffset.Parse(x, CultureInfo.InvariantCulture);
             }
         );
         var data = new List<DateTimeOffset>();
         data.Add(new DateTimeOffset(DateTime.Now));
 
         var anonTypeWithDateTimeOffset = data.Select(entry => new { DateTimeOffset = entry }).ToList();
-        var json = BJSON.ToBJSON(anonTypeWithDateTimeOffset.First(), jsonParameters); // this will throw
+        var json = BJSON.ToBJSON(anonTypeWithDateTimeOffset[0], jsonParameters);
+        ClassicAssert.IsNotEmpty(json);
 
         var obj = new
         {
@@ -1428,6 +1406,7 @@ public class tests
         ClassicAssert.AreEqual(f, oo);
 
         var pp = BJSON.ToObject<Single>(s);
+        ClassicAssert.AreEqual(f, pp);
     }
 
     [Test]
@@ -1447,7 +1426,7 @@ public class tests
     [Test]
     public static void ByteArrayInDictionary()
     {
-        var s = BJSON.ToBJSON(new Dictionary<string, byte[]> { { "Test", new byte[10] }, { "Test 2", new byte[0] } });
+        var s = BJSON.ToBJSON(new Dictionary<string, byte[]> { { "Test", new byte[10] }, { "Test 2", Array.Empty<byte>() } });
 
         var d = BJSON.ToObject<Dictionary<string, byte[]>>(s);
         ClassicAssert.AreEqual(typeof(byte[]), d["Test 2"].GetType());
@@ -1558,7 +1537,7 @@ public class tests
 
         var s = BJSON.ToBJSON(dic);
         var obj = BJSON.ToObject<Dictionary<int, Dictionary<string, double>>>(s);
-        ClassicAssert.AreEqual(2, obj[0].Count());
+        ClassicAssert.AreEqual(2, obj[0].Count);
     }
 
     public class dyen
@@ -1577,16 +1556,6 @@ public class tests
         };
 
         var j = BJSON.ToBJSON(oo);
-        //            @"[
-        //   {
-        //      ""Prop1"" : ""Info 1"",
-        //      ""Prop2"" : ""More Info 1""
-        //   },
-        //   {
-        //      ""Prop1"" : ""Info 2"",
-        //      ""Prop2"" : ""More Info 2""
-        //   }
-        //]";
 
         var testObject = BJSON.ToDynamic(j);
         foreach (var o in testObject)
@@ -1624,9 +1593,6 @@ public class tests
     [Test]
     public static void TypedArrays()
     {
-        var i = new List<int>().GetType();
-        var a = new int[0];
-        var t = a.GetType();
         var o = new objcontainer();
         o.ds = new simpclass[] { new simpclass(), new simpclass() };
         var s = BJSON.ToBJSON(o);
@@ -1848,11 +1814,11 @@ public class tests
         var o = BJSON.ToObject<MyEnum>(s);
         ClassicAssert.AreEqual(e, o);
 
-        o = (MyEnum)BJSON.ToObject(s, typeof(MyEnum));
+        o = BJSON.ToObject<MyEnum>(s);
         ClassicAssert.AreEqual(e, o);
     }
 
-    private class npc
+    private sealed class npc
     {
         public int a = 1;
         public int b = 2;
@@ -1902,22 +1868,4 @@ public class tests
         BJSON.FillObject(copyObject, s);
         ClassicAssert.AreEqual(2, copyObject.Items.Count);
     }
-
-    //public class sizeop
-    //{
-    //    public int a = 10;
-    //    public int b = 1000;
-    //    public int v = 1000 * 1000;
-    //}
-
-    //[Test]
-    //public static void sizetest()
-    //{
-    //    var s = BJSON.ToBJSON(new sizeop(), new BJSONParameters { OptimizeSize = true , UseExtensions = false });
-    //    var t = BJSON.ToBJSON(new sizeop(), new BJSONParameters { UseExtensions = false});
-    //    var o = BJSON.ToObject<sizeop>(s);
-
-    //    ClassicAssert.AreEqual(10, o.a);
-    //}
 } // tests.
-//}

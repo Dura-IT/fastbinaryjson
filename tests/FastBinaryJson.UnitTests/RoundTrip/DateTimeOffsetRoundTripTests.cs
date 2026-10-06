@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
 using DuraIT.FastBinaryJson.Internal;
@@ -120,7 +121,11 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void DateTimeOffset_RegisteredCustomType_StillWins()
         {
             DateTimeOffset value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromHours(2));
-            BJSON.RegisterCustomType(typeof(DateTimeOffset), x => ((DateTimeOffset)x).ToString("o"), x => DateTimeOffset.Parse(x));
+            BJSON.RegisterCustomType(
+                typeof(DateTimeOffset),
+                x => ((DateTimeOffset)x).ToString("o"),
+                x => DateTimeOffset.Parse(x, CultureInfo.InvariantCulture)
+            );
 
             byte[] bytes = BJSON.ToBJSON(value, new BJSONParameters { UseExtensions = false });
 

@@ -174,7 +174,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             byte[] bytes = BJSON.ToBJSON(EqTypedMembers.Build());
             Deserializer deserializer = new Deserializer(new BJSONParameters());
 
-            deserializer.ToObject(bytes, typeof(EqTypedMembers));
+            deserializer.ToObject<EqTypedMembers>(bytes);
 
             deserializer.TypedSets.Should().Be(EqTypedMembers.TypedMemberCount);
         }
@@ -188,8 +188,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             BJSONParameters parameters = new BJSONParameters { ShowReadOnlyProperties = true };
             Deserializer deserializer = new Deserializer(parameters);
 
-            EqReadOnlyMembers restored = (EqReadOnlyMembers)
-                deserializer.ToObject(BJSON.ToBJSON(EqReadOnlyMembers.Build(), parameters), typeof(EqReadOnlyMembers))!;
+            EqReadOnlyMembers restored = deserializer.ToObject<EqReadOnlyMembers>(BJSON.ToBJSON(EqReadOnlyMembers.Build(), parameters))!;
 
             restored.PrivateSet.Should().Be(42);
             restored.GetOnly.Should().Be(EqReadOnlyMembers.Build().GetOnly);
@@ -209,7 +208,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             };
             Deserializer deserializer = new Deserializer(new BJSONParameters());
 
-            EqPointHolder restored = (EqPointHolder)deserializer.ToObject(BJSON.ToBJSON(value), typeof(EqPointHolder))!;
+            EqPointHolder restored = deserializer.ToObject<EqPointHolder>(BJSON.ToBJSON(value))!;
 
             restored.Point.Should().Be(new EqPoint { X = 3, Y = -4 });
             deserializer.TypedSets.Should().Be(0);
@@ -396,7 +395,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             {
                 return new Outcome(deserializer.ToObject(bytes, testCase.Type), null, deserializer.OneStepFallbacks);
             }
+#pragma warning disable CA1031 // The outcome of a read, whatever it throws, is what the two readers are compared on.
             catch (Exception ex)
+#pragma warning restore CA1031
             {
                 return new Outcome(null, ex, deserializer.OneStepFallbacks);
             }

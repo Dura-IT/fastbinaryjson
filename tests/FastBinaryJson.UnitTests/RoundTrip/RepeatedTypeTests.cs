@@ -29,7 +29,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             };
             Deserializer deserializer = new Deserializer(parameters);
 
-            List<RepeatBase> restored = (List<RepeatBase>)deserializer.ToObject(BJSON.ToBJSON(value, parameters), typeof(List<RepeatBase>))!;
+            List<RepeatBase> restored = deserializer.ToObject<List<RepeatBase>>(BJSON.ToBJSON(value, parameters))!;
 
             restored.Should().BeEquivalentTo(value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering());
             deserializer.TypesRepeated.Should().Be(2);
@@ -53,7 +53,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             };
             Deserializer deserializer = new Deserializer(parameters);
 
-            List<RepeatBase> restored = (List<RepeatBase>)deserializer.ToObject(BJSON.ToBJSON(value, parameters), typeof(List<RepeatBase>))!;
+            List<RepeatBase> restored = deserializer.ToObject<List<RepeatBase>>(BJSON.ToBJSON(value, parameters))!;
 
             typeof(RepeatA).AssemblyQualifiedName!.Length.Should().Be(typeof(RepeatB).AssemblyQualifiedName!.Length);
             restored.Should().BeEquivalentTo(value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering());

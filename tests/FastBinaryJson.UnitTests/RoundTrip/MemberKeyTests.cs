@@ -130,7 +130,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             {
                 Deserializer deserializer = new Deserializer(parameters);
 
-                KeySpecial restored = (KeySpecial)deserializer.ToObject(bytes, typeof(KeySpecial))!;
+                KeySpecial restored = deserializer.ToObject<KeySpecial>(bytes)!;
 
                 restored.First.Should().Be(7);
                 deserializer.OneStepFallbacks.Should().Be(1, "read {0} has to leave the object to the two-step path", read);

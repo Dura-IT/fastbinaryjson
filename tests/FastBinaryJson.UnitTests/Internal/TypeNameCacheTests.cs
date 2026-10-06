@@ -27,8 +27,8 @@ namespace FastBinaryJson.UnitTests.Internal
             Type? first = TypeNameCache.Resolve(name.AsSpan(), null, NewDeserializer());
             Type? second = TypeNameCache.Resolve(name.AsSpan(), null, NewDeserializer());
 
-            first.Should().Be(typeof(EqLeft));
-            second.Should().Be(typeof(EqLeft));
+            first.Should().Be<EqLeft>();
+            second.Should().Be<EqLeft>();
         }
 
         [Test]
@@ -62,7 +62,7 @@ namespace FastBinaryJson.UnitTests.Internal
         {
             Dictionary<string, object> globaltypes = new Dictionary<string, object> { ["7"] = typeof(EqRight).AssemblyQualifiedName! };
 
-            TypeNameCache.Resolve("7".AsSpan(), globaltypes, NewDeserializer()).Should().Be(typeof(EqRight));
+            TypeNameCache.Resolve("7".AsSpan(), globaltypes, NewDeserializer()).Should().Be<EqRight>();
         }
 
         [Test]
@@ -134,7 +134,7 @@ namespace FastBinaryJson.UnitTests.Internal
             };
             Deserializer deserializer = new Deserializer(parameters);
 
-            List<EqBase> restored = (List<EqBase>)deserializer.ToObject(BJSON.ToBJSON(value, parameters), typeof(List<EqBase>))!;
+            List<EqBase> restored = deserializer.ToObject<List<EqBase>>(BJSON.ToBJSON(value, parameters))!;
 
             restored.Should().BeEquivalentTo(value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering());
             deserializer.TypesResolvedInPlace.Should().Be(3);

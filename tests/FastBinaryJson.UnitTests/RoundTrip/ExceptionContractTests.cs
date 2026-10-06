@@ -8,8 +8,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
     /*
      * What a caller can catch. Upstream threw a bare System.Exception for every format failure, which
      * cannot be told apart from anything else going wrong; BjsonException is the one type for "this
-     * payload or this object graph cannot be handled". It still derives from Exception, so existing
-     * catch (Exception) blocks keep working.
+     * payload or this object graph cannot be handled". It still derives from Exception, so a
+     * handler written for the base type keeps working.
      */
     [TestFixture]
     [TestOf(typeof(BJSON))]

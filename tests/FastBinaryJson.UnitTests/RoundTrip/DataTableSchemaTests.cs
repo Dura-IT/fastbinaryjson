@@ -19,7 +19,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void DataTable_XmlSchemaMode_RoundTripsRows()
         {
-            var table = new DataTable("Orders");
+            using var table = new DataTable("Orders");
             table.Columns.Add("Id", typeof(int));
             table.Columns.Add("Name", typeof(string));
             table.Rows.Add(1, "first");
@@ -30,7 +30,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             DataTable? read = BJSON.ToObject<DataTable>(bytes, parameters);
 
             read.Should().NotBeNull();
-            read!.Rows.Count.Should().Be(2);
+            read.Rows.Count.Should().Be(2);
             read.Rows[1]["Name"].Should().Be("second");
         }
 

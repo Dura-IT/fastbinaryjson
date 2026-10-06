@@ -36,7 +36,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
             target.Name.Should().Be("outer");
             target.Inner.Should().NotBeNull().And.BeOfType<Inner>();
-            target.Inner!.Value.Should().Be(5);
+            target.Inner.Value.Should().Be(5);
         }
     }
 

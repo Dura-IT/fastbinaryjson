@@ -101,8 +101,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         private static string MixedText(int length)
         {
             StringBuilder builder = new StringBuilder(length + 1);
-            for (int i = 0; builder.Length < length; i++)
-                builder.Append(Pieces[i % Pieces.Length]);
+            int piece = 0;
+            while (builder.Length < length)
+                builder.Append(Pieces[piece++ % Pieces.Length]);
 
             return builder.ToString();
         }

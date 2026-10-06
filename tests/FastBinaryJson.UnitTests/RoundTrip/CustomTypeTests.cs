@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
@@ -36,7 +37,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             BJSON.RegisterCustomType(typeof(IPAddress), x => x.ToString()!, x => IPAddress.Parse(x));
 
-            IPAddress.Loopback.GetType().Should().NotBe(typeof(IPAddress), "Loopback is a private ReadOnlyIPAddress subclass on .NET");
+            IPAddress.Loopback.GetType().Should().NotBe<IPAddress>("Loopback is a private ReadOnlyIPAddress subclass on .NET");
 
             AddressHolder restored = BJSON.ToObject<AddressHolder>(BJSON.ToBJSON(new AddressHolder { Value = IPAddress.Loopback }))!;
 
@@ -89,7 +90,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         private static string Suffix(string value)
         {
-            return value.Substring(value.IndexOf(':') + 1);
+            return value.Substring(value.IndexOf(':', StringComparison.Ordinal) + 1);
         }
 
         private class Animal
