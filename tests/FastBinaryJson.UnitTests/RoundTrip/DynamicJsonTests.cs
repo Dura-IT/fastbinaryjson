@@ -25,5 +25,24 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             ((string)parsed.name).Should().Be("value");
             ((string)parsed.NAME).Should().Be("value");
         }
+
+        [Test]
+        public void ToDynamic_IndexerWithOtherCase_IsFound()
+        {
+            byte[] bytes = Bjson.ToBjson(new Dictionary<string, object> { ["Name"] = "value" });
+
+            dynamic parsed = Bjson.ToDynamic(bytes);
+
+            ((string)parsed["name"]).Should().Be("value");
+        }
+
+        [Test]
+        public void ToDynamic_IndexerWithMissingKey_Throws()
+        {
+            byte[] bytes = Bjson.ToBjson(new Dictionary<string, object> { ["Name"] = "value" });
+            dynamic parsed = Bjson.ToDynamic(bytes);
+
+            FluentActions.Invoking(() => parsed["other"]).Should().Throw<KeyNotFoundException>();
+        }
     }
 }

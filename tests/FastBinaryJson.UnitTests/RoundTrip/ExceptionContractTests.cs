@@ -1,7 +1,6 @@
 using System;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
-using DuraIT.FastBinaryJson.Internal;
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -81,16 +80,35 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         }
 
         [Test]
-        public void TypeReflector_NullArguments_ThrowArgumentNull()
+        public void PublicMethods_NullArguments_ThrowArgumentNull()
         {
-            TypeReflector reflection = TypeReflector.Instance;
+            byte[] bytes = Bjson.ToBjson(new Node());
+            Type nodeType = typeof(Node);
 
-            FluentActions.Invoking(() => reflection.GetTypeAssemblyName(null!)).Should().Throw<ArgumentNullException>().WithParameterName("t");
-            FluentActions.Invoking(() => reflection.GetGenericArguments(null!)).Should().Throw<ArgumentNullException>().WithParameterName("t");
-            FluentActions.Invoking(() => reflection.GetGenericTypeDefinition(null!)).Should().Throw<ArgumentNullException>().WithParameterName("t");
-            FluentActions.Invoking(() => reflection.Getproperties(null!, "name", false)).Should().Throw<ArgumentNullException>().WithParameterName("type");
-            FluentActions.Invoking(() => TypeReflector.UnicodeGetBytes(null!)).Should().Throw<ArgumentNullException>().WithParameterName("str");
-            FluentActions.Invoking(() => TypeReflector.UnicodeGetString(null!)).Should().Throw<ArgumentNullException>().WithParameterName("b");
+            FluentActions.Invoking(() => Bjson.Parse(null!)).Should().Throw<ArgumentNullException>().WithParameterName("json");
+            FluentActions.Invoking(() => Bjson.ToDynamic(null!)).Should().Throw<ArgumentNullException>().WithParameterName("json");
+            FluentActions.Invoking(() => Bjson.ToObject<Node>(null!)).Should().Throw<ArgumentNullException>().WithParameterName("json");
+            FluentActions.Invoking(() => Bjson.ToObject<Node>(null!, new BjsonParameters())).Should().Throw<ArgumentNullException>().WithParameterName("json");
+            FluentActions.Invoking(() => Bjson.ToObject(null!)).Should().Throw<ArgumentNullException>().WithParameterName("json");
+            FluentActions.Invoking(() => Bjson.ToObject(null!, new BjsonParameters())).Should().Throw<ArgumentNullException>().WithParameterName("json");
+            FluentActions.Invoking(() => Bjson.ToObject(null!, nodeType)).Should().Throw<ArgumentNullException>().WithParameterName("json");
+            FluentActions.Invoking(() => Bjson.ToObject(bytes, (Type)null!)).Should().Throw<ArgumentNullException>().WithParameterName("type");
+            FluentActions.Invoking(() => Bjson.FillObject(new Node(), null!)).Should().Throw<ArgumentNullException>().WithParameterName("json");
+            FluentActions
+                .Invoking(() => Bjson.RegisterCustomType(null!, (o) => string.Empty, (s) => s))
+                .Should()
+                .Throw<ArgumentNullException>()
+                .WithParameterName("type");
+            FluentActions
+                .Invoking(() => Bjson.RegisterCustomType(nodeType, null!, (s) => s))
+                .Should()
+                .Throw<ArgumentNullException>()
+                .WithParameterName("serializer");
+            FluentActions
+                .Invoking(() => Bjson.RegisterCustomType(nodeType, (o) => string.Empty, null!))
+                .Should()
+                .Throw<ArgumentNullException>()
+                .WithParameterName("deserializer");
         }
 
         public sealed class Node

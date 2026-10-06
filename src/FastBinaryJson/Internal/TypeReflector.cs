@@ -116,8 +116,6 @@ namespace DuraIT.FastBinaryJson.Internal
             get { return instance; }
         }
 
-        public static bool RdbMode { get; set; }
-
         public delegate object GenericSetter(object target, object value);
         internal delegate void TypedSetter<in T>(object target, T value);
         internal delegate T TypedGetter<out T>(object target);
@@ -194,36 +192,25 @@ namespace DuraIT.FastBinaryJson.Internal
         public static byte[] UnicodeGetBytes(string str)
         {
 #if NET10_0_OR_GREATER
-            ArgumentNullException.ThrowIfNull(str);
+            return MemoryMarshal.AsBytes(str.AsSpan()).ToArray();
 #else
-            if (str == null)
-                throw new ArgumentNullException(nameof(str));
-#endif
-            char[] chars = str.ToCharArray();
-            byte[] b = new byte[chars.Length * 2];
-            Buffer.BlockCopy(chars, 0, b, 0, b.Length);
+            // netstandard2.0 has no Span, and unsafe is off: copy through a per-thread scratch array so the
+            // only allocation is the result, as the pointer copy this replaced had.
+            char[] scratch = RentScratch(str.Length);
+            str.CopyTo(0, scratch, 0, str.Length);
+            byte[] b = new byte[str.Length * 2];
+            Buffer.BlockCopy(scratch, 0, b, 0, b.Length);
             return b;
+#endif
         }
 
         public static string UnicodeGetString(byte[] b)
         {
-#if NET10_0_OR_GREATER
-            ArgumentNullException.ThrowIfNull(b);
-#else
-            if (b == null)
-                throw new ArgumentNullException(nameof(b));
-#endif
             return UnicodeGetString(b, 0, b.Length);
         }
 
         public static string UnicodeGetString(byte[] bytes, int offset, int buflen)
         {
-#if NET10_0_OR_GREATER
-            ArgumentNullException.ThrowIfNull(bytes);
-#else
-            if (bytes == null)
-                throw new ArgumentNullException(nameof(bytes));
-#endif
             // Bounds are checked here so a length running past the payload cannot be read as text.
             if (offset < 0 || buflen < 0 || offset > bytes.Length - buflen)
                 throw new ArgumentOutOfRangeException(nameof(buflen));
@@ -232,11 +219,36 @@ namespace DuraIT.FastBinaryJson.Internal
             // One allocation: the string is built straight from the bytes, and an odd trailing byte is dropped.
             return new string(MemoryMarshal.Cast<byte, char>(new ReadOnlySpan<byte>(bytes, offset, buflen & ~1)));
 #else
-            char[] chars = new char[buflen / 2];
-            Buffer.BlockCopy(bytes, offset, chars, 0, chars.Length * 2);
-            return new string(chars);
+            int count = buflen / 2;
+            char[] scratch = RentScratch(count);
+            Buffer.BlockCopy(bytes, offset, scratch, 0, count * 2);
+            return new string(scratch, 0, count);
 #endif
         }
+
+#if !NET10_0_OR_GREATER
+        private const int MaxScratchChars = 32 * 1024;
+
+        [ThreadStatic]
+        private static char[]? _scratch;
+
+        /// <summary>
+        /// A per-thread char array of at least <paramref name="length"/>; contents are not cleared. Not kept
+        /// past <see cref="MaxScratchChars"/>, so one huge string does not pin its memory to the thread.
+        /// </summary>
+        private static char[] RentScratch(int length)
+        {
+            if (length > MaxScratchChars)
+                return new char[length];
+            char[]? scratch = _scratch;
+            if (scratch == null || scratch.Length < length)
+            {
+                scratch = new char[Math.Max(length, 256)];
+                _scratch = scratch;
+            }
+            return scratch;
+        }
+#endif
         #endregion
 
         #region json custom types
@@ -370,12 +382,6 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Type GetGenericTypeDefinition(Type t)
         {
-#if NET10_0_OR_GREATER
-            ArgumentNullException.ThrowIfNull(t);
-#else
-            if (t == null)
-                throw new ArgumentNullException(nameof(t));
-#endif
             Type? tt = null;
             if (_genericTypeDef.TryGetValue(t, out tt))
                 return tt!;
@@ -389,12 +395,6 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Type[] GetGenericArguments(Type t)
         {
-#if NET10_0_OR_GREATER
-            ArgumentNullException.ThrowIfNull(t);
-#else
-            if (t == null)
-                throw new ArgumentNullException(nameof(t));
-#endif
             Type[]? tt = null;
             if (_genericTypes.TryGetValue(t, out tt))
                 return tt!;
@@ -408,12 +408,6 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Dictionary<string, PropertyMetadata> Getproperties(Type type, string typename, bool ShowReadOnlyProperties)
         {
-#if NET10_0_OR_GREATER
-            ArgumentNullException.ThrowIfNull(type);
-#else
-            if (type == null)
-                throw new ArgumentNullException(nameof(type));
-#endif
             Dictionary<string, PropertyMetadata>? sd = null;
             if (_propertycache.TryGetValue(typename, out sd))
             {
@@ -600,12 +594,6 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public string GetTypeAssemblyName(Type t)
         {
-#if NET10_0_OR_GREATER
-            ArgumentNullException.ThrowIfNull(t);
-#else
-            if (t == null)
-                throw new ArgumentNullException(nameof(t));
-#endif
             string? val = "";
             if (_tyname.TryGetValue(t, out val))
                 return val!;
@@ -643,18 +631,6 @@ namespace DuraIT.FastBinaryJson.Internal
                 }
 
                 Type? t = typename.StartsWith(UpstreamDatasetSchemaPrefix, StringComparison.Ordinal) ? typeof(DatasetSchema) : Type.GetType(typename);
-                if (RdbMode && t == null) // RaptorDB : loading runtime assemblies
-                {
-                    t = Type.GetType(
-                        typename,
-                        (name) =>
-                        {
-                            return AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(z => z.FullName == name.FullName);
-                        },
-                        null,
-                        true
-                    );
-                }
                 _typecache.Add(typename, t);
                 return t;
             }
@@ -1124,12 +1100,6 @@ namespace DuraIT.FastBinaryJson.Internal
             IList<Type> IgnoreAttributes
         )
         {
-#if NET10_0_OR_GREATER
-            ArgumentNullException.ThrowIfNull(type);
-#else
-            if (type == null)
-                throw new ArgumentNullException(nameof(type));
-#endif
             Getters[]? val = null;
             if (_getterscache.TryGetValue(type, out val))
                 return val!;

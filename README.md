@@ -75,12 +75,12 @@ Two behaviours differ on purpose. An unrecognized token or a graph deeper than `
 throws `BjsonException`, where upstream threw a bare `Exception`; it still derives from `Exception`,
 so a handler written for the base type keeps working. Other corrupt or truncated input can still
 surface as `IndexOutOfRangeException`, `ArgumentOutOfRangeException` or `NullReferenceException`; do
-not rely on catching only `BjsonException` for untrusted bytes. And a null `param` or `input` argument
-throws `ArgumentNullException` up front; a null `json` or `type` argument is not checked everywhere
-and can still throw `NullReferenceException`.
+not rely on catching only `BjsonException` for untrusted bytes. And a null argument to
+a public method throws `ArgumentNullException` up front. The one exception is `DeepCopy(null)`, which
+returns null, since null is a valid thing to serialize.
 
-`Reflection.RDBMode`, which let RaptorDB-style consumers resolve runtime-loaded assemblies, went away
-with the type and has no public replacement.
+`Reflection.RDBMode`, which let RaptorDB-style consumers resolve runtime-loaded assemblies, is gone: it
+went away with the type, and its code path was removed rather than left unreachable.
 
 ## Usage
 

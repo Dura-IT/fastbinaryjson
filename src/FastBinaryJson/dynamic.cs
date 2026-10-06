@@ -40,23 +40,32 @@ namespace DuraIT.FastBinaryJson
             }
             else
             {
-                result = _dictionary![(string)index];
+                string key = (string)index;
+                if (!TryGetValue(key, out result))
+                    throw new KeyNotFoundException(key);
             }
             if (result is IDictionary<string, object> resultDictionary)
                 result = new DynamicJson(resultDictionary);
             return true;
         }
 
-        private bool TryGetIgnoringCase(string name, out object? value)
+        /*
+         * Exact name first (one hash probe), then a scan ignoring case. The scan only runs on a miss and
+         * allocates only a closure; with keys that differ only by case, the first in enumeration order wins.
+         */
+        private bool TryGetValue(string name, out object? value)
         {
-            KeyValuePair<string, object> match = _dictionary!.FirstOrDefault(entry => string.Equals(entry.Key, name, StringComparison.OrdinalIgnoreCase));
+            if (_dictionary!.TryGetValue(name, out value))
+                return true;
+
+            KeyValuePair<string, object> match = _dictionary.FirstOrDefault(e => string.Equals(e.Key, name, StringComparison.OrdinalIgnoreCase));
             value = match.Value;
             return match.Key != null;
         }
 
         public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
-            if (!_dictionary!.TryGetValue(binder.Name, out result) && !TryGetIgnoringCase(binder.Name, out result))
+            if (!TryGetValue(binder.Name, out result))
                 return false;
 
             if (result is IDictionary<string, object> memberDictionary)
