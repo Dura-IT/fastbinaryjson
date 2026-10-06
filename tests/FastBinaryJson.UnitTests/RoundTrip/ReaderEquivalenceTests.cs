@@ -352,7 +352,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
             if (expected is string || expected.GetType().IsPrimitive || expected.GetType().IsEnum)
                 return;
-            if (expected.GetType().IsValueType == false && seen.Add(expected) == false)
+            if (!expected.GetType().IsValueType && !seen.Add(expected))
                 return;
 
             if (expected is IDictionary expectedMap)

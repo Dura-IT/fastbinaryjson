@@ -147,7 +147,7 @@ namespace FastBinaryJson.UnitTests.Golden
                 return;
             }
 
-            if (File.Exists(path) == false)
+            if (!File.Exists(path))
             {
                 Assert.Fail("No golden file for '" + testCase.Name + "' at " + path + ". Run with " + RegenerateVariable + "=1 to create it.");
                 return;
@@ -185,7 +185,7 @@ namespace FastBinaryJson.UnitTests.Golden
             // silent skip here would let this half of the suite erode to nothing - a dropped
             // directory or a case renamed without renaming its file turns cases into skips, and no
             // standard CI check gates a skip count.
-            if (File.Exists(path) == false)
+            if (!File.Exists(path))
             {
                 Assert.Fail("No golden file for '" + testCase.Name + "' at " + path + ". Run with " + RegenerateVariable + "=1 to create it.");
                 return;
@@ -221,7 +221,7 @@ namespace FastBinaryJson.UnitTests.Golden
         public void SharedReference_CommittedBytes_RestoreASingleSharedInstance()
         {
             string path = FixturePath("shared-reference");
-            if (File.Exists(path) == false)
+            if (!File.Exists(path))
             {
                 Assert.Fail("No golden file for 'shared-reference' at " + path + ". Run with " + RegenerateVariable + "=1 to create it.");
                 return;
@@ -251,7 +251,7 @@ namespace FastBinaryJson.UnitTests.Golden
         public void LegacyEqualStructs_CommittedBytes_RestoreBothValues(bool oneStep)
         {
             string path = FixturePath(LegacyEqualStructs);
-            if (File.Exists(path) == false)
+            if (!File.Exists(path))
             {
                 Assert.Fail("No legacy file '" + LegacyEqualStructs + "' at " + path + ". It cannot be regenerated: the current writer no longer produces it.");
                 return;
@@ -366,7 +366,7 @@ namespace FastBinaryJson.UnitTests.Golden
         private static string FixtureDirectory()
         {
             DirectoryInfo? directory = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
-            while (directory != null && File.Exists(Path.Combine(directory.FullName, "FastBinaryJson.slnx")) == false)
+            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "FastBinaryJson.slnx")))
             {
                 directory = directory.Parent;
             }

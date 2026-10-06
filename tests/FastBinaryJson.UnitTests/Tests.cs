@@ -287,7 +287,11 @@ public class tests
     {
         var o = new object[3] { 1, "sdfsdfs", DateTime.Now };
         var b = BJSON.ToBJSON(o);
-        var s = BJSON.ToObject(b);
+        var s = BJSON.ToObject(b) as object[];
+        ClassicAssert.IsNotNull(s);
+        ClassicAssert.AreEqual(3, s.Length);
+        ClassicAssert.AreEqual(1, s[0]);
+        ClassicAssert.AreEqual("sdfsdfs", s[1]);
     }
 
     [Test]
@@ -638,12 +642,15 @@ public class tests
         ne.objs = new baseclass[] { new class1("a", "1", Guid.NewGuid()), new class2("b", "2", "desc") };
 
         byte[] str = BJSON.ToBJSON(ne, new BJSONParameters { UseExtensions = false, UsingGlobalTypes = false });
-        object dic = BJSON.Parse(str);
-        object oo = BJSON.ToObject<NoExt>(str);
+        ClassicAssert.IsNotNull(BJSON.Parse(str));
+        NoExt oo = BJSON.ToObject<NoExt>(str);
+        ClassicAssert.AreEqual("here", oo.Address);
 
         NoExt nee = new NoExt();
         nee.intern = new NoExt { Name = "aaa" };
         BJSON.FillObject(nee, str);
+        ClassicAssert.AreEqual("here", nee.Address);
+        ClassicAssert.AreEqual(10, nee.Age);
     }
 
     [Test]
@@ -657,6 +664,7 @@ public class tests
             Age = 12,
         };
         byte[] sq = BJSON.ToBJSON(q, new BJSONParameters { EnableAnonymousTypes = true });
+        ClassicAssert.IsNotEmpty(sq);
     }
 
     [Test]
@@ -743,7 +751,9 @@ public class tests
         a.ints = new int[] { 3, 1, 4 };
         a.strs = new string[] { "a", "b", "c" };
         var s = BJSON.ToBJSON(a);
-        var o = BJSON.ToObject(s);
+        var o = (arrayclass)BJSON.ToObject(s);
+        CollectionAssert.AreEqual(a.ints, o.ints);
+        CollectionAssert.AreEqual(a.strs, o.strs);
     }
 
     [Test]
@@ -878,7 +888,9 @@ public class tests
     public static void consttest()
     {
         var s = BJSON.ToBJSON(new constch());
-        var o = BJSON.ToObject(s);
+        var o = (constch)BJSON.ToObject(s);
+        ClassicAssert.AreEqual("aa", o.Name);
+        ClassicAssert.AreEqual(enumt.B, o.e);
     }
 
     public class ignoreatt : Attribute { }
@@ -1076,11 +1088,11 @@ public class tests
         r.TheReferenceA = r.ListOfAs[2];
         r.NextRoot = r;
 
-        //Console.WriteLine("JSON:\n---\n{0}\n---", BJSON.ToBJSON(r));
+        Root back = BJSON.ToObject<Root>(BJSON.ToBJSON(r));
 
-        //Console.WriteLine();
-
-        //Console.WriteLine("Nice JSON:\n---\n{0}\n---", BJSON.ToBJSON(BJSON.ToObject<Root>(BJSON.ToBJSON(r))));
+        ClassicAssert.AreEqual("Žlutý kůň ∊ WORLD", back.UnicodeText);
+        ClassicAssert.AreEqual(3, back.ListOfAs.Count);
+        ClassicAssert.AreSame(back, back.NextRoot);
     }
 
     public struct Foo
@@ -1101,6 +1113,7 @@ public class tests
         b.foo.name = "Buzz";
         var json = BJSON.ToBJSON(b);
         Bar bar = BJSON.ToObject<Bar>(json);
+        ClassicAssert.AreEqual("Buzz", bar.foo.name);
     }
 
     public class readonlyclass
@@ -1111,7 +1124,7 @@ public class tests
             Age = 10;
         }
 
-        private string _ro = "aa";
+        private readonly string _ro = "aa";
         public string ROAddress
         {
             get { return _ro; }
@@ -1125,6 +1138,7 @@ public class tests
     {
         var s = BJSON.ToBJSON(new readonlyclass(), new BJSONParameters { ShowReadOnlyProperties = true });
         var o = BJSON.ToObject(s);
+        ClassicAssert.IsInstanceOf<readonlyclass>(o);
     }
 
     public class InstrumentSettings
@@ -1151,6 +1165,7 @@ public class tests
         var jsonStr = BJSON.ToBJSON(s, pa);
 
         var o = BJSON.ToObject<InstrumentSettings>(jsonStr);
+        ClassicAssert.AreEqual("Wireless", o.dataProtocol);
     }
 
     public class arrayclass2
@@ -1249,6 +1264,7 @@ public class tests
             for (int i = 0; i < thousandtimes; i++)
             {
                 deserializedStore = (colclass)BJSON.ToObject(jsonText);
+                ClassicAssert.IsNotNull(deserializedStore);
             }
             stopwatch.Stop();
             Console.Write("\t" + stopwatch.ElapsedMilliseconds);
@@ -1270,6 +1286,7 @@ public class tests
             {
                 jsonText = BJSON.ToBJSON(c);
             }
+            ClassicAssert.IsNotEmpty(jsonText);
             stopwatch.Stop();
             Console.Write("\t" + stopwatch.ElapsedMilliseconds);
         }
@@ -1438,7 +1455,7 @@ public class tests
 
     public class X
     {
-        private int i;
+        private readonly int i;
 
         public X(int i)
         {
@@ -1478,10 +1495,11 @@ public class tests
         i.list.Add(new class2("4", "5", "hi"));
         i.name = "hi";
 
-        var s = BJSON.ToBJSON(i); //, new JSONParameters { UseExtensions = true });
-        //Console.WriteLine(s);
+        var s = BJSON.ToBJSON(i);
 
         var o = BJSON.ToObject<il>(s);
+        ClassicAssert.AreEqual("hi", o.name);
+        ClassicAssert.AreEqual(2, o.list.Count);
     }
 
     public interface iintfc
@@ -1526,7 +1544,9 @@ public class tests
 
         var s = BJSON.ToBJSON(ii);
 
-        var o = BJSON.ToObject(s);
+        var o = (it)BJSON.ToObject(s);
+        ClassicAssert.AreEqual(10, o.i.age);
+        ClassicAssert.AreEqual("aa", o.i.name);
     }
 
     [Test]
@@ -1627,6 +1647,7 @@ public class tests
         TimeSpan ts = new TimeSpan(2, 2, 2, 2);
         var b = BJSON.ToBJSON(ts);
         var o = BJSON.ToObject<TimeSpan>(b);
+        ClassicAssert.AreEqual(ts, o);
     }
 
     public class DigitLimit
@@ -1879,6 +1900,7 @@ public class tests
 
         TestObject copyObject = new TestObject();
         BJSON.FillObject(copyObject, s);
+        ClassicAssert.AreEqual(2, copyObject.Items.Count);
     }
 
     //public class sizeop
