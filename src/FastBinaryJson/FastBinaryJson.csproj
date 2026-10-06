@@ -45,19 +45,12 @@
   </PropertyGroup>
 
   <!--
-    AllowUnsafeBlocks was previously scoped to 'Debug|AnyCPU' only, which made Release
-    uncompilable (10x CS0227). Hoisted to project level so Debug and Release compile
-    identical source.
-
     The NET4 define went with the net4.0 target. It was set here unconditionally, so every
     '#if NET4' block was already live on every target - including [DataMember(Name=...)] support,
     which changes serialized output. The directives were therefore DELETED rather than converted
     to TFM conditionals: keeping the code and dropping the guard is behaviour-identical, whereas
     a '#if NET10_0_OR_GREATER' would have silently changed netstandard2.0 output.
   -->
-  <PropertyGroup>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
 
   <!--
     README.md is packed so nuget.org shows it. It is plain Markdown with absolute links on

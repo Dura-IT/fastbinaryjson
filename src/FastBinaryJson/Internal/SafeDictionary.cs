@@ -67,12 +67,12 @@ namespace DuraIT.FastBinaryJson.Internal
 
     internal static class Helper
     {
-        internal static unsafe int ToInt32(byte[] value, int startIndex, bool reverse)
+        internal static int ToInt32(byte[] value, int startIndex, bool reverse)
         {
             if (reverse)
             {
-                byte[] b = new byte[4];
-                Buffer.BlockCopy(value, startIndex, b, 0, 4);
+                byte[] b = new byte[sizeof(int)];
+                Buffer.BlockCopy(value, startIndex, b, 0, sizeof(int));
                 Array.Reverse(b);
                 return ToInt32(b, 0);
             }
@@ -80,61 +80,51 @@ namespace DuraIT.FastBinaryJson.Internal
             return ToInt32(value, startIndex);
         }
 
-        internal static unsafe int ToInt32(byte[] value, int startIndex)
+        internal static int ToInt32(byte[] value, int startIndex)
         {
             CheckRange(value, startIndex, sizeof(int));
-            fixed (byte* numRef = &value[startIndex])
-            {
-                return *((int*)numRef);
-            }
+            return BitConverter.ToInt32(value, startIndex);
         }
 
-        internal static unsafe long ToInt64(byte[] value, int startIndex, bool reverse)
+        internal static long ToInt64(byte[] value, int startIndex, bool reverse)
         {
             if (reverse)
             {
-                byte[] b = new byte[8];
-                Buffer.BlockCopy(value, startIndex, b, 0, 8);
+                byte[] b = new byte[sizeof(long)];
+                Buffer.BlockCopy(value, startIndex, b, 0, sizeof(long));
                 Array.Reverse(b);
                 return ToInt64(b, 0);
             }
             return ToInt64(value, startIndex);
         }
 
-        internal static unsafe long ToInt64(byte[] value, int startIndex)
+        internal static long ToInt64(byte[] value, int startIndex)
         {
             CheckRange(value, startIndex, sizeof(long));
-            fixed (byte* numRef = &value[startIndex])
-            {
-                return *(long*)numRef;
-            }
+            return BitConverter.ToInt64(value, startIndex);
         }
 
-        internal static unsafe short ToInt16(byte[] value, int startIndex, bool reverse)
+        internal static short ToInt16(byte[] value, int startIndex, bool reverse)
         {
             if (reverse)
             {
-                byte[] b = new byte[2];
-                Buffer.BlockCopy(value, startIndex, b, 0, 2);
+                byte[] b = new byte[sizeof(short)];
+                Buffer.BlockCopy(value, startIndex, b, 0, sizeof(short));
                 Array.Reverse(b);
                 return ToInt16(b, 0);
             }
             return ToInt16(value, startIndex);
         }
 
-        internal static unsafe short ToInt16(byte[] value, int startIndex)
+        internal static short ToInt16(byte[] value, int startIndex)
         {
             CheckRange(value, startIndex, sizeof(short));
-            fixed (byte* numRef = &value[startIndex])
-            {
-                return *(short*)numRef;
-            }
+            return BitConverter.ToInt16(value, startIndex);
         }
 
         /*
-         * The pointer reads above cover `size` bytes, but taking &value[startIndex] only checks the
-         * first. Without this, a value cut short at the end of the payload read past the array and
-         * returned whatever memory followed as data.
+         * BitConverter reports a short read as ArgumentException, not ArgumentOutOfRangeException, and
+         * the callers and the truncated-input tests rely on the latter, so the range is checked here first.
          */
         private static void CheckRange(byte[] value, int startIndex, int size)
         {
@@ -142,25 +132,17 @@ namespace DuraIT.FastBinaryJson.Internal
                 throw new ArgumentOutOfRangeException(nameof(startIndex));
         }
 
-        internal static unsafe byte[] GetBytes(long num, bool reverse)
+        internal static byte[] GetBytes(long num, bool reverse)
         {
-            byte[] buffer = new byte[8];
-            fixed (byte* numRef = buffer)
-            {
-                *((long*)numRef) = num;
-            }
+            byte[] buffer = BitConverter.GetBytes(num);
             if (reverse)
                 Array.Reverse(buffer);
             return buffer;
         }
 
-        public static unsafe byte[] GetBytes(int num, bool reverse)
+        public static byte[] GetBytes(int num, bool reverse)
         {
-            byte[] buffer = new byte[4];
-            fixed (byte* numRef = buffer)
-            {
-                *((int*)numRef) = num;
-            }
+            byte[] buffer = BitConverter.GetBytes(num);
             if (reverse)
                 Array.Reverse(buffer);
             return buffer;

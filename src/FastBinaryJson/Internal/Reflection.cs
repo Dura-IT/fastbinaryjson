@@ -192,14 +192,11 @@ namespace DuraIT.FastBinaryJson.Internal
             return utf8.GetString(bytes, offset, len);
         }
 
-        public static unsafe byte[] UnicodeGetBytes(string str)
+        public static byte[] UnicodeGetBytes(string str)
         {
-            int len = str.Length * 2;
-            byte[] b = new byte[len];
-            fixed (void* ptr = str)
-            {
-                System.Runtime.InteropServices.Marshal.Copy(new IntPtr(ptr), b, 0, len);
-            }
+            char[] chars = str.ToCharArray();
+            byte[] b = new byte[chars.Length * 2];
+            Buffer.BlockCopy(chars, 0, b, 0, b.Length);
             return b;
         }
 
@@ -208,20 +205,15 @@ namespace DuraIT.FastBinaryJson.Internal
             return UnicodeGetString(b, 0, b.Length);
         }
 
-        public static unsafe string UnicodeGetString(byte[] bytes, int offset, int buflen)
+        public static string UnicodeGetString(byte[] bytes, int offset, int buflen)
         {
-            // The string is built straight from the pointer, so nothing else bounds this read: a
-            // length running past the payload used to return the memory after the array as text.
+            // Bounds are checked here so a length running past the payload cannot be read as text.
             if (offset < 0 || buflen < 0 || offset > bytes.Length - buflen)
                 throw new ArgumentOutOfRangeException(nameof(buflen));
 
-            string str = "";
-            fixed (byte* bptr = bytes)
-            {
-                char* cptr = (char*)(bptr + offset);
-                str = new string(cptr, 0, buflen / 2);
-            }
-            return str;
+            char[] chars = new char[buflen / 2];
+            Buffer.BlockCopy(bytes, offset, chars, 0, chars.Length * 2);
+            return new string(chars);
         }
         #endregion
 
