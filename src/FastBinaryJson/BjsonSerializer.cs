@@ -75,7 +75,8 @@ namespace DuraIT.FastBinaryJson
 
         internal byte[] ConvertToBJSON(object obj)
         {
-            // The caller does not dispose this instance, so pooled buffers are returned here.
+            // The pooled buffer is returned as soon as the bytes are copied out. Dispose releases it again,
+            // which is a no-op, so a caller that forgets to dispose does not hold the buffer.
             // ToArray runs in the return expressions, before the finally.
             try
             {

@@ -164,7 +164,7 @@ namespace DuraIT.FastBinaryJson
 
 #if NET10_0_OR_GREATER
         /// <summary>
-        /// Reads a STRING or UNICODE_STRING value as chars without allocating it: UTF-16 in place,
+        /// Reads a Tokens.Utf8String or Tokens.Utf16String value as chars without allocating it: UTF-16 in place,
         /// UTF-8 decoded into <paramref name="buffer"/>. Returns false, having read nothing, for any
         /// other token or a UTF-8 value that might not fit the buffer.
         /// </summary>

@@ -126,7 +126,7 @@ namespace DuraIT.FastBinaryJson
 
         /// <summary>
         /// The equivalent of ParseDictionary(dictionary, globaltypes, declared, null) for the object at
-        /// the current index. Returns false with the index back on its DOC_START, and every side effect
+        /// the current index. Returns false with the index back on its Tokens.DocStart, and every side effect
         /// undone, when the object has to go through the two-step path.
         /// </summary>
         /// <param name="declared">The declared type of the member or element, or null when the value's own $type decides.</param>
@@ -151,7 +151,7 @@ namespace DuraIT.FastBinaryJson
             List<string>? addedTypes = null;
             bool readTypes = false;
 
-            _parser.ReadToken(); // DOC_START
+            _parser.ReadToken(); // Tokens.DocStart
             byte t = ReadSkippingCommas();
 
             if (t == Tokens.TypesPointer)
