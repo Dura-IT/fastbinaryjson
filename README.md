@@ -32,6 +32,10 @@ Data written by the original keeps reading back, and that is enforced by tests r
 
 The wire format is unchanged, and the golden fixtures are what keep it that way. Bytes written by
 the original read back through this package, and bytes written here read back through the original.
+That includes DataSet and DataTable payloads: the embedded schema object is written under upstream's
+type name and resolved back to this package's type when read, and a test reads payloads written by
+upstream fastBinaryJSON 1.6.1 itself. The exception is a payload written with
+`UseOptimizedDatasetSchema` off, which is XML and not covered by a fixture.
 
 **Source compatibility costs a rename.** The namespace is `DuraIT.FastBinaryJson`, matching the
 assembly and package name; upstream's was `fastBinaryJSON`. The public API also follows .NET naming
@@ -40,7 +44,9 @@ one of them; none changes what a call does.
 
 **Stored data is not affected by that rename.** The `$type` entries in a payload carry the assembly
 qualified names of *your* types, never the serializer's, so renaming this library's namespace cannot
-invalidate anything already on disk. None of the 16 golden fixtures reference this assembly at all.
+invalidate anything already on disk. The one library type that does appear in a payload is the
+DataSet/DataTable schema object, which keeps upstream's name on the wire (see above). None of the 16
+golden fixtures reference this assembly; no golden fixture covers a DataSet.
 
 Assembly name and namespace both differ from the original, so this package and `fastBinaryJSON` can
 sit in the same project with no duplicate type definitions and no ambiguity.
@@ -65,10 +71,16 @@ ones who cannot move runtime quickly.
 | `TypedArray.typename` / `count` / `data` | `TypedArray.TypeName` / `Count` / `Data` |
 | `Reflection`, `myPropInfo`, `Getters`, `DatasetSchema` | no longer public |
 
-Two behaviours differ on purpose. Format and parse failures throw `BjsonException`, where upstream
-threw a bare `Exception`; it still derives from `Exception`, so a handler written for the base type
-keeps working. And a null argument to a public method throws `ArgumentNullException` up front instead
-of a `NullReferenceException` from somewhere inside.
+Two behaviours differ on purpose. An unrecognized token or a graph deeper than `SerializerMaxDepth`
+throws `BjsonException`, where upstream threw a bare `Exception`; it still derives from `Exception`,
+so a handler written for the base type keeps working. Other corrupt or truncated input can still
+surface as `IndexOutOfRangeException`, `ArgumentOutOfRangeException` or `NullReferenceException`; do
+not rely on catching only `BjsonException` for untrusted bytes. And a null `param` or `input` argument
+throws `ArgumentNullException` up front; a null `json` or `type` argument is not checked everywhere
+and can still throw `NullReferenceException`.
+
+`Reflection.RDBMode`, which let RaptorDB-style consumers resolve runtime-loaded assemblies, went away
+with the type and has no public replacement.
 
 ## Usage
 

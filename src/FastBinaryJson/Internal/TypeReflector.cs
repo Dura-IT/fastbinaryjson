@@ -611,11 +611,21 @@ namespace DuraIT.FastBinaryJson.Internal
                 return val!;
             else
             {
-                string s = t.AssemblyQualifiedName!;
+                string s = t == typeof(DatasetSchema) ? UpstreamDatasetSchemaName : t.AssemblyQualifiedName!;
                 _tyname.Add(t, s);
                 return s;
             }
         }
+
+        /*
+         * The embedded DataSet/DataTable schema is a DatasetSchema object, so its $type is a library type name.
+         * Upstream wrote its own; this package has another assembly name. Writing upstream's name and
+         * resolving it back to this type keeps DataSet and DataTable payloads readable in both directions.
+         */
+        private const string UpstreamDatasetSchemaPrefix = "fastBinaryJSON.DatasetSchema,";
+
+        private const string UpstreamDatasetSchemaName =
+            "fastBinaryJSON.DatasetSchema, fastBinaryJSON, Version=1.5.0.0, Culture=neutral, PublicKeyToken=6b75a806b86095cd";
 
         internal Type? GetTypeFromCache(string typename, bool blacklistChecking)
         {
@@ -632,7 +642,7 @@ namespace DuraIT.FastBinaryJson.Internal
                         throw new BjsonException("Black list type encountered, possible attack vector when using $type : " + typename);
                 }
 
-                Type? t = Type.GetType(typename);
+                Type? t = typename.StartsWith(UpstreamDatasetSchemaPrefix, StringComparison.Ordinal) ? typeof(DatasetSchema) : Type.GetType(typename);
                 if (RdbMode && t == null) // RaptorDB : loading runtime assemblies
                 {
                     t = Type.GetType(
