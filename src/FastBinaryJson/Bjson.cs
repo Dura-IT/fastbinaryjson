@@ -287,7 +287,22 @@ namespace DuraIT.FastBinaryJson
         /// <summary>
         /// Ignore attributes to check for (default : XmlIgnoreAttribute, NonSerialized)
         /// </summary>
-        public IList<Type> IgnoreAttributes { get; } = new List<Type> { typeof(System.Xml.Serialization.XmlIgnoreAttribute), typeof(NonSerializedAttribute) };
+        public IList<Type> IgnoreAttributes { get; }
+
+        /// <summary>
+        /// Creates parameters with the default settings.
+        /// </summary>
+        public BjsonParameters()
+        {
+            IgnoreAttributes = new List<Type> { typeof(System.Xml.Serialization.XmlIgnoreAttribute), typeof(NonSerializedAttribute) };
+        }
+
+        // For MakeCopy: the copy shares the ignore list, which the serializer and deserializer only read,
+        // instead of building the default one just to clear it and refill it on every call.
+        private BjsonParameters(IList<Type> ignoreAttributes)
+        {
+            IgnoreAttributes = ignoreAttributes;
+        }
 
         /// <summary>
         /// If you have parametric and no default constructor for you classes (default = False)
@@ -326,7 +341,7 @@ namespace DuraIT.FastBinaryJson
 
         internal BjsonParameters MakeCopy()
         {
-            BjsonParameters copy = new BjsonParameters
+            BjsonParameters copy = new BjsonParameters(IgnoreAttributes)
             {
                 UseOptimizedDatasetSchema = UseOptimizedDatasetSchema,
                 ShowReadOnlyProperties = ShowReadOnlyProperties,
@@ -341,12 +356,6 @@ namespace DuraIT.FastBinaryJson
                 UseUtcDateTime = UseUtcDateTime,
                 UseV14TypedArray = UseV14TypedArray,
             };
-
-            copy.IgnoreAttributes.Clear();
-            foreach (Type ignored in IgnoreAttributes)
-            {
-                copy.IgnoreAttributes.Add(ignored);
-            }
 
             return copy;
         }
@@ -463,7 +472,7 @@ namespace DuraIT.FastBinaryJson
         {
             Guard.NotNull(json, nameof(json));
             Guard.NotNull(input, nameof(input));
-            return new Deserializer(Parameters).FillObject(input, json);
+            return new Deserializer(Parameters.MakeCopy()).FillObject(input, json);
         }
 
         /// <summary>
@@ -477,7 +486,7 @@ namespace DuraIT.FastBinaryJson
         public static T? ToObject<T>(byte[] json)
         {
             Guard.NotNull(json, nameof(json));
-            return new Deserializer(Parameters).ToObject<T>(json);
+            return new Deserializer(Parameters.MakeCopy()).ToObject<T>(json);
         }
 
         /// <summary>
@@ -508,7 +517,7 @@ namespace DuraIT.FastBinaryJson
         public static object? ToObject(byte[] json)
         {
             Guard.NotNull(json, nameof(json));
-            return new Deserializer(Parameters).ToObject(json, null);
+            return new Deserializer(Parameters.MakeCopy()).ToObject(json, null);
         }
 
         /// <summary>
@@ -540,7 +549,7 @@ namespace DuraIT.FastBinaryJson
         {
             Guard.NotNull(json, nameof(json));
             Guard.NotNull(type, nameof(type));
-            return new Deserializer(Parameters).ToObject(json, type);
+            return new Deserializer(Parameters.MakeCopy()).ToObject(json, type);
         }
 
         /// <summary>
@@ -558,16 +567,19 @@ namespace DuraIT.FastBinaryJson
         /// <returns>A new object with the same content.</returns>
         public static object? DeepCopy(object? obj)
         {
-            return new Deserializer(Parameters).ToObject(ToBjson(obj));
+            return new Deserializer(Parameters.MakeCopy()).ToObject(ToBjson(obj));
         }
     }
 
     internal class Deserializer
     {
+        /// <summary>
+        /// Reads with <paramref name="param"/> as given: the caller passes a copy it owns, because
+        /// resolving conflicting settings changes them.
+        /// </summary>
         public Deserializer(BjsonParameters param)
         {
             _params = param;
-            _params = param.MakeCopy();
         }
 
         private readonly BjsonParameters _params;

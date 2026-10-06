@@ -184,6 +184,8 @@ namespace DuraIT.FastBinaryJson
                 WriteDateTime(dateTime);
             else if (obj is TimeSpan timeSpan)
                 WriteTimeSpan(timeSpan);
+            else if (TypeReflector.Instance.IsPlainObject(obj.GetType()))
+                WriteObject(obj);
             else if (obj is System.Dynamic.ExpandoObject)
                 WriteStringDictionary((IDictionary<string, object>)obj);
             else if (obj is IDictionary stringKeyed && obj.GetType().IsGenericType && obj.GetType().GetGenericArguments()[0] == typeof(string))

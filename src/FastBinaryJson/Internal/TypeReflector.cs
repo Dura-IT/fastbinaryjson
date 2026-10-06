@@ -13,7 +13,6 @@ using System.Text;
 using System.Runtime.InteropServices;
 #endif
 
-
 namespace DuraIT.FastBinaryJson.Internal
 {
     internal struct Getters
@@ -284,6 +283,7 @@ namespace DuraIT.FastBinaryJson.Internal
             // so the resolved results are no longer trustworthy.
             _serializerForType = new SafeDictionary<Type, CustomTypeSerializer?>();
             _deserializerForType = new SafeDictionary<Type, CustomTypeDeserializer?>();
+            _plainObject = new SafeDictionary<Type, bool>();
             // reset property cache
             Instance.ResetPropertyCache();
         }
@@ -362,6 +362,7 @@ namespace DuraIT.FastBinaryJson.Internal
             CustomDeserializer = new SafeDictionary<Type, CustomTypeDeserializer>();
             _serializerForType = new SafeDictionary<Type, CustomTypeSerializer?>();
             _deserializerForType = new SafeDictionary<Type, CustomTypeDeserializer?>();
+            _plainObject = new SafeDictionary<Type, bool>();
             ResetPropertyCache();
         }
 
@@ -377,6 +378,33 @@ namespace DuraIT.FastBinaryJson.Internal
         internal bool IsTypeRegistered(Type t)
         {
             return TryGetCustomSerializer(t, out _);
+        }
+
+        /*
+         * Whether WriteValue would send a value of this exact type through every special case and land
+         * on WriteObject: not a dictionary, collection, DataSet, DataTable, enum or DateTimeOffset, and
+         * not registered as a custom type. Decided once per type from the same questions the `is` chain
+         * asks, so an ordinary object costs one lookup instead of that whole chain - the interface
+         * casts in it are the slow part. Reset whenever a registration changes the answer.
+         */
+        private SafeDictionary<Type, bool> _plainObject = new SafeDictionary<Type, bool>();
+
+        internal bool IsPlainObject(Type t)
+        {
+            if (_plainObject.TryGetValue(t, out bool plain))
+                return plain;
+
+            plain =
+                !typeof(IEnumerable).IsAssignableFrom(t)
+                && !typeof(DataSet).IsAssignableFrom(t)
+                && !typeof(DataTable).IsAssignableFrom(t)
+                && !typeof(Enum).IsAssignableFrom(t)
+                && !typeof(StringDictionary).IsAssignableFrom(t)
+                && !typeof(NameValueCollection).IsAssignableFrom(t)
+                && t != typeof(DateTimeOffset)
+                && !IsTypeRegistered(t);
+            _plainObject.Add(t, plain);
+            return plain;
         }
         #endregion
 
