@@ -129,7 +129,7 @@ namespace DuraIT.FastBinaryJson.Internal
         private delegate object CreateList(int capacity);
 
         private SafeDictionary<Type, string> _tyname = new SafeDictionary<Type, string>(10);
-        private SafeDictionary<string, Type> _typecache = new SafeDictionary<string, Type>(10);
+        private SafeDictionary<string, Type?> _typecache = new SafeDictionary<string, Type?>(10);
         private SafeDictionary<Type, CreateObject> _constrcache = new SafeDictionary<Type, CreateObject>(10);
         private readonly SafeDictionary<Type, CreateList?> _conlistcache = new SafeDictionary<Type, CreateList?>(10);
         private SafeDictionary<Type, Getters[]> _getterscache = new SafeDictionary<Type, Getters[]>(10);
@@ -596,7 +596,7 @@ namespace DuraIT.FastBinaryJson.Internal
                         true
                     );
                 }
-                _typecache.Add(typename, t!);
+                _typecache.Add(typename, t);
                 return t;
             }
         }
@@ -1158,7 +1158,7 @@ namespace DuraIT.FastBinaryJson.Internal
         internal void ClearReflectionCache()
         {
             _tyname = new SafeDictionary<Type, string>(10);
-            _typecache = new SafeDictionary<string, Type>(10);
+            _typecache = new SafeDictionary<string, Type?>(10);
             _constrcache = new SafeDictionary<Type, CreateObject>(10);
             _getterscache = new SafeDictionary<Type, Getters[]>(10);
             _propertycache = new SafeDictionary<string, Dictionary<string, myPropInfo>>(10);

@@ -716,14 +716,11 @@ namespace DuraIT.FastBinaryJson
             if (globaltypes != null)
                 _globalTypes = true;
 
-            bool found = d.TryGetValue("$type", out tn);
-            if (!found && type == typeof(System.Object))
-            {
-                return d;
-            }
             // _globalTypes is always true here when globaltypes is non-null - set just above.
-            if (found)
-                type = ResolveType(tn!, _globalTypes ? globaltypes : null);
+            if (d.TryGetValue("$type", out tn) && tn != null)
+                type = ResolveType(tn, _globalTypes ? globaltypes : null);
+            else if (type == typeof(System.Object))
+                return d;
 
             if (type == null)
                 throw new BjsonException("Cannot determine type");

@@ -431,8 +431,9 @@ namespace DuraIT.FastBinaryJson
         }
 #else
         // No span reader on this target, so the name is always read the long way.
-        private static bool TryResolveTypeInPlace(Dictionary<string, object>? _, out Type? type)
+        private static bool TryResolveTypeInPlace(Dictionary<string, object>? globaltypes, out Type? type)
         {
+            _ = globaltypes;
             type = null;
             return false;
         }
