@@ -10,20 +10,19 @@ namespace DuraIT.FastBinaryJson
     internal sealed class BjsonParser
     {
         readonly byte[] _json;
-        readonly bool _useUTC;
-        readonly bool _v1_4TA;
+        readonly bool _useUtc;
+        readonly bool _v14Ta;
 
-        internal BjsonParser(byte[] json, bool useUTC, bool v1_4TA)
+        internal BjsonParser(byte[] json, bool useUtc, bool v14Ta)
         {
             this._json = json;
-            _v1_4TA = v1_4TA;
-            _useUTC = useUTC;
+            _v14Ta = v14Ta;
+            _useUtc = useUtc;
         }
 
         public object? Decode()
         {
-            bool b = false;
-            return ParseValue(out b);
+            return ParseValue(out _);
         }
 
         private Dictionary<string, object> ParseObject()
@@ -45,17 +44,17 @@ namespace DuraIT.FastBinaryJson
                     Index = ParseInt();
                     t = GetToken();
                     // read $types
-                    breakparse = readkeyvalue(dic, ref t);
+                    breakparse = ReadKeyValue(dic, ref t);
                     // set index = saved + 4
                     Index = savedindex + 4;
                 }
                 else
-                    breakparse = readkeyvalue(dic, ref t);
+                    breakparse = ReadKeyValue(dic, ref t);
             }
             return dic;
         }
 
-        private bool readkeyvalue(Dictionary<string, object> dic, ref byte t)
+        private bool ReadKeyValue(Dictionary<string, object> dic, ref byte t)
         {
             bool breakparse;
             string key = ReadName(t);
@@ -196,7 +195,7 @@ namespace DuraIT.FastBinaryJson
                 if (length > buffer.Length)
                     return false;
 
-                chars = buffer.Slice(0, TypeReflector.UTF8GetChars(bytes, buffer));
+                chars = buffer.Slice(0, TypeReflector.Utf8GetChars(bytes, buffer));
             }
 
             Index = start + length;
@@ -220,7 +219,7 @@ namespace DuraIT.FastBinaryJson
             int savedindex = Index;
             Index = ParseInt();
             byte t = GetToken();
-            readkeyvalue(dic, ref t);
+            ReadKeyValue(dic, ref t);
             Index = savedindex + 4;
             return dic;
         }
@@ -245,7 +244,7 @@ namespace DuraIT.FastBinaryJson
 #if NET10_0_OR_GREATER
             string s = NameCache.FromUtf8(_json, Index, c);
 #else
-            string s = TypeReflector.UTF8GetString(_json, Index, c);
+            string s = TypeReflector.Utf8GetString(_json, Index, c);
 #endif
             Index += c;
             return s;
@@ -263,7 +262,7 @@ namespace DuraIT.FastBinaryJson
         {
             int c = Helper.ToInt32(_json, Index);
             Index += 4;
-            string s = unicode ? TypeReflector.UnicodeGetString(_json, Index, c) : TypeReflector.UTF8GetString(_json, Index, c);
+            string s = unicode ? TypeReflector.UnicodeGetString(_json, Index, c) : TypeReflector.Utf8GetString(_json, Index, c);
             Index += c;
             return s;
         }
@@ -276,7 +275,7 @@ namespace DuraIT.FastBinaryJson
             while (!breakparse)
             {
                 object? o = ParseValue(out breakparse);
-                byte t = 0;
+                byte t;
                 if (!breakparse)
                 {
                     array.Add(o!);
@@ -379,7 +378,7 @@ namespace DuraIT.FastBinaryJson
             TypedArray ar = new TypedArray();
             if (token == Tokens.TypedArray)
             {
-                if (_v1_4TA)
+                if (_v14Ta)
                     ar.TypeName = ParseName();
                 else
                     ar.TypeName = ParseName2();
@@ -393,7 +392,7 @@ namespace DuraIT.FastBinaryJson
             while (!breakparse)
             {
                 object? o = ParseValue(out breakparse);
-                byte b = 0;
+                byte b;
                 if (!breakparse)
                 {
                     ar.DataList.Add(o!);
@@ -517,7 +516,7 @@ namespace DuraIT.FastBinaryJson
             int c = Helper.ToInt32(_json, Index);
             Index += 4;
 
-            string s = TypeReflector.UTF8GetString(_json, Index, c);
+            string s = TypeReflector.Utf8GetString(_json, Index, c);
             Index += c;
             return s;
         }
@@ -556,7 +555,7 @@ namespace DuraIT.FastBinaryJson
             long l = Helper.ToInt64(_json, Index);
             Index += 8;
 
-            return _useUTC ? new DateTime(l, DateTimeKind.Utc) : new DateTime(l, DateTimeKind.Unspecified);
+            return _useUtc ? new DateTime(l, DateTimeKind.Utc) : new DateTime(l, DateTimeKind.Unspecified);
         }
 
         internal DateTimeOffset ParseDateTimeOffset()

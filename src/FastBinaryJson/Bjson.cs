@@ -415,7 +415,7 @@ namespace DuraIT.FastBinaryJson
         /// <param name="obj">The object to write; null is written as the null token.</param>
         /// <returns>The binary JSON bytes.</returns>
         /// <exception cref="BjsonException">If the object graph is deeper than <see cref="BjsonParameters.SerializerMaxDepth"/>.</exception>
-        public static byte[] ToBjson(object obj)
+        public static byte[] ToBjson(object? obj)
         {
             return ToBjson(obj, Parameters);
         }
@@ -428,14 +428,14 @@ namespace DuraIT.FastBinaryJson
         /// <returns>The binary JSON bytes.</returns>
         /// <exception cref="ArgumentNullException">If <paramref name="param"/> is null.</exception>
         /// <exception cref="BjsonException">If the object graph is deeper than <see cref="BjsonParameters.SerializerMaxDepth"/>.</exception>
-        public static byte[] ToBjson(object obj, BjsonParameters param)
+        public static byte[] ToBjson(object? obj, BjsonParameters param)
         {
             Guard.NotNull(param, nameof(param));
             param = param.MakeCopy();
             param.FixValues();
             Type? t = null;
             if (obj == null)
-                return new byte[] { Tokens.Null };
+                return new[] { Tokens.Null };
             if (obj.GetType().IsGenericType)
                 t = TypeReflector.Instance.GetGenericTypeDefinition(obj.GetType());
             if (t == typeof(Dictionary<,>) || t == typeof(List<>))
@@ -448,7 +448,7 @@ namespace DuraIT.FastBinaryJson
             }
 
             using var serializer = new BjsonSerializer(param);
-            return serializer.ConvertToBJSON(obj);
+            return serializer.ConvertToBjson(obj);
         }
 
         /// <summary>
@@ -556,7 +556,7 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         /// <param name="obj">The object to copy; null is copied as null.</param>
         /// <returns>A new object with the same content.</returns>
-        public static object? DeepCopy(object obj)
+        public static object? DeepCopy(object? obj)
         {
             return new Deserializer(Parameters).ToObject(ToBjson(obj));
         }
@@ -752,14 +752,9 @@ namespace DuraIT.FastBinaryJson
         private object? RootDictionary(object parse, Type type)
         {
             Type[] gtypes = TypeReflector.Instance.GetGenericArguments(type);
-            Type? t1 = null;
-            Type? t2 = null;
-            if (gtypes != null)
-            {
-                t1 = gtypes[0];
-                t2 = gtypes[1];
-            }
-            var arraytype = t2!.GetElementType();
+            Type t1 = gtypes[0];
+            Type t2 = gtypes[1];
+            var arraytype = t2.GetElementType();
 
             if (parse is Dictionary<string, object> parseDictionary)
             {
@@ -894,11 +889,11 @@ namespace DuraIT.FastBinaryJson
 
         internal object? ParseDictionary(Dictionary<string, object>? d, Dictionary<string, object>? globaltypes, Type? type, object? input)
         {
-            object? tn = "";
+            object? tn;
             if (type == typeof(NameValueCollection))
-                return CreateNV(d!);
+                return CreateNv(d!);
             if (type == typeof(StringDictionary))
-                return CreateSD(d!);
+                return CreateSd(d!);
 
             if (d!.TryGetValue("$i", out tn))
                 return ResolveCircular(tn);
@@ -918,16 +913,17 @@ namespace DuraIT.FastBinaryJson
                 _globalTypes = true;
 
             // _globalTypes is always true here when globaltypes is non-null - set just above.
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - a crafted payload can carry a null $type
             if (d.TryGetValue("$type", out tn) && tn != null)
                 type = ResolveType(tn, _globalTypes ? globaltypes : null);
-            else if (type == typeof(System.Object))
+            else if (type == typeof(object))
                 return d;
 
             if (type == null)
                 throw new BjsonException("Cannot determine type");
 
             string typename = type.FullName!;
-            object? o = input ?? CreateInstance(type);
+            object o = input ?? CreateInstance(type);
             int id = RegisterCircular(o);
 
             WireNameMap props = TypeReflector.Instance.GetWireNameMap(type, typename, _params.ShowReadOnlyProperties);
@@ -938,7 +934,7 @@ namespace DuraIT.FastBinaryJson
                 if (pi == null)
                     continue;
                 if (pi.CanWrite && v != null)
-                    o = pi.setter!(o, ConvertValue(pi, v, globaltypes)!);
+                    o = pi.Setter!(o, ConvertValue(pi, v, globaltypes)!);
             }
 
             if (type.IsValueType)
@@ -966,26 +962,26 @@ namespace DuraIT.FastBinaryJson
                 case PropertyKind.DataTable:
                     return CreateDataTable((Dictionary<string, object>)v, globaltypes);
                 case PropertyKind.Custom:
-                    return TypeReflector.Instance.CreateCustom((string)v, pi.pt);
+                    return TypeReflector.Instance.CreateCustom((string)v, pi.Pt);
                 case PropertyKind.Enum:
-                    return CreateEnum(pi.pt, v);
+                    return CreateEnum(pi.Pt, v);
                 case PropertyKind.SByte:
                     return CreateSByte(v);
                 case PropertyKind.StringKeyDictionary:
-                    return CreateStringKeyDictionary((Dictionary<string, object>)v, pi.pt, pi.GenericTypes, globaltypes);
+                    return CreateStringKeyDictionary((Dictionary<string, object>)v, pi.Pt, pi.GenericTypes, globaltypes);
                 case PropertyKind.Hashtable:
                 case PropertyKind.Dictionary:
-                    return CreateDictionary((List<object>)v, pi.pt, pi.GenericTypes, globaltypes);
+                    return CreateDictionary((List<object>)v, pi.Pt, pi.GenericTypes, globaltypes);
                 case PropertyKind.NameValue:
-                    return CreateNV((Dictionary<string, object>)v);
+                    return CreateNv((Dictionary<string, object>)v);
                 case PropertyKind.StringDictionary:
-                    return CreateSD((Dictionary<string, object>)v);
+                    return CreateSd((Dictionary<string, object>)v);
                 case PropertyKind.Array:
-                    return CreateArray((List<object>)v, pi.bt, globaltypes);
+                    return CreateArray((List<object>)v, pi.Bt, globaltypes);
             }
 
             if (pi.IsGenericType && !pi.IsValueType)
-                return CreateGenericList((List<object>)v, pi.pt, pi.bt, globaltypes);
+                return CreateGenericList((List<object>)v, pi.Pt, pi.Bt, globaltypes);
 
             if ((pi.IsClass || pi.IsStruct || pi.IsInterface) && v is Dictionary<string, object>)
             {
@@ -999,7 +995,7 @@ namespace DuraIT.FastBinaryJson
                  * threw InvalidCastException. Nested members get a new instance, the same as ToObject
                  * gives them.
                  */
-                return ParseDictionary(oo, globaltypes, pi.pt, null);
+                return ParseDictionary(oo, globaltypes, pi.Pt, null);
             }
 
             if (v is List<object> valueList)
@@ -1031,7 +1027,8 @@ namespace DuraIT.FastBinaryJson
             int i = 0;
             foreach (var dd in ta.DataList)
             {
-                object? oo = null;
+                object? oo;
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - a typed array can hold null elements
                 if (dd == null)
                     oo = null;
                 else if (dd is TypedArray)
@@ -1048,7 +1045,7 @@ namespace DuraIT.FastBinaryJson
             return oset;
         }
 
-        private static StringDictionary CreateSD(Dictionary<string, object> d)
+        private static StringDictionary CreateSd(Dictionary<string, object> d)
         {
             StringDictionary nv = new StringDictionary();
 
@@ -1058,7 +1055,7 @@ namespace DuraIT.FastBinaryJson
             return nv;
         }
 
-        private static NameValueCollection CreateNV(Dictionary<string, object> d)
+        private static NameValueCollection CreateNv(Dictionary<string, object> d)
         {
             NameValueCollection nv = new NameValueCollection();
 
@@ -1095,6 +1092,7 @@ namespace DuraIT.FastBinaryJson
             for (int i = 0; i < data.Count; i++) // each (object ob in data)
             {
                 object ob = data[i];
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - a list read from a payload can hold null elements
                 if (ob == null)
                 {
                     continue;
@@ -1140,7 +1138,7 @@ namespace DuraIT.FastBinaryJson
         private object CreateStringKeyDictionary(Dictionary<string, object> reader, Type pt, Type[]? types, Dictionary<string, object>? globalTypes)
         {
             var col = (IDictionary)TypeReflector.Instance.FastCreateInstance(pt);
-            Type? arraytype = null;
+            Type? arraytype;
             Type? t2 = null;
             if (types != null)
                 t2 = types[1];
@@ -1154,7 +1152,7 @@ namespace DuraIT.FastBinaryJson
             foreach (KeyValuePair<string, object> values in reader)
             {
                 var key = values.Key;
-                object? val = null;
+                object? val;
 
                 if (values.Value is Dictionary<string, object> entryDictionary)
                     val = ParseDictionary(entryDictionary, globalTypes, t2, null);

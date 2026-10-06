@@ -55,7 +55,7 @@ namespace FastBinaryJson.Benchmarks
 
             foreach (IPayloadCase payload in payloads)
             {
-                foreach (bool unicode in new bool[] { true, false })
+                foreach (bool unicode in new[] { true, false })
                 {
                     string verdict = CompareOutput(payload, new FastBinaryJsonArm(unicode), new UpstreamFastBinaryJsonArm(unicode));
                     Console.WriteLine(string.Concat("  ", payload.Name.PadRight(18), unicode ? "UTF-16  " : "UTF-8   ", verdict));

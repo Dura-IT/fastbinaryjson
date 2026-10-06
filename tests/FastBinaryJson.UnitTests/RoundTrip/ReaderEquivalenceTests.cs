@@ -1,3 +1,4 @@
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -379,14 +380,14 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             if (expected.GetType().Assembly == typeof(object).Assembly)
                 return;
 
-            const System.Reflection.BindingFlags Members = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
-            foreach (System.Reflection.PropertyInfo property in expected.GetType().GetProperties(Members))
+            const System.Reflection.BindingFlags members = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance;
+            foreach (System.Reflection.PropertyInfo property in expected.GetType().GetProperties(members))
             {
                 if (property.GetIndexParameters().Length == 0 && property.CanRead)
                     AssertSameShape(property.GetValue(expected), property.GetValue(actual), path + "." + property.Name, seen);
             }
 
-            foreach (System.Reflection.FieldInfo field in expected.GetType().GetFields(Members))
+            foreach (System.Reflection.FieldInfo field in expected.GetType().GetFields(members))
                 AssertSameShape(field.GetValue(expected), field.GetValue(actual), path + "." + field.Name, seen);
         }
 

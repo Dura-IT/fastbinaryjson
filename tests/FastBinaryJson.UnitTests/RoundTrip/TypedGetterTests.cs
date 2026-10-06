@@ -1,3 +1,4 @@
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
@@ -61,7 +62,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             parameters.FixValues();
             using (BjsonSerializer serializer = new BjsonSerializer(parameters.MakeCopy()) { TypedGetters = typed })
-                return serializer.ConvertToBJSON(value);
+                return serializer.ConvertToBjson(value);
         }
     }
 

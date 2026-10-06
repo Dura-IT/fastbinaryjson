@@ -87,3 +87,62 @@ jobs:
           name: coverage
           path: artifacts/coverage/**/coverage.cobertura.xml
           if-no-files-found: error
+
+  # ReSharper InspectCode: the engine behind Rider's live hints, run headless. It reads the committed
+  # FastBinaryJson.sln.DotSettings, so the editor and CI agree. -e=WARNING mirrors TreatWarningsAsErrors:
+  # Warning and Error fail the job, Suggestion/Hint/Info stay advisory. The repo is public, so findings
+  # also land in code scanning.
+  inspect-code:
+    name: inspectcode (resharper)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # upload-sarif writes to code scanning
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
+
+      # A malformed settings file is ignored SILENTLY by ReSharper, taking every suppression in it
+      # with it. Also fails when no settings file exists, so a rename cannot make this a no-op.
+      - name: Validate DotSettings files are well-formed XML
+        run: |
+          shopt -s nullglob
+          files=(*.sln.DotSettings)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No *.sln.DotSettings found"
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parse(sys.argv[1])" "$f"
+          done
+
+      - name: Inspect code
+        uses: JetBrains/ReSharper-InspectCode@96fdc3456bf2908dd877213a2644ccb9e3010785  # v0.14
+        with:
+          solution: FastBinaryJson.slnx
+          severity: WARNING
+          output: inspectcode.sarif.json
+          upload-sarif: true
+          # Keep in sync with .config/dotnet-tools.json: a drift between the version CI installs and
+          # the one `dotnet jb` runs locally silently changes which inspections fire.
+          tool-version: 2026.2.1
+
+      # InspectCode exits 0 even when it reports findings, so the gate has to be explicit.
+      - name: Fail on findings
+        run: |
+          count=$(jq '[.runs[]?.results[]?] | length' inspectcode.sarif.json)
+          echo "InspectCode findings at WARNING or above: $count"
+          if [ "$count" -gt 0 ]; then
+            jq -r '.runs[]?.results[]? | "\(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)  [\(.ruleId)] \(.message.text)"' inspectcode.sarif.json
+            exit 1
+          fi

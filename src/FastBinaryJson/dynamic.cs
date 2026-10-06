@@ -10,8 +10,8 @@ namespace DuraIT.FastBinaryJson
     {
         // Exactly one of these is populated, decided by what Parse returned - so both are
         // genuinely nullable, and every use below asserts the one the caller implied.
-        private IDictionary<string, object>? _dictionary { get; set; }
-        private IList<object>? _list { get; set; }
+        private readonly IDictionary<string, object>? _dictionary;
+        private readonly IList<object>? _list;
 
         public DynamicJson(byte[] json)
         {

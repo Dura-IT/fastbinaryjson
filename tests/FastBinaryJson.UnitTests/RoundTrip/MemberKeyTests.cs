@@ -1,3 +1,4 @@
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
 using System.Collections.Generic;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
@@ -104,16 +105,16 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void ToObject_MembersInAnotherOrder_ReadsEachByName()
         {
             BjsonParameters parameters = new BjsonParameters { UseExtensions = false, UsingGlobalTypes = false };
-            byte[] inOrder = Bjson.ToBjson(new KeyOrderAB { First = 1, Second = "one" }, parameters);
-            byte[] reversed = Bjson.ToBjson(new KeyOrderBA { Second = "two", First = 2 }, parameters);
+            byte[] inOrder = Bjson.ToBjson(new KeyOrderAb { First = 1, Second = "one" }, parameters);
+            byte[] reversed = Bjson.ToBjson(new KeyOrderBa { Second = "two", First = 2 }, parameters);
 
-            KeyOrderAB first = Bjson.ToObject<KeyOrderAB>(inOrder, parameters)!;
-            KeyOrderAB second = Bjson.ToObject<KeyOrderAB>(reversed, parameters)!;
-            KeyOrderAB third = Bjson.ToObject<KeyOrderAB>(inOrder, parameters)!;
+            KeyOrderAb first = Bjson.ToObject<KeyOrderAb>(inOrder, parameters)!;
+            KeyOrderAb second = Bjson.ToObject<KeyOrderAb>(reversed, parameters)!;
+            KeyOrderAb third = Bjson.ToObject<KeyOrderAb>(inOrder, parameters)!;
 
-            first.Should().BeEquivalentTo(new KeyOrderAB { First = 1, Second = "one" });
-            second.Should().BeEquivalentTo(new KeyOrderAB { First = 2, Second = "two" });
-            third.Should().BeEquivalentTo(new KeyOrderAB { First = 1, Second = "one" });
+            first.Should().BeEquivalentTo(new KeyOrderAb { First = 1, Second = "one" });
+            second.Should().BeEquivalentTo(new KeyOrderAb { First = 2, Second = "two" });
+            third.Should().BeEquivalentTo(new KeyOrderAb { First = 1, Second = "one" });
         }
 
         /// <summary>
@@ -156,14 +157,14 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public int Value { get; set; }
     }
 
-    public sealed class KeyOrderAB
+    public sealed class KeyOrderAb
     {
         public int First { get; set; }
 
         public string? Second { get; set; }
     }
 
-    public sealed class KeyOrderBA
+    public sealed class KeyOrderBa
     {
         public string? Second { get; set; }
 

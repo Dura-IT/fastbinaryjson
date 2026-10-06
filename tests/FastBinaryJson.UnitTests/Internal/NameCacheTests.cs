@@ -40,7 +40,7 @@ namespace FastBinaryJson.UnitTests.Internal
         }
 
         /// <summary>
-        /// Invalid UTF-8 must decode exactly as TypeReflector.UTF8GetString does - same encoder, same
+        /// Invalid UTF-8 must decode exactly as TypeReflector.Utf8GetString does - same encoder, same
         /// replacement - or a stream would resolve to different member names depending on the path.
         /// </summary>
         [Test]
@@ -48,7 +48,7 @@ namespace FastBinaryJson.UnitTests.Internal
         {
             byte[] bytes = { 0x4E, 0xC3, 0x28, 0xFF, 0x62 };
 
-            NameCache.FromUtf8(bytes, 0, bytes.Length).Should().Be(TypeReflector.UTF8GetString(bytes, 0, bytes.Length));
+            NameCache.FromUtf8(bytes, 0, bytes.Length).Should().Be(TypeReflector.Utf8GetString(bytes, 0, bytes.Length));
         }
 
         [Test]

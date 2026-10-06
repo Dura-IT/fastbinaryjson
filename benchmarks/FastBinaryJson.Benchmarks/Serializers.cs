@@ -1,4 +1,5 @@
-using System;
+// ReSharper disable RedundantNameQualifier - both this package and upstream fastBinaryJSON are referenced, so the
+// global:: qualifiers are what keep each call on the intended assembly.
 using System.Text.Json;
 using MessagePack;
 using MessagePack.Resolvers;

@@ -1,3 +1,4 @@
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using AwesomeAssertions;

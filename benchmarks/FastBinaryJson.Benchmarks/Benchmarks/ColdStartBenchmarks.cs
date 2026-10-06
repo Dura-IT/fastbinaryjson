@@ -1,3 +1,5 @@
+// ReSharper disable RedundantNameQualifier - both this package and upstream fastBinaryJSON are referenced, so the
+// global:: qualifiers are what keep each call on the intended assembly.
 using BenchmarkDotNet.Attributes;
 
 namespace FastBinaryJson.Benchmarks.Benchmarks

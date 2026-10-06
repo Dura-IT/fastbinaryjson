@@ -59,7 +59,7 @@ namespace FastBinaryJson.UnitTests.Internal
             map.Remember(new byte[] { 2 }, Age, false);
             map.Remember(new byte[] { 3 }, null, true);
 
-            map.Keys.Select(k => k.Raw[0]).Should().Equal((byte)1, (byte)2, (byte)3);
+            map.Keys.Select(k => k.Raw[0]).Should().Equal(1, 2, 3);
             map.Keys[1].Member.Should().BeSameAs(Age);
             map.Keys[2].Special.Should().BeTrue();
         }
@@ -70,7 +70,7 @@ namespace FastBinaryJson.UnitTests.Internal
             WireNameMap map = CreateMap();
 
             for (int i = 0; i < 500; i++)
-                map.Remember(new byte[] { (byte)i }, null, false);
+                map.Remember(new[] { (byte)i }, null, false);
 
             map.Keys.Length.Should().Be(32, "two members give the minimum cap of 32");
         }

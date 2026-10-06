@@ -1,6 +1,6 @@
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
 using System;
 using System.Collections.Generic;
-using DuraIT.FastBinaryJson;
 
 namespace FastBinaryJson.UnitTests.Golden
 {
@@ -112,12 +112,12 @@ namespace FastBinaryJson.UnitTests.Golden
 
         internal static int[] BuildIntArray()
         {
-            return new int[] { 1, 2, 3, 5, 8, 13, 21 };
+            return new[] { 1, 2, 3, 5, 8, 13, 21 };
         }
 
         internal static string[] BuildStringArray()
         {
-            return new string[] { "alpha", "beta", "gamma" };
+            return new[] { "alpha", "beta", "gamma" };
         }
 
         internal static Dictionary<string, Party> BuildStringKeyedDictionary()

@@ -18,22 +18,22 @@ namespace DuraIT.FastBinaryJson.Internal
     internal sealed class SafeDictionary<TKey, TValue>
         where TKey : notnull
     {
-        private readonly ConcurrentDictionary<TKey, TValue> _Dictionary;
+        private readonly ConcurrentDictionary<TKey, TValue> _dictionary;
         private int _count;
 
         public SafeDictionary(int capacity)
         {
-            _Dictionary = new ConcurrentDictionary<TKey, TValue>(Environment.ProcessorCount, capacity);
+            _dictionary = new ConcurrentDictionary<TKey, TValue>(Environment.ProcessorCount, capacity);
         }
 
         public SafeDictionary()
         {
-            _Dictionary = new ConcurrentDictionary<TKey, TValue>();
+            _dictionary = new ConcurrentDictionary<TKey, TValue>();
         }
 
         public bool TryGetValue(TKey key, out TValue? value)
         {
-            if (_Dictionary.TryGetValue(key, out TValue? found))
+            if (_dictionary.TryGetValue(key, out TValue? found))
             {
                 value = found;
                 return true;
@@ -52,19 +52,19 @@ namespace DuraIT.FastBinaryJson.Internal
         /// <exception cref="KeyNotFoundException">On get, if the key is absent.</exception>
         public TValue this[TKey key]
         {
-            get => _Dictionary[key];
+            get => _dictionary[key];
             set
             {
-                if (_Dictionary.TryAdd(key, value))
+                if (_dictionary.TryAdd(key, value))
                     Interlocked.Increment(ref _count);
                 else
-                    _Dictionary[key] = value;
+                    _dictionary[key] = value;
             }
         }
 
         public void Add(TKey key, TValue value)
         {
-            if (_Dictionary.TryAdd(key, value))
+            if (_dictionary.TryAdd(key, value))
                 Interlocked.Increment(ref _count);
         }
     }

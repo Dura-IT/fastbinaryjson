@@ -27,7 +27,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         /// The name of <see cref="LongNameHolder"/>'s only property, 130 characters.
         /// </summary>
         private const string LongPropertyName =
-            "ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16XXXXXXXXXXXXXXXXXXXXXXXXXX";
+            "ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16Xxxxxxxxxxxxxxxxxxxxxxxxxx";
 
         [TestCase(1)]
         [TestCase(127)]
@@ -80,13 +80,13 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public void PropertyName_LongerThan127Characters_RoundTrips()
         {
             LongNameHolder source = new LongNameHolder();
-            source.ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16XXXXXXXXXXXXXXXXXXXXXXXXXX = 42;
+            source.ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16Xxxxxxxxxxxxxxxxxxxxxxxxxx = 42;
 
             LongNameHolder restored = Bjson.ToObject<LongNameHolder>(Bjson.ToBjson(source))!;
 
             LongPropertyName.Length.Should().Be(130, "the name has to cross the 256 encoded byte threshold as UTF-16");
             restored
-                .ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16XXXXXXXXXXXXXXXXXXXXXXXXXX.Should()
+                .ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16Xxxxxxxxxxxxxxxxxxxxxxxxxx.Should()
                 .Be(42);
         }
 
@@ -142,7 +142,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         private sealed class LongNameHolder
         {
-            public int ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16XXXXXXXXXXXXXXXXXXXXXXXXXX { get; set; }
+            public int ValueWithAPropertyNameLongEnoughToCrossTheTwoHundredAndFiftySixEncodedByteBoundaryWhenItIsWrittenAsUtf16Xxxxxxxxxxxxxxxxxxxxxxxxxx { get; set; }
         }
     }
 }

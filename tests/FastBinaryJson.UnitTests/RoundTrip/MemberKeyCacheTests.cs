@@ -1,3 +1,4 @@
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
 using System.Runtime.Serialization;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
@@ -23,7 +24,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             {
                 Plain = 1,
                 Renamed = 2,
-                AMemberNameLongEnoughThatItsUtf16EncodingNeedsTheFourByteLengthFormBecauseItRunsPastTwoHundredAndFiftyFiveBytesOnTheWireXXPadding = 3,
+                AMemberNameLongEnoughThatItsUtf16EncodingNeedsTheFourByteLengthFormBecauseItRunsPastTwoHundredAndFiftyFiveBytesOnTheWireXxPadding = 3,
             };
             BjsonParameters utf16 = new BjsonParameters { UseUnicodeStrings = true };
             BjsonParameters utf8 = new BjsonParameters { UseUnicodeStrings = false };
@@ -50,6 +51,6 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         public int Renamed { get; set; }
 
         // 129 characters: 258 bytes in UTF-16, past the 255 the one-byte length can carry.
-        public int AMemberNameLongEnoughThatItsUtf16EncodingNeedsTheFourByteLengthFormBecauseItRunsPastTwoHundredAndFiftyFiveBytesOnTheWireXXPadding { get; set; }
+        public int AMemberNameLongEnoughThatItsUtf16EncodingNeedsTheFourByteLengthFormBecauseItRunsPastTwoHundredAndFiftyFiveBytesOnTheWireXxPadding { get; set; }
     }
 }

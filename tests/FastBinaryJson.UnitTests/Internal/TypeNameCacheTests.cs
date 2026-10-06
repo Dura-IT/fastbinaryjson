@@ -34,24 +34,24 @@ namespace FastBinaryJson.UnitTests.Internal
         [Test]
         public void Resolve_UnknownName_ReturnsNullEveryTime()
         {
-            const string Name = "TypeNameCacheProbe.DoesNotExist, NoSuchAssembly";
+            const string name = "TypeNameCacheProbe.DoesNotExist, NoSuchAssembly";
 
-            TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer()).Should().BeNull();
-            TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer()).Should().BeNull();
+            TypeNameCache.Resolve(name.AsSpan(), null, NewDeserializer()).Should().BeNull();
+            TypeNameCache.Resolve(name.AsSpan(), null, NewDeserializer()).Should().BeNull();
         }
 
         [Test]
         public void Resolve_DenylistedName_ThrowsEveryTime()
         {
-            const string Name = "System.Windows.Data.ObjectDataProvider, TypeNameCacheProbe";
+            const string name = "System.Windows.Data.ObjectDataProvider, TypeNameCacheProbe";
 
             FluentActions
-                .Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer()))
+                .Invoking(() => TypeNameCache.Resolve(name.AsSpan(), null, NewDeserializer()))
                 .Should()
                 .Throw<Exception>()
                 .WithMessage("Black list type*");
             FluentActions
-                .Invoking(() => TypeNameCache.Resolve(Name.AsSpan(), null, NewDeserializer()))
+                .Invoking(() => TypeNameCache.Resolve(name.AsSpan(), null, NewDeserializer()))
                 .Should()
                 .Throw<Exception>()
                 .WithMessage("Black list type*");

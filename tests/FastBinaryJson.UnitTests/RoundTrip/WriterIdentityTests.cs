@@ -84,6 +84,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         public override bool Equals(object? obj) => obj is IdEntity other && other.Id == Id;
 
+        // ReSharper disable once NonReadonlyMemberInGetHashCode - equality over a mutable Id is the shape under test
         public override int GetHashCode() => Id;
     }
 

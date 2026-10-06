@@ -30,8 +30,8 @@ namespace DuraIT.FastBinaryJson
 #endif
 
         private int _typespointer;
-        private readonly int _MAX_DEPTH;
-        int _current_depth;
+        private readonly int _maxDepth;
+        int _currentDepth;
 
         /*
          * Keyed by Type, not by assembly-qualified name: every object looks itself up here, and the name
@@ -50,30 +50,19 @@ namespace DuraIT.FastBinaryJson
         private readonly Dictionary<object, int> _cirobj = new Dictionary<object, int>(ReferenceComparer.Instance);
         private readonly BjsonParameters _params;
 
-        private void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                // dispose managed resources
-                _output.Dispose();
-                ReleasePooled();
-            }
-            // free native resources
-        }
-
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            _output.Dispose();
+            ReleasePooled();
         }
 
         internal BjsonSerializer(BjsonParameters param)
         {
             _params = param;
-            _MAX_DEPTH = param.SerializerMaxDepth;
+            _maxDepth = param.SerializerMaxDepth;
         }
 
-        internal byte[] ConvertToBJSON(object obj)
+        internal byte[] ConvertToBjson(object obj)
         {
             // The pooled buffer is returned as soon as the bytes are copied out. Dispose releases it again,
             // which is a no-op, so a caller that forgets to dispose does not hold the buffer.
@@ -83,15 +72,13 @@ namespace DuraIT.FastBinaryJson
                 WriteValue(obj);
 
                 // add $types
-                if (_params.UsingGlobalTypes && _globalTypes != null && _globalTypes.Count > 0)
+                if (_params.UsingGlobalTypes && _globalTypes.Count > 0)
                 {
                     var pointer = OutputLength;
                     WriteName("$types");
                     WriteColon();
                     WriteTypes(_globalTypes);
                     PatchInt32(_typespointer, pointer);
-
-                    return _output.ToArray();
                 }
 
                 return _output.ToArray();
@@ -171,9 +158,9 @@ namespace DuraIT.FastBinaryJson
             else if (obj is byte[] bytes)
                 WriteBytes(bytes);
             else if (obj is StringDictionary stringDictionary)
-                WriteSD(stringDictionary);
+                WriteSd(stringDictionary);
             else if (obj is NameValueCollection nameValues)
-                WriteNV(nameValues);
+                WriteNv(nameValues);
             else if (_params.UseTypedArrays && obj is Array)
                 WriteTypedArray((ICollection)obj);
             else if (obj is IEnumerable sequence)
@@ -249,7 +236,7 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(Tokens.ArrayEnd);
         }
 
-        private void WriteNV(NameValueCollection nameValueCollection)
+        private void WriteNv(NameValueCollection nameValueCollection)
         {
             _output.WriteByte(Tokens.DocStart);
 
@@ -267,7 +254,7 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(Tokens.DocEnd);
         }
 
-        private void WriteSD(StringDictionary stringDictionary)
+        private void WriteSd(StringDictionary stringDictionary)
         {
             _output.WriteByte(Tokens.DocStart);
 
@@ -505,7 +492,7 @@ namespace DuraIT.FastBinaryJson
         private void WriteDataset(DataSet ds)
         {
             _output.WriteByte(Tokens.DocStart);
-            WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(ds) : ds.GetXmlSchema());
+            WritePair("$schema", _params.UseOptimizedDatasetSchema ? GetSchema(ds) : ds.GetXmlSchema());
             WriteComma();
             bool tablesep = false;
             foreach (DataTable table in ds.Tables)
@@ -550,7 +537,7 @@ namespace DuraIT.FastBinaryJson
         void WriteDataTable(DataTable dt)
         {
             _output.WriteByte(Tokens.DocStart);
-            this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? (object?)GetSchema(dt) : GetXmlSchema(dt));
+            this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? GetSchema(dt) : GetXmlSchema(dt));
             WriteComma();
 
             WriteDataTableData(dt);
@@ -559,16 +546,16 @@ namespace DuraIT.FastBinaryJson
             _output.WriteByte(Tokens.DocEnd);
         }
 
-        bool _TypesWritten;
+        bool _typesWritten;
 
         private void WriteObject(object obj)
         {
-            int i = 0;
+            int i;
             if (!_cirobj.TryGetValue(obj, out i))
                 _cirobj.Add(obj, _cirobj.Count + 1);
             else
             {
-                if (_current_depth > 0)
+                if (_currentDepth > 0)
                 {
                     _output.WriteByte(Tokens.DocStart);
                     WriteName("$i");
@@ -582,21 +569,21 @@ namespace DuraIT.FastBinaryJson
                 _output.WriteByte(Tokens.DocStart);
             else
             {
-                if (!_TypesWritten)
+                if (!_typesWritten)
                 {
                     _output.WriteByte(Tokens.DocStart);
                     // write pointer to $types position
                     _output.WriteByte(Tokens.TypesPointer);
                     _typespointer = OutputLength; // place holder
                     WriteInt32Raw(0); // zero pointer for now
-                    _TypesWritten = true;
+                    _typesWritten = true;
                 }
                 else
                     _output.WriteByte(Tokens.DocStart);
             }
-            _current_depth++;
-            if (_current_depth > _MAX_DEPTH)
-                throw new BjsonException("Serializer encountered maximum depth of " + _MAX_DEPTH);
+            _currentDepth++;
+            if (_currentDepth > _maxDepth)
+                throw new BjsonException("Serializer encountered maximum depth of " + _maxDepth);
 
             Type t = obj.GetType();
             bool append = false;
@@ -640,7 +627,7 @@ namespace DuraIT.FastBinaryJson
                 }
             }
             _output.WriteByte(Tokens.DocEnd);
-            _current_depth--;
+            _currentDepth--;
         }
 
         /// <summary>
@@ -724,9 +711,9 @@ namespace DuraIT.FastBinaryJson
         private byte[] MemberKey(ref Getters p)
         {
             if (_params.UseUnicodeStrings)
-                return p.KeyUtf16 ??= EncodeKey(p.memberName ?? p.Name);
+                return p.KeyUtf16 ??= EncodeKey(p.MemberName ?? p.Name);
 
-            return p.KeyUtf8 ??= EncodeKey(p.memberName ?? p.Name);
+            return p.KeyUtf8 ??= EncodeKey(p.MemberName ?? p.Name);
         }
 
         // Written by WriteName and WriteColon themselves, so the cached bytes cannot differ from theirs.
@@ -754,8 +741,6 @@ namespace DuraIT.FastBinaryJson
 
         private void WritePairFast(string name, string value)
         {
-            if (!_params.SerializeNulls && (value == null))
-                return;
             WriteName(name);
 
             WriteColon();
@@ -950,7 +935,7 @@ namespace DuraIT.FastBinaryJson
 
         // Only measures; WriteBytesRaw produces the bytes.
         private static PendingString Encode(string s, bool unicode) =>
-            new PendingString(s, unicode, unicode ? s.Length * sizeof(char) : TypeReflector.UTF8GetByteCount(s));
+            new PendingString(s, unicode, unicode ? s.Length * sizeof(char) : TypeReflector.Utf8GetByteCount(s));
 
         /// <summary>
         /// Writes the string's bytes into the output without an intermediate copy.
@@ -967,7 +952,7 @@ namespace DuraIT.FastBinaryJson
 
             // Counted and encoded by the same encoder instance, so the two cannot disagree; checked
             // anyway, because the header carrying the count is already written.
-            int written = TypeReflector.UTF8GetBytes(pending.Value, _output.GetSpan(pending.Length));
+            int written = TypeReflector.Utf8GetBytes(pending.Value, _output.GetSpan(pending.Length));
             if (written != pending.Length)
                 throw new InvalidOperationException($"UTF-8 encoder wrote {written} bytes after counting {pending.Length}.");
 
@@ -976,12 +961,12 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteBytesRaw(ReadOnlySpan<byte> bytes) => _output.Write(bytes);
 
-        // Idempotent: called from ConvertToBJSON's finally and again from Dispose.
+        // Idempotent: called from ConvertToBjson's finally and again from Dispose.
         private void ReleasePooled() => _output.Dispose();
 
         private int OutputLength => _output.Length;
 #else
-        private static byte[] Encode(string s, bool unicode) => unicode ? TypeReflector.UnicodeGetBytes(s) : TypeReflector.UTF8GetBytes(s);
+        private static byte[] Encode(string s, bool unicode) => unicode ? TypeReflector.UnicodeGetBytes(s) : TypeReflector.Utf8GetBytes(s);
 
         private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes, 0, bytes.Length);
 

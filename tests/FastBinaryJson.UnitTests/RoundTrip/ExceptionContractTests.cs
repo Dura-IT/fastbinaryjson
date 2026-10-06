@@ -95,17 +95,17 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             FluentActions.Invoking(() => Bjson.ToObject(bytes, (Type)null!)).Should().Throw<ArgumentNullException>().WithParameterName("type");
             FluentActions.Invoking(() => Bjson.FillObject(new Node(), null!)).Should().Throw<ArgumentNullException>().WithParameterName("json");
             FluentActions
-                .Invoking(() => Bjson.RegisterCustomType(null!, (o) => string.Empty, (s) => s))
+                .Invoking(() => Bjson.RegisterCustomType(null!, _ => string.Empty, s => s))
                 .Should()
                 .Throw<ArgumentNullException>()
                 .WithParameterName("type");
             FluentActions
-                .Invoking(() => Bjson.RegisterCustomType(nodeType, null!, (s) => s))
+                .Invoking(() => Bjson.RegisterCustomType(nodeType, null!, s => s))
                 .Should()
                 .Throw<ArgumentNullException>()
                 .WithParameterName("serializer");
             FluentActions
-                .Invoking(() => Bjson.RegisterCustomType(nodeType, (o) => string.Empty, null!))
+                .Invoking(() => Bjson.RegisterCustomType(nodeType, _ => string.Empty, null!))
                 .Should()
                 .Throw<ArgumentNullException>()
                 .WithParameterName("deserializer");

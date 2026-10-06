@@ -94,6 +94,7 @@ namespace FastBinaryJson.UnitTests.Internal
             int free = buffer.GetSpan(10).Length;
             int count = pastFreeSpace < 0 ? pastFreeSpace : free + pastFreeSpace;
 
+            // ReSharper disable once AccessToDisposedClosure - the buffer is disposed at the end of the test, after the call
             FluentActions.Invoking(() => buffer.Advance(count)).Should().Throw<ArgumentOutOfRangeException>();
             buffer.Length.Should().Be(0);
         }
@@ -165,6 +166,7 @@ namespace FastBinaryJson.UnitTests.Internal
             using PooledByteBuffer buffer = new PooledByteBuffer();
             buffer.Write(new byte[6]);
 
+            // ReSharper disable once AccessToDisposedClosure - the buffer is disposed at the end of the test, after the call
             FluentActions.Invoking(() => buffer.WriteInt32At(position, 1)).Should().Throw<ArgumentOutOfRangeException>();
         }
 

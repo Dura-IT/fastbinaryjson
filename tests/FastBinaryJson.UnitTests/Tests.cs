@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ReSharper disable InconsistentNaming - ported upstream models and tests keep upstream's names
+// ReSharper disable CollectionNeverQueried.Global - the serializer fills and reads these collections
+// ReSharper disable PossibleNullReferenceException - ported assertions: a null result is the failure they report
+// ReSharper disable AssignNullToNotNullAttribute - null input is the case under test
+// ReSharper disable DefaultStructEqualityIsUsed.Global - a struct with default equality as a dictionary key is the case under test
+// ReSharper disable UsageOfDefaultStructEquality - a struct with default equality as a dictionary key is the case under test
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -85,7 +92,7 @@ public class tests
             booleanValue = true;
             ordinaryDouble = 0.001;
             gender = Gender.Female;
-            intarray = new int[5] { 1, 2, 3, 4, 5 };
+            intarray = new[] { 1, 2, 3, 4, 5 };
         }
 
         public bool booleanValue { get; set; }
@@ -278,7 +285,7 @@ public class tests
     [Test]
     public static void objectarray()
     {
-        var o = new object[3] { 1, "sdfsdfs", DateTime.Now };
+        var o = new object[] { 1, "sdfsdfs", DateTime.Now };
         var b = Bjson.ToBjson(o);
         var s = Bjson.ToObject(b) as object[];
         ClassicAssert.IsNotNull(s);
@@ -724,7 +731,7 @@ public class tests
         var original = Thread.CurrentThread.CurrentCulture;
         try
         {
-            Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de");
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("de");
             decimal d = 3.141592654M;
             var s = Bjson.ToBjson(d);
             var o = Bjson.ToObject(s);
@@ -746,8 +753,8 @@ public class tests
     public static void ArrayTest()
     {
         arrayclass a = new arrayclass();
-        a.ints = new int[] { 3, 1, 4 };
-        a.strs = new string[] { "a", "b", "c" };
+        a.ints = new[] { 3, 1, 4 };
+        a.strs = new[] { "a", "b", "c" };
         var s = Bjson.ToBjson(a);
         var o = (arrayclass)Bjson.ToObject(s);
         CollectionAssert.AreEqual(a.ints, o.ints);
@@ -1175,23 +1182,18 @@ public class tests
     public static void ArrayTest2()
     {
         arrayclass2 a = new arrayclass2();
-        a.ints = new int[] { 3, 1, 4 };
-        a.strs = new string[] { "a", "b", "c" };
-        a.int2d = new int[][] { new int[] { 1, 2, 3 }, new int[] { 2, 3, 4 } };
-        a.int3d = new int[][][]
+        a.ints = new[] { 3, 1, 4 };
+        a.strs = new[] { "a", "b", "c" };
+        a.int2d = new[] { new[] { 1, 2, 3 }, new[] { 2, 3, 4 } };
+        a.int3d = new[] { new[] { new[] { 0, 0, 1 }, new[] { 0, 1, 0 } }, null, new[] { new[] { 0, 0, 2 }, new[] { 0, 2, 0 }, null } };
+        a.class2d = new[]
         {
-            new int[][] { new int[] { 0, 0, 1 }, new int[] { 0, 1, 0 } },
-            null,
-            new int[][] { new int[] { 0, 0, 2 }, new int[] { 0, 2, 0 }, null },
-        };
-        a.class2d = new baseclass[][]
-        {
-            new baseclass[]
+            new[]
             {
                 new baseclass() { Name = "a", Code = "A" },
                 new baseclass() { Name = "b", Code = "B" },
             },
-            new baseclass[] { new baseclass() { Name = "c" } },
+            new[] { new baseclass() { Name = "c" } },
             null,
         };
         var s = Bjson.ToBjson(a);
@@ -1252,7 +1254,7 @@ public class tests
         for (int pp = 0; pp < fivetimes; pp++)
         {
             colclass deserializedStore;
-            byte[] jsonText = null;
+            byte[] jsonText;
 
             stopwatch.Restart();
             jsonText = Bjson.ToBjson(c);
@@ -1587,7 +1589,7 @@ public class tests
 
     public class simpclass
     {
-        public int[] ints = new int[2] { 1, 2 };
+        public int[] ints = new[] { 1, 2 };
         public string name = "aa";
         public long age = 42;
     }
@@ -1596,14 +1598,14 @@ public class tests
     public static void TypedArrays()
     {
         var o = new objcontainer();
-        o.ds = new simpclass[] { new simpclass(), new simpclass() };
+        o.ds = new[] { new simpclass(), new simpclass() };
         var s = Bjson.ToBjson(o);
 
         var r = Bjson.ToObject<objcontainer>(s);
         ClassicAssert.True(typeof(simpclass[]) == r.ds.GetType());
 
         // value type array as root
-        var ii = new int[] { 1, 2, 3, 4, 5 };
+        var ii = new[] { 1, 2, 3, 4, 5 };
         s = Bjson.ToBjson(ii);
         var rr = Bjson.ToObject<int[]>(s);
         ClassicAssert.True(typeof(int[]) == rr.GetType());
@@ -1722,7 +1724,7 @@ public class tests
     [Test]
     public static void ArrayOfObjectExtOff()
     {
-        var s = Bjson.ToBjson(new test[] { new test(), new test() }, new BjsonParameters { UseExtensions = false });
+        var s = Bjson.ToBjson(new[] { new test(), new test() }, new BjsonParameters { UseExtensions = false });
         var o = Bjson.ToObject<test[]>(s);
         Console.WriteLine(o.GetType().ToString());
         ClassicAssert.AreEqual(typeof(test[]), o.GetType());
@@ -1731,7 +1733,7 @@ public class tests
     [Test]
     public static void ArrayOfObjectsWithoutTypeInfoToObjectTyped()
     {
-        var s = Bjson.ToBjson(new test[] { new test(), new test() });
+        var s = Bjson.ToBjson(new[] { new test(), new test() });
         var o = Bjson.ToObject<test[]>(s);
         Console.WriteLine(o.GetType().ToString());
         ClassicAssert.AreEqual(typeof(test[]), o.GetType());
@@ -1740,7 +1742,7 @@ public class tests
     [Test]
     public static void ArrayOfObjectsWithTypeInfoToObject()
     {
-        var s = Bjson.ToBjson(new test[] { new test(), new test() });
+        var s = Bjson.ToBjson(new[] { new test(), new test() });
         var o = Bjson.ToObject(s);
         Console.WriteLine(o.GetType().ToString());
         var i = o as test[];
@@ -1771,7 +1773,7 @@ public class tests
     {
         var input = new CommandSendInfo
         {
-            Items = new KeyAndValue<string, Version>[]
+            Items = new[]
             {
                 new KeyAndValue<string, Version> { Key = "Test", Value = new Version() },
             },

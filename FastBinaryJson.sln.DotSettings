@@ -1,0 +1,11 @@
+<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+
+	<!--
+	Solution-shared ReSharper settings. Read by Rider's live inspections and by `jb inspectcode` in CI,
+	so what shows inline while editing is what the build enforces.
+
+	There are deliberately NO severity overrides here. Every divergence is a justified
+	`// ReSharper disable` at the site (reflection-only test models, ported upstream names), so src/
+	stays fully enforced. Do not add blanket suppressions here to silence a real finding.
+	-->
+</wpf:ResourceDictionary>

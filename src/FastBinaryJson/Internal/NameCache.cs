@@ -40,16 +40,16 @@ namespace DuraIT.FastBinaryJson.Internal
 
         /// <summary>
         /// A UTF-8 name, decoded onto the stack with the same encoder as
-        /// <see cref="TypeReflector.UTF8GetString"/>.
+        /// <see cref="TypeReflector.Utf8GetString"/>.
         /// </summary>
         public static string FromUtf8(byte[] bytes, int offset, int length)
         {
             // A UTF-8 byte never yields more than one char, so this bounds the decoded length.
             if (length > MaxNameLength)
-                return TypeReflector.UTF8GetString(bytes, offset, length);
+                return TypeReflector.Utf8GetString(bytes, offset, length);
 
             Span<char> chars = stackalloc char[MaxNameLength];
-            int written = TypeReflector.UTF8GetChars(new ReadOnlySpan<byte>(bytes, offset, length), chars);
+            int written = TypeReflector.Utf8GetChars(new ReadOnlySpan<byte>(bytes, offset, length), chars);
             return Get(chars.Slice(0, written));
         }
 

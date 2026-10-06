@@ -29,7 +29,7 @@ namespace DuraIT.FastBinaryJson
     {
         // "$type" as each encoding writes it, so the head key of an object is recognised without decoding.
         private static readonly byte[] TypeKeyUtf16 = Key(Tokens.NameUtf16, TypeReflector.UnicodeGetBytes("$type"));
-        private static readonly byte[] TypeKeyUtf8 = Key(Tokens.Name, TypeReflector.UTF8GetBytes("$type"));
+        private static readonly byte[] TypeKeyUtf8 = Key(Tokens.Name, TypeReflector.Utf8GetBytes("$type"));
 
         private readonly Deserializer _deserializer;
         private readonly BjsonParser _parser;
@@ -296,22 +296,22 @@ namespace DuraIT.FastBinaryJson
                 if (next == Tokens.DocStart && IsPlainObjectMember(pi))
                 {
                     object? value;
-                    if (TryReadObject(pi.pt, globaltypes, false, out object? read))
+                    if (TryReadObject(pi.Pt, globaltypes, false, out object? read))
                         value = read;
                     else
                         value = _deserializer.ConvertValue(pi, _parser.ReadValue(out _)!, globaltypes);
 
-                    return pi.setter!(o, value!);
+                    return pi.Setter!(o, value!);
                 }
 
                 if (next == Tokens.ArrayStart && IsPlainListMember(pi))
                 {
                     _parser.ReadToken();
-                    return pi.setter!(o, ReadGenericList(pi.pt, pi.bt, globaltypes));
+                    return pi.Setter!(o, ReadGenericList(pi.Pt, pi.Bt, globaltypes));
                 }
             }
 
-            if (pi != null && pi.CanWrite && pi.typedSetter != null && TrySetTyped(o, pi))
+            if (pi != null && pi.CanWrite && pi.TypedSetter != null && TrySetTyped(o, pi))
                 return o;
 
             object? v = _parser.ReadValue(out bool broke);
@@ -322,7 +322,7 @@ namespace DuraIT.FastBinaryJson
             }
 
             if (pi != null && pi.CanWrite && v != null)
-                return pi.setter!(o, _deserializer.ConvertValue(pi, v, globaltypes)!);
+                return pi.Setter!(o, _deserializer.ConvertValue(pi, v, globaltypes)!);
 
             return o;
         }
@@ -461,11 +461,11 @@ namespace DuraIT.FastBinaryJson
         private bool TrySetTyped(object o, PropertyMetadata pi)
         {
             byte next = _parser.PeekToken();
-            if (next != pi.typedToken && (pi.typedToken != Tokens.True || next != Tokens.False))
+            if (next != pi.TypedToken && (pi.TypedToken != Tokens.True || next != Tokens.False))
                 return false;
 
             _parser.ReadToken();
-            Delegate setter = pi.typedSetter!;
+            Delegate setter = pi.TypedSetter!;
             switch (next)
             {
                 case Tokens.Int32:
