@@ -30,6 +30,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(ParameterSets))]
         public void ToBjson_Primitives_WriteTheBoxingPathsBytes(BjsonParameters parameters)
         {
+            ArgumentNullException.ThrowIfNull(parameters);
             TypedGetterSubject value = TypedGetterSubject.Create();
 
             Write(value, parameters, typed: true).Should().Equal(Write(value, parameters, typed: false));
@@ -38,6 +39,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(ParameterSets))]
         public void ToBjson_ExtremeValues_WriteTheBoxingPathsBytes(BjsonParameters parameters)
         {
+            ArgumentNullException.ThrowIfNull(parameters);
             TypedGetterSubject value = TypedGetterSubject.CreateExtremes();
 
             Write(value, parameters, typed: true).Should().Equal(Write(value, parameters, typed: false));

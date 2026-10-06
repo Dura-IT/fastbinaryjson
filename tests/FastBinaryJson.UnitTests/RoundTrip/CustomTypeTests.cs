@@ -98,7 +98,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             public string Name { get; set; } = null!;
         }
 
+#pragma warning disable S2094 // An empty derived type is the case under test
         private sealed class Dog : Animal { }
+#pragma warning restore S2094
 
         private sealed class AnimalHolder
         {

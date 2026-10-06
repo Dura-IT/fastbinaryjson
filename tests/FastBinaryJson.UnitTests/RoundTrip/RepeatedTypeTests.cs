@@ -61,7 +61,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         }
     }
 
+#pragma warning disable S2094 // An empty base type is the case under test
     public abstract class RepeatBase { }
+#pragma warning restore S2094
 
     public sealed class RepeatA : RepeatBase
     {

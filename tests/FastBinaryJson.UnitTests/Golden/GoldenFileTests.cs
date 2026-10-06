@@ -135,6 +135,7 @@ namespace FastBinaryJson.UnitTests.Golden
         [TestCaseSource(nameof(Cases))]
         public void Serialize_MatchesCommittedBytes(GoldenCase testCase)
         {
+            ArgumentNullException.ThrowIfNull(testCase);
             Bjson.ClearReflectionCache();
             byte[] actual = Bjson.ToBjson(testCase.Build(), testCase.Parameters());
 
@@ -168,6 +169,7 @@ namespace FastBinaryJson.UnitTests.Golden
         [TestCaseSource(nameof(Cases))]
         public void Deserialize_CommittedBytes_RestoresValue(GoldenCase testCase)
         {
+            ArgumentNullException.ThrowIfNull(testCase);
             if (Regenerating)
             {
                 Assert.Ignore("Regenerating: the committed bytes are being rewritten, so there is nothing stable to read back.");

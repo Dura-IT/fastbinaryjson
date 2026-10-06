@@ -210,10 +210,12 @@ public class tests
         public string Name { get; set; }
         public string Field1;
         public int Field2;
+#pragma warning disable CA1822, S2325 // A read-only INSTANCE property is the shape under test
         public string ppp
         {
             get { return "sdfas df "; }
         }
+#pragma warning restore CA1822, S2325
         public DateTime date { get; set; }
         public DataTable ds { get; set; }
     }
@@ -224,10 +226,12 @@ public class tests
         public string Name { get; set; }
         public string Field1;
         public int Field2;
+#pragma warning disable CA1822, S2325 // A read-only INSTANCE property is the shape under test
         public string ppp
         {
             get { return "sdfas df "; }
         }
+#pragma warning restore CA1822, S2325
         public DateTime date { get; set; }
         public DataTable ds { get; set; }
     }
@@ -866,6 +870,7 @@ public class tests
 
     public enum enumt
     {
+        None = 0,
         A = 65,
         B = 90,
         C = 100,
@@ -887,7 +892,8 @@ public class tests
         ClassicAssert.AreEqual(enumt.B, o.e);
     }
 
-    public class ignoreatt : Attribute { }
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public sealed class IgnoreMarkerAttribute : Attribute { }
 
     public class ignore
     {
@@ -896,11 +902,13 @@ public class tests
         [System.Xml.Serialization.XmlIgnore]
         public int Age1 { get; set; }
 
-        [ignoreatt]
+        [IgnoreMarker]
         public int Age2;
     }
 
+#pragma warning disable S2094 // An empty derived type is the case under test
     public class ignore1 : ignore { }
+#pragma warning restore S2094
 
     [Test]
     public static void IgnoreAttributes()
@@ -921,7 +929,7 @@ public class tests
             Name = "bb",
         };
         var j = new BjsonParameters();
-        j.IgnoreAttributes.Add(typeof(ignoreatt));
+        j.IgnoreAttributes.Add(typeof(IgnoreMarkerAttribute));
         s = Bjson.ToBjson(i, j);
         var oo = Bjson.ToObject<ignore1>(s);
         ClassicAssert.AreEqual(0, oo.Age1);
@@ -1236,7 +1244,9 @@ public class tests
     public static void exotic_deserialize()
     {
         Console.WriteLine();
+#pragma warning disable CA1303 // Timing smoke test progress text; nothing here is localised
         Console.Write("fastbinaryjson deserialize");
+#pragma warning restore CA1303
         colclass c = CreateObject(true, true);
         var stopwatch = new Stopwatch();
         for (int pp = 0; pp < fivetimes; pp++)
@@ -1260,7 +1270,9 @@ public class tests
     public static void exotic_serialize()
     {
         Console.WriteLine();
+#pragma warning disable CA1303 // Timing smoke test progress text; nothing here is localised
         Console.Write("fastbinaryjson serialize");
+#pragma warning restore CA1303
         colclass c = CreateObject(true, true);
         var stopwatch = new Stopwatch();
         for (int pp = 0; pp < fivetimes; pp++)
@@ -1490,18 +1502,8 @@ public class tests
     public class intfc : iintfc
     {
         public string address = "fadfsdf";
-        private int _age;
-        public int age
-        {
-            get { return _age; }
-            set { _age = value; }
-        }
-        private string _name;
-        public string name
-        {
-            get { return _name; }
-            set { _name = value; }
-        }
+        public int age { get; set; }
+        public string name { get; set; }
     }
 
     public class it
@@ -1713,7 +1715,9 @@ public class tests
         ClassicAssert.AreEqual(d.MminDec, o.MminDec);
     }
 
+#pragma warning disable S2094 // An empty type is the case under test
     public class test { }
+#pragma warning restore S2094
 
     [Test]
     public static void ArrayOfObjectExtOff()
@@ -1799,7 +1803,7 @@ public class tests
         ClassicAssert.AreEqual("Value2", v["Key2"]);
     }
 
-    public enum MyEnum
+    public enum Letter
     {
         a,
         b,
@@ -1808,13 +1812,13 @@ public class tests
     [Test]
     public static void RootEnum()
     {
-        var e = MyEnum.b;
+        var e = Letter.b;
         var s = Bjson.ToBjson(e);
 
-        var o = Bjson.ToObject<MyEnum>(s);
+        var o = Bjson.ToObject<Letter>(s);
         ClassicAssert.AreEqual(e, o);
 
-        o = Bjson.ToObject<MyEnum>(s);
+        o = Bjson.ToObject<Letter>(s);
         ClassicAssert.AreEqual(e, o);
     }
 

@@ -28,6 +28,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(Cases))]
         public void ToObject_OneStep_MatchesTwoStep(EquivalenceCase testCase)
         {
+            ArgumentNullException.ThrowIfNull(testCase);
             byte[] bytes = Bjson.ToBjson(testCase.Build(), testCase.Parameters());
 
             Outcome twoStep = Read(bytes, testCase, oneStep: false);
@@ -60,6 +61,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(MutationSources))]
         public void ToObject_DamagedInput_BothThrowOrBothMatch(EquivalenceCase source)
         {
+            ArgumentNullException.ThrowIfNull(source);
             byte[] original = Bjson.ToBjson(source.Build(), source.Parameters());
             Random random = new Random(20260930 + original.Length);
             int succeeded = 0;
