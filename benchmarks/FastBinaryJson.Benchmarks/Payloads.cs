@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using FastBinaryJson.Benchmarks.Corpus;
 
 namespace FastBinaryJson.Benchmarks
@@ -8,25 +10,25 @@ namespace FastBinaryJson.Benchmarks
     /// A single corpus payload, type-erased so reports can iterate the corpus uniformly while
     /// each case still dispatches its own generic serialize/deserialize calls.
     /// </summary>
-    public abstract class PayloadCase
+    internal interface IPayloadCase
     {
-        public abstract string Name { get; }
+        string Name { get; }
 
-        public abstract string Shape { get; }
+        string Shape { get; }
 
-        public abstract byte[] Serialize(ISerializerArm arm);
+        byte[] Serialize(ISerializerArm arm);
 
-        public abstract object Deserialize(ISerializerArm arm, byte[] bytes);
+        object Deserialize(ISerializerArm arm, byte[] bytes);
 
         /// <summary>
         /// Serializes, deserializes, then re-serializes and compares bytes. Byte equality across
         /// the round trip is a stronger check than deep equality and needs no per-type comparer -
-        /// anything the serializer dropped or widened changes the second encoding.
+        /// anything the serializer dropped or widened changed the second encoding.
         /// </summary>
-        public abstract bool TryRoundTrip(ISerializerArm arm, out string error);
+        bool TryRoundTrip(ISerializerArm arm, out string failure);
     }
 
-    public sealed class PayloadCase<T> : PayloadCase
+    internal sealed class PayloadCase<T> : IPayloadCase
     {
         private readonly string _name;
         private readonly string _shape;
@@ -39,17 +41,17 @@ namespace FastBinaryJson.Benchmarks
             _value = value;
         }
 
-        public override string Name => _name;
+        public string Name => _name;
 
-        public override string Shape => _shape;
+        public string Shape => _shape;
 
         public T Value => _value;
 
-        public override byte[] Serialize(ISerializerArm arm) => arm.Serialize(_value);
+        public byte[] Serialize(ISerializerArm arm) => arm.Serialize(_value);
 
-        public override object Deserialize(ISerializerArm arm, byte[] bytes) => arm.Deserialize<T>(bytes)!;
+        public object Deserialize(ISerializerArm arm, byte[] bytes) => arm.Deserialize<T>(bytes)!;
 
-        public override bool TryRoundTrip(ISerializerArm arm, out string error)
+        public bool TryRoundTrip(ISerializerArm arm, out string failure)
         {
             try
             {
@@ -59,7 +61,12 @@ namespace FastBinaryJson.Benchmarks
 
                 if (first.Length != second.Length)
                 {
-                    error = string.Concat("re-encode differs in length: ", first.Length.ToString(), " then ", second.Length.ToString());
+                    failure = string.Concat(
+                        "re-encode differs in length: ",
+                        first.Length.ToString(CultureInfo.InvariantCulture),
+                        " then ",
+                        second.Length.ToString(CultureInfo.InvariantCulture)
+                    );
                     return false;
                 }
 
@@ -67,27 +74,29 @@ namespace FastBinaryJson.Benchmarks
                 {
                     if (first[i] != second[i])
                     {
-                        error = string.Concat("re-encode differs at byte ", i.ToString());
+                        failure = string.Concat("re-encode differs at byte ", i.ToString(CultureInfo.InvariantCulture));
                         return false;
                     }
                 }
 
-                error = string.Empty;
+                failure = string.Empty;
                 return true;
             }
+#pragma warning disable CA1031 // A round trip that throws is reported as a failure of that arm, not propagated.
             catch (Exception ex)
+#pragma warning restore CA1031
             {
-                error = string.Concat(ex.GetType().Name, ": ", ex.Message);
+                failure = string.Concat(ex.GetType().Name, ": ", ex.Message);
                 return false;
             }
         }
     }
 
-    public static class Payloads
+    internal static class Payloads
     {
-        public static IReadOnlyList<PayloadCase> All()
+        public static IReadOnlyList<IPayloadCase> All()
         {
-            return new List<PayloadCase>
+            return new List<IPayloadCase>
             {
                 new PayloadCase<FlatPrimitives>("FlatPrimitives", "single flat object, every primitive", PayloadFactory.CreateFlatPrimitives()),
                 new PayloadCase<Order>("NestedOrder", "nested graph, " + PayloadFactory.OrderLineCount + " lines", PayloadFactory.CreateNestedOrder()),
@@ -135,14 +144,12 @@ namespace FastBinaryJson.Benchmarks
             }
         }
 
-        public static PayloadCase ByName(string name)
+        public static IPayloadCase ByName(string name)
         {
-            foreach (PayloadCase payload in All())
+            IPayloadCase? payload = All().FirstOrDefault(candidate => string.Equals(candidate.Name, name, StringComparison.Ordinal));
+            if (payload != null)
             {
-                if (string.Equals(payload.Name, name, StringComparison.Ordinal))
-                {
-                    return payload;
-                }
+                return payload;
             }
 
             throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown payload.");

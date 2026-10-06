@@ -87,3 +87,9 @@ dotnet_diagnostic.CA5394.severity = none
 dotnet_diagnostic.CA1515.severity = none
 # CA1303: a developer console tool that is never localised.
 dotnet_diagnostic.CA1303.severity = none
+
+# The corpus models are the INPUT to the benchmarks: List<T> properties and settable collections are
+# the shapes whose serialization is being measured, so they are not API-design choices here.
+[benchmarks/**/Corpus/**.cs]
+dotnet_diagnostic.CA1002.severity = none
+dotnet_diagnostic.CA2227.severity = none

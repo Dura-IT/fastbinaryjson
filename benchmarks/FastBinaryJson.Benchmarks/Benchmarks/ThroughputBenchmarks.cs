@@ -19,7 +19,7 @@ namespace FastBinaryJson.Benchmarks.Benchmarks
     [SimpleJob(launchCount: 3, warmupCount: 3, iterationCount: 5)]
     public class ThroughputBenchmarks
     {
-        private PayloadCase _payload = null!;
+        private IPayloadCase _payload = null!;
         private ISerializerArm _arm = null!;
         private byte[] _encoded = null!;
 

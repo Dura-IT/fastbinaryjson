@@ -15,7 +15,7 @@ namespace FastBinaryJson.Benchmarks.Benchmarks
     [SimpleJob(launchCount: 3, warmupCount: 2, iterationCount: 10, invocationCount: 1)]
     public class ColdStartBenchmarks
     {
-        private PayloadCase _payload = null!;
+        private IPayloadCase _payload = null!;
         private ISerializerArm _arm = null!;
 
         [Params("FlatPrimitives", "NestedOrder", "LargeCollection", "GuidDense", "Polymorphic")]
@@ -28,8 +28,10 @@ namespace FastBinaryJson.Benchmarks.Benchmarks
             _arm = Payloads.ArmByKey("fbj-utf16");
         }
 
+#pragma warning disable CA1822 // BenchmarkDotNet looks its setup hooks up as instance methods.
         [IterationSetup]
         public void ClearCache() => global::DuraIT.FastBinaryJson.BJSON.ClearReflectionCache();
+#pragma warning restore CA1822
 
         [Benchmark(Description = "First serialize after cache clear")]
         public byte[] ColdSerialize() => _payload.Serialize(_arm);

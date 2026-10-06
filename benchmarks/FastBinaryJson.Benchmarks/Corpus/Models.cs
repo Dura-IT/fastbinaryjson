@@ -52,6 +52,7 @@ namespace FastBinaryJson.Benchmarks.Corpus
     /// <summary>
     /// Deeply nested object graph: order to customer to address, plus a nested line collection.
     /// </summary>
+#pragma warning disable CA1724 // Renaming would change the type name every Order payload embeds, and so its size.
     public sealed class Order
     {
         public Guid OrderId { get; set; }
@@ -61,6 +62,7 @@ namespace FastBinaryJson.Benchmarks.Corpus
         public List<OrderLine> Lines { get; set; } = new List<OrderLine>();
         public decimal Total { get; set; }
     }
+#pragma warning restore CA1724
 
     public sealed class Customer
     {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace FastBinaryJson.Benchmarks.Corpus
 {
@@ -80,7 +81,7 @@ namespace FastBinaryJson.Benchmarks.Corpus
             return new Dictionary<string, string>
             {
                 { "short", "ordinary value" },
-                { longKey, "value behind a key of " + longKey.Length.ToString() + " characters" },
+                { longKey, "value behind a key of " + longKey.Length.ToString(CultureInfo.InvariantCulture) + " characters" },
             };
         }
 
@@ -100,7 +101,7 @@ namespace FastBinaryJson.Benchmarks.Corpus
                     new OrderLine
                     {
                         LineNumber = i + 1,
-                        Sku = string.Concat("SKU-", random.Next(100000, 999999).ToString()),
+                        Sku = string.Concat("SKU-", random.Next(100000, 999999).ToString(CultureInfo.InvariantCulture)),
                         Description = NextSentence(random, 6),
                         Quantity = quantity,
                         UnitPrice = unitPrice,
@@ -231,15 +232,21 @@ namespace FastBinaryJson.Benchmarks.Corpus
         {
             return new Address
             {
-                Line1 = string.Concat(Words[random.Next(Words.Length)], " ", random.Next(1, 300).ToString()),
+                Line1 = string.Concat(Words[random.Next(Words.Length)], " ", random.Next(1, 300).ToString(CultureInfo.InvariantCulture)),
                 Line2 = Words[random.Next(Words.Length)],
-                PostalCode = string.Concat(random.Next(1000, 9999).ToString(), " ", Words[random.Next(Words.Length)].Substring(0, 2).ToUpperInvariant()),
+                PostalCode = string.Concat(
+                    random.Next(1000, 9999).ToString(CultureInfo.InvariantCulture),
+                    " ",
+                    Words[random.Next(Words.Length)].Substring(0, 2).ToUpperInvariant()
+                ),
                 City = Words[random.Next(Words.Length)],
                 CountryCode = "NL",
             };
         }
 
+#pragma warning disable S2245 // A fixed seed is the point: every run must build the same payloads. Nothing here is security-sensitive.
         private static Random NewRandom() => new Random(Seed);
+#pragma warning restore S2245
 
         private static long NextInt64(Random random)
         {

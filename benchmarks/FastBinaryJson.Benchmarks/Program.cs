@@ -8,24 +8,25 @@ namespace FastBinaryJson.Benchmarks
     {
         public static int Main(string[] args)
         {
-            string mode = args.Length > 0 ? args[0].ToLowerInvariant() : "bench";
+            ArgumentNullException.ThrowIfNull(args);
+            string mode = args.Length > 0 ? args[0].ToUpperInvariant() : "BENCH";
 
-            IReadOnlyList<PayloadCase> payloads = Payloads.All();
+            IReadOnlyList<IPayloadCase> payloads = Payloads.All();
             IReadOnlyList<ISerializerArm> arms = Payloads.AllArms();
 
             switch (mode)
             {
-                case "validate":
-                    Reports.PrintCompatibilityMatrix(payloads, arms);
-                    Reports.PrintUpstreamIdentity(payloads);
+                case "VALIDATE":
+                    ReportWriter.PrintCompatibilityMatrix(payloads, arms);
+                    ReportWriter.PrintUpstreamIdentity(payloads);
                     return 0;
 
-                case "sizes":
-                    Reports.PrintCompatibilityMatrix(payloads, arms);
-                    Reports.PrintSizeTable(payloads, arms);
+                case "SIZES":
+                    ReportWriter.PrintCompatibilityMatrix(payloads, arms);
+                    ReportWriter.PrintSizeTable(payloads, arms);
                     return 0;
 
-                case "bench":
+                case "BENCH":
                     BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(SkipFirst(args));
                     return 0;
 

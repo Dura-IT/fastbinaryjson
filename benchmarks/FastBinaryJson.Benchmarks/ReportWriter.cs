@@ -13,19 +13,21 @@ namespace FastBinaryJson.Benchmarks
     /// MemoryStreams costs far more per blob than deflate spends on the bytes, so timing them
     /// would measure stream plumbing and report it as codec cost.
     /// </summary>
-    public static class Reports
+    internal static class ReportWriter
     {
         private sealed record SizeRow(string Name, bool Supported, int Raw, int Gzip, int Brotli);
 
-        public static void PrintCompatibilityMatrix(IReadOnlyList<PayloadCase> payloads, IReadOnlyList<ISerializerArm> arms)
+        public static void PrintCompatibilityMatrix(IReadOnlyList<IPayloadCase> payloads, IReadOnlyList<ISerializerArm> arms)
         {
+            ArgumentNullException.ThrowIfNull(payloads);
+            ArgumentNullException.ThrowIfNull(arms);
             Console.WriteLine("## Round-trip compatibility");
             Console.WriteLine();
             Console.WriteLine("Serialize, deserialize, re-serialize, compare bytes. A failure here means the");
             Console.WriteLine("combination cannot be honestly benchmarked, not that it is slow.");
             Console.WriteLine();
 
-            foreach (PayloadCase payload in payloads)
+            foreach (IPayloadCase payload in payloads)
             {
                 Console.WriteLine(string.Concat("### ", payload.Name, "  (", payload.Shape, ")"));
 
@@ -45,12 +47,13 @@ namespace FastBinaryJson.Benchmarks
         /// Whether the fork and upstream 1.6.1 write the same bytes for each payload. Identical
         /// output means both arms do the same work, so any timing difference is implementation.
         /// </summary>
-        public static void PrintUpstreamIdentity(IReadOnlyList<PayloadCase> payloads)
+        public static void PrintUpstreamIdentity(IReadOnlyList<IPayloadCase> payloads)
         {
+            ArgumentNullException.ThrowIfNull(payloads);
             Console.WriteLine("## Fork vs upstream 1.6.1 output");
             Console.WriteLine();
 
-            foreach (PayloadCase payload in payloads)
+            foreach (IPayloadCase payload in payloads)
             {
                 foreach (bool unicode in new bool[] { true, false })
                 {
@@ -62,7 +65,7 @@ namespace FastBinaryJson.Benchmarks
             Console.WriteLine();
         }
 
-        private static string CompareOutput(PayloadCase payload, ISerializerArm fork, ISerializerArm upstream)
+        private static string CompareOutput(IPayloadCase payload, ISerializerArm fork, ISerializerArm upstream)
         {
             try
             {
@@ -89,14 +92,18 @@ namespace FastBinaryJson.Benchmarks
 
                 return "IDENTICAL";
             }
+#pragma warning disable CA1031 // A comparison that throws is reported as a FAIL row, not propagated.
             catch (Exception ex)
+#pragma warning restore CA1031
             {
                 return string.Concat("FAIL  -  ", ex.GetType().Name, ": ", ex.Message);
             }
         }
 
-        public static void PrintSizeTable(IReadOnlyList<PayloadCase> payloads, IReadOnlyList<ISerializerArm> arms)
+        public static void PrintSizeTable(IReadOnlyList<IPayloadCase> payloads, IReadOnlyList<ISerializerArm> arms)
         {
+            ArgumentNullException.ThrowIfNull(payloads);
+            ArgumentNullException.ThrowIfNull(arms);
             Console.WriteLine("## Encoded size (bytes)");
             Console.WriteLine();
             Console.WriteLine("`Gzip shrink` is gzip relative to that serializer's own raw output - how much slack");
@@ -105,7 +112,7 @@ namespace FastBinaryJson.Benchmarks
             Console.WriteLine("a format can win on raw bytes and lose once both sides are compressed.");
             Console.WriteLine();
 
-            foreach (PayloadCase payload in payloads)
+            foreach (IPayloadCase payload in payloads)
             {
                 List<SizeRow> rows = BuildRows(payload, arms);
                 SizeRow? baseline = FindBaseline(rows, arms);
@@ -148,7 +155,7 @@ namespace FastBinaryJson.Benchmarks
             }
         }
 
-        private static List<SizeRow> BuildRows(PayloadCase payload, IReadOnlyList<ISerializerArm> arms)
+        private static List<SizeRow> BuildRows(IPayloadCase payload, IReadOnlyList<ISerializerArm> arms)
         {
             List<SizeRow> rows = new List<SizeRow>(arms.Count);
 
@@ -161,7 +168,7 @@ namespace FastBinaryJson.Benchmarks
                 }
 
                 byte[] encoded = payload.Serialize(arm);
-                rows.Add(new SizeRow(arm.Name, true, encoded.Length, Compression.GzipSize(encoded), Compression.BrotliSize(encoded)));
+                rows.Add(new SizeRow(arm.Name, true, encoded.Length, PayloadCompression.GzipSize(encoded), PayloadCompression.BrotliSize(encoded)));
             }
 
             return rows;

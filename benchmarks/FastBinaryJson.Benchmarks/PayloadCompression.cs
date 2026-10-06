@@ -9,10 +9,11 @@ namespace FastBinaryJson.Benchmarks
     /// report - they are deliberately not on any timed benchmark path, because per-blob stream
     /// construction costs far more than the codec itself and would measure plumbing, not format.
     /// </summary>
-    public static class Compression
+    public static class PayloadCompression
     {
         public static int GzipSize(byte[] payload)
         {
+            ArgumentNullException.ThrowIfNull(payload);
             using (MemoryStream output = new MemoryStream())
             {
                 using (GZipStream gzip = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
@@ -26,6 +27,7 @@ namespace FastBinaryJson.Benchmarks
 
         public static int BrotliSize(byte[] payload)
         {
+            ArgumentNullException.ThrowIfNull(payload);
             byte[] buffer = new byte[BrotliEncoder.GetMaxCompressedLength(payload.Length)];
             if (!BrotliEncoder.TryCompress(payload, buffer, out int written, quality: 11, window: 22))
             {
