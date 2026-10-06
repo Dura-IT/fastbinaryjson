@@ -194,6 +194,12 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public static byte[] UnicodeGetBytes(string str)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(str);
+#else
+            if (str == null)
+                throw new ArgumentNullException(nameof(str));
+#endif
             char[] chars = str.ToCharArray();
             byte[] b = new byte[chars.Length * 2];
             Buffer.BlockCopy(chars, 0, b, 0, b.Length);
@@ -202,11 +208,23 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public static string UnicodeGetString(byte[] b)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(b);
+#else
+            if (b == null)
+                throw new ArgumentNullException(nameof(b));
+#endif
             return UnicodeGetString(b, 0, b.Length);
         }
 
         public static string UnicodeGetString(byte[] bytes, int offset, int buflen)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(bytes);
+#else
+            if (bytes == null)
+                throw new ArgumentNullException(nameof(bytes));
+#endif
             // Bounds are checked here so a length running past the payload cannot be read as text.
             if (offset < 0 || buflen < 0 || offset > bytes.Length - buflen)
                 throw new ArgumentOutOfRangeException(nameof(buflen));
@@ -353,6 +371,12 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Type GetGenericTypeDefinition(Type t)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(t);
+#else
+            if (t == null)
+                throw new ArgumentNullException(nameof(t));
+#endif
             Type? tt = null;
             if (_genericTypeDef.TryGetValue(t, out tt))
                 return tt!;
@@ -366,6 +390,12 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Type[] GetGenericArguments(Type t)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(t);
+#else
+            if (t == null)
+                throw new ArgumentNullException(nameof(t));
+#endif
             Type[]? tt = null;
             if (_genericTypes.TryGetValue(t, out tt))
                 return tt!;
@@ -379,6 +409,12 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public Dictionary<string, myPropInfo> Getproperties(Type type, string typename, bool ShowReadOnlyProperties)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(type);
+#else
+            if (type == null)
+                throw new ArgumentNullException(nameof(type));
+#endif
             Dictionary<string, myPropInfo>? sd = null;
             if (_propertycache.TryGetValue(typename, out sd))
             {
@@ -560,6 +596,12 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public string GetTypeAssemblyName(Type t)
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(t);
+#else
+            if (t == null)
+                throw new ArgumentNullException(nameof(t));
+#endif
             string? val = "";
             if (_tyname.TryGetValue(t, out val))
                 return val!;
@@ -1068,6 +1110,12 @@ namespace DuraIT.FastBinaryJson.Internal
             List<Type> IgnoreAttributes
         )
         {
+#if NET10_0_OR_GREATER
+            ArgumentNullException.ThrowIfNull(type);
+#else
+            if (type == null)
+                throw new ArgumentNullException(nameof(type));
+#endif
             Getters[]? val = null;
             if (_getterscache.TryGetValue(type, out val))
                 return val!;

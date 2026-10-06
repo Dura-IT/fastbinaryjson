@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Linq;
 
 namespace DuraIT.FastBinaryJson
 {
@@ -48,17 +49,9 @@ namespace DuraIT.FastBinaryJson
 
         private bool TryGetIgnoringCase(string name, out object? value)
         {
-            foreach (KeyValuePair<string, object> entry in _dictionary!)
-            {
-                if (string.Equals(entry.Key, name, StringComparison.OrdinalIgnoreCase))
-                {
-                    value = entry.Value;
-                    return true;
-                }
-            }
-
-            value = null;
-            return false;
+            KeyValuePair<string, object> match = _dictionary!.FirstOrDefault(entry => string.Equals(entry.Key, name, StringComparison.OrdinalIgnoreCase));
+            value = match.Value;
+            return match.Key != null;
         }
 
         public override bool TryGetMember(GetMemberBinder binder, out object? result)

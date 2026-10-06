@@ -1,6 +1,7 @@
 using System;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
+using DuraIT.FastBinaryJson.Internal;
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -77,6 +78,19 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             byte[] bytes = BJSON.ToBJSON(new Node());
 
             FluentActions.Invoking(() => BJSON.FillObject(null!, bytes)).Should().Throw<ArgumentNullException>().WithParameterName("input");
+        }
+
+        [Test]
+        public void Reflection_NullArguments_ThrowArgumentNull()
+        {
+            Reflection reflection = Reflection.Instance;
+
+            FluentActions.Invoking(() => reflection.GetTypeAssemblyName(null!)).Should().Throw<ArgumentNullException>().WithParameterName("t");
+            FluentActions.Invoking(() => reflection.GetGenericArguments(null!)).Should().Throw<ArgumentNullException>().WithParameterName("t");
+            FluentActions.Invoking(() => reflection.GetGenericTypeDefinition(null!)).Should().Throw<ArgumentNullException>().WithParameterName("t");
+            FluentActions.Invoking(() => reflection.Getproperties(null!, "name", false)).Should().Throw<ArgumentNullException>().WithParameterName("type");
+            FluentActions.Invoking(() => Reflection.UnicodeGetBytes(null!)).Should().Throw<ArgumentNullException>().WithParameterName("str");
+            FluentActions.Invoking(() => Reflection.UnicodeGetString(null!)).Should().Throw<ArgumentNullException>().WithParameterName("b");
         }
 
         public sealed class Node
