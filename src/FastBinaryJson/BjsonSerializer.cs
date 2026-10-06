@@ -34,26 +34,65 @@ namespace DuraIT.FastBinaryJson
         int _currentDepth;
 
         /*
-         * Keyed by Type, not by assembly-qualified name: every object looks itself up here, and the name
-         * key hashed around a hundred characters each time. The table is still written in the same
-         * order, under the same ids, with the same names. Only two distinct types that share a name -
-         * one assembly loaded twice - now get an id each instead of sharing one, and both still read
-         * back as the type that name resolves to.
+         * The two per-call tables, kept per thread between calls. Growing them from empty cost four or five
+         * resizes per call and, with their entry arrays, a quarter to a half of everything a small payload
+         * allocated beyond its own bytes. A call takes the spare (leaving none, so a nested call from a
+         * custom serializer builds its own), and Dispose clears and returns it. A table that grew past
+         * MaxRetainedEntries is dropped instead of kept, so one huge call does not pin its memory to the
+         * thread. Clear keeps insertion order for later additions, which is the order $types is written in.
          */
-        private readonly Dictionary<Type, int> _globalTypes = new Dictionary<Type, int>();
+        private sealed class Tables
+        {
+            // By identity: $i means "this same instance". Default equality wrote a distinct object that
+            // merely compared Equal as a reference to the first one, so an entity with Equals over its Id
+            // lost every other member, and equal records or structs came back as one shared instance.
+            public readonly Dictionary<object, int> Seen = new Dictionary<object, int>(ReferenceComparer.Instance);
 
-        /*
-         * By identity: $i means "this same instance". Default equality wrote a distinct object that
-         * merely compared Equal as a reference to the first one, so an entity with Equals over its Id
-         * lost every other member, and equal records or structs came back as one shared instance.
-         */
-        private readonly Dictionary<object, int> _cirobj = new Dictionary<object, int>(ReferenceComparer.Instance);
+            // Keyed by Type, not by assembly-qualified name: every object looks itself up here, and the name
+            // key hashed around a hundred characters each time. The table is still written in the same
+            // order, under the same ids, with the same names. Only two distinct types that share a name -
+            // one assembly loaded twice - now get an id each instead of sharing one, and both still read
+            // back as the type that name resolves to.
+            public readonly Dictionary<Type, int> Types = new Dictionary<Type, int>();
+        }
+
+        private const int MaxRetainedEntries = 1024;
+
+        [ThreadStatic]
+        private static Tables? _spareTables;
+
+        private Tables? _tables = TakeTables();
+        private Dictionary<Type, int> _globalTypes => _tables!.Types;
+        private Dictionary<object, int> _cirobj => _tables!.Seen;
+
+        private static Tables TakeTables()
+        {
+            Tables tables = _spareTables ?? new Tables();
+            _spareTables = null;
+            return tables;
+        }
+
         private readonly BjsonParameters _params;
 
         public void Dispose()
         {
             _output.Dispose();
             ReleasePooled();
+
+            Tables? tables = _tables;
+            _tables = null;
+            if (tables != null)
+                ReturnTables(tables);
+        }
+
+        private static void ReturnTables(Tables tables)
+        {
+            if (tables.Seen.Count > MaxRetainedEntries || tables.Types.Count > MaxRetainedEntries)
+                return;
+
+            tables.Seen.Clear();
+            tables.Types.Clear();
+            _spareTables = tables;
         }
 
         internal BjsonSerializer(BjsonParameters param)
