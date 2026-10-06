@@ -16,7 +16,6 @@ namespace DuraIT.FastBinaryJson.Internal
     public struct Getters
     {
         public string Name;
-        public string lcName;
         public string? memberName;
         public Reflection.GenericGetter Getter;
         public bool ReadOnly;
@@ -387,10 +386,9 @@ namespace DuraIT.FastBinaryJson.Internal
             }
             else
             {
-                sd = new Dictionary<string, myPropInfo>(10);
+                sd = new Dictionary<string, myPropInfo>(10, StringComparer.OrdinalIgnoreCase);
                 /*
-                 * Keys are lowercased because ParseDictionary lowercases every wire key before the
-                 * lookup. A [DataMember(Name = ...)] member is keyed under that name, and also under
+                 * Lookups ignore case because a wire key is matched whatever case it was written in. A [DataMember(Name = ...)] member is keyed under that name, and also under
                  * its C# name as an alias: the writer only started writing DataMember names in this
                  * fork, so everything stored before that carries the C# name. Aliases go in after
                  * every primary key and only where the key is still free, so an alias can never take
@@ -460,15 +458,14 @@ namespace DuraIT.FastBinaryJson.Internal
 
         private static void AddMemberKeys(Dictionary<string, myPropInfo> sd, List<KeyValuePair<string, myPropInfo>> aliases, myPropInfo d, string name)
         {
-            string lowerName = name.ToLowerInvariant();
             if (d.memberName == null)
             {
-                sd.Add(lowerName, d);
+                sd.Add(name, d);
                 return;
             }
 
-            sd.Add(d.memberName.ToLowerInvariant(), d);
-            aliases.Add(new KeyValuePair<string, myPropInfo>(lowerName, d));
+            sd.Add(d.memberName, d);
+            aliases.Add(new KeyValuePair<string, myPropInfo>(name, d));
         }
 
         internal WireNameMap GetWireNameMap(Type type, string typename, bool ShowReadOnlyProperties)
@@ -584,8 +581,8 @@ namespace DuraIT.FastBinaryJson.Internal
                 // check for BLACK LIST types -> more secure when using $type
                 if (blacklistChecking)
                 {
-                    var tn = typename.Trim().ToLowerInvariant();
-                    if (_blacklistTypes.Any(s => tn.StartsWith(s, StringComparison.Ordinal)))
+                    var tn = typename.Trim();
+                    if (_blacklistTypes.Any(s => tn.StartsWith(s, StringComparison.OrdinalIgnoreCase)))
                         throw new BjsonException("Black list type encountered, possible attack vector when using $type : " + typename);
                 }
 
@@ -1105,7 +1102,6 @@ namespace DuraIT.FastBinaryJson.Internal
                     {
                         Getter = g,
                         Name = p.Name,
-                        lcName = p.Name.ToLowerInvariant(),
                         memberName = mName,
                         ReadOnly = read_only,
                     };
@@ -1140,7 +1136,6 @@ namespace DuraIT.FastBinaryJson.Internal
                         {
                             Getter = g,
                             Name = f.Name,
-                            lcName = f.Name.ToLowerInvariant(),
                             memberName = mName,
                             ReadOnly = read_only,
                         };

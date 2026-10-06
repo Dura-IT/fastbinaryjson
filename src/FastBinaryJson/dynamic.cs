@@ -46,9 +46,24 @@ namespace DuraIT.FastBinaryJson
             return true;
         }
 
+        private bool TryGetIgnoringCase(string name, out object? value)
+        {
+            foreach (KeyValuePair<string, object> entry in _dictionary!)
+            {
+                if (string.Equals(entry.Key, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = entry.Value;
+                    return true;
+                }
+            }
+
+            value = null;
+            return false;
+        }
+
         public override bool TryGetMember(GetMemberBinder binder, out object? result)
         {
-            if (!_dictionary!.TryGetValue(binder.Name, out result) && !_dictionary.TryGetValue(binder.Name.ToLowerInvariant(), out result))
+            if (!_dictionary!.TryGetValue(binder.Name, out result) && !TryGetIgnoringCase(binder.Name, out result))
                 return false;
 
             if (result is IDictionary<string, object> memberDictionary)
@@ -68,7 +83,7 @@ namespace DuraIT.FastBinaryJson
                 result = list;
             }
 
-            return _dictionary.ContainsKey(binder.Name);
+            return true;
         }
 
         public IEnumerator GetEnumerator()

@@ -27,7 +27,8 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public WireNameMap(Dictionary<string, myPropInfo> members)
         {
-            _members = members;
+            // Wire names are matched whatever case they were written in.
+            _members = members.Comparer.Equals("a", "A") ? members : new Dictionary<string, myPropInfo>(members, StringComparer.OrdinalIgnoreCase);
             // Room for every member under a few spellings; a legitimate stream never needs more.
             _capacity = Math.Max(32, members.Count * 4);
         }
@@ -37,7 +38,7 @@ namespace DuraIT.FastBinaryJson.Internal
             if (_byWireName.TryGetValue(wireName, out myPropInfo? found))
                 return found;
 
-            _members.TryGetValue(wireName.ToLowerInvariant(), out found);
+            _members.TryGetValue(wireName, out found);
             if (Volatile.Read(ref _count) < _capacity && _byWireName.TryAdd(wireName, found))
                 Interlocked.Increment(ref _count);
 
