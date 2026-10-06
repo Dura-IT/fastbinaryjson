@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
 
@@ -211,9 +212,14 @@ namespace DuraIT.FastBinaryJson.Internal
             if (offset < 0 || buflen < 0 || offset > bytes.Length - buflen)
                 throw new ArgumentOutOfRangeException(nameof(buflen));
 
+#if NET10_0_OR_GREATER
+            // One allocation: the string is built straight from the bytes, and an odd trailing byte is dropped.
+            return new string(MemoryMarshal.Cast<byte, char>(new ReadOnlySpan<byte>(bytes, offset, buflen & ~1)));
+#else
             char[] chars = new char[buflen / 2];
             Buffer.BlockCopy(bytes, offset, chars, 0, chars.Length * 2);
             return new string(chars);
+#endif
         }
         #endregion
 
