@@ -425,6 +425,21 @@ namespace DuraIT.FastBinaryJson
 #if NET10_0_OR_GREATER
         private bool TryResolveTypeInPlace(Dictionary<string, object>? globaltypes, out Type? type)
         {
+            // UTF-16 text is read in place and needs no buffer. The default encoding is UTF-16, and a
+            // stackalloc is zeroed where it executes, so allocating one here for every $type cost a 1 KB
+            // memset per object for nothing.
+            if (_parser.PeekToken() == Tokens.Utf16String && _parser.TryReadStringChars(Span<char>.Empty, out ReadOnlySpan<char> inPlace))
+            {
+                type = TypeNameCache.Resolve(inPlace, globaltypes, _deserializer);
+                _deserializer.TypesResolvedInPlace++;
+                return true;
+            }
+
+            return TryResolveUtf8TypeInPlace(globaltypes, out type);
+        }
+
+        private bool TryResolveUtf8TypeInPlace(Dictionary<string, object>? globaltypes, out Type? type)
+        {
             // Covers every assembly-qualified name in practice; a longer UTF-8 one takes the old path.
             Span<char> buffer = stackalloc char[512];
             if (_parser.TryReadStringChars(buffer, out ReadOnlySpan<char> name))
