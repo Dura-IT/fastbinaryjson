@@ -942,7 +942,7 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         /// <remarks>
         /// Every caller writes a length header before the bytes, so the length has to come first.
-        /// Carrying it separately lets <see cref="WriteBytesRaw"/> encode straight into the output
+        /// Carrying it separately lets <c>WriteBytesRaw</c> encode straight into the output
         /// afterwards, instead of encoding into a scratch buffer and copying.
         /// </remarks>
         private readonly record struct PendingString(string Value, bool Unicode, int Length);

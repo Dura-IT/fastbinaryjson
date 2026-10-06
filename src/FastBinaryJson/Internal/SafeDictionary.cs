@@ -45,6 +45,10 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public int Count() => Volatile.Read(ref _count);
 
+        /// <summary>
+        /// Gets the value stored for a key, or stores one.
+        /// </summary>
+        /// <param name="key">The key.</param>
         /// <exception cref="KeyNotFoundException">On get, if the key is absent.</exception>
         public TValue this[TKey key]
         {

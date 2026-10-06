@@ -10,39 +10,170 @@ using DuraIT.FastBinaryJson.Internal;
 namespace DuraIT.FastBinaryJson
 {
 #pragma warning disable CA1720 // Each token is named for the type it denotes on the wire, which is the point of the name.
+    /// <summary>
+    /// The byte tokens that tag every value in the binary JSON format. Exposed for code that reads or
+    /// writes the wire format directly; each token is named for the type it carries.
+    /// </summary>
     public static class Tokens
     {
+        /// <summary>
+        /// Opens an object.
+        /// </summary>
         public const byte DocStart = 1;
+
+        /// <summary>
+        /// Closes an object.
+        /// </summary>
         public const byte DocEnd = 2;
+
+        /// <summary>
+        /// Opens an array.
+        /// </summary>
         public const byte ArrayStart = 3;
+
+        /// <summary>
+        /// Closes an array.
+        /// </summary>
         public const byte ArrayEnd = 4;
+
+        /// <summary>
+        /// Separates a member name from its value.
+        /// </summary>
         public const byte Colon = 5;
+
+        /// <summary>
+        /// Separates members or array elements.
+        /// </summary>
         public const byte Comma = 6;
+
+        /// <summary>
+        /// A member name, UTF-8 encoded, with a one-byte length.
+        /// </summary>
         public const byte Name = 7;
+
+        /// <summary>
+        /// A UTF-8 string with a four-byte length.
+        /// </summary>
         public const byte Utf8String = 8;
+
+        /// <summary>
+        /// An unsigned 8-bit integer.
+        /// </summary>
         public const byte Byte = 9;
+
+        /// <summary>
+        /// A signed 32-bit integer.
+        /// </summary>
         public const byte Int32 = 10;
+
+        /// <summary>
+        /// An unsigned 32-bit integer.
+        /// </summary>
         public const byte UInt32 = 11;
+
+        /// <summary>
+        /// A signed 64-bit integer.
+        /// </summary>
         public const byte Int64 = 12;
+
+        /// <summary>
+        /// An unsigned 64-bit integer.
+        /// </summary>
         public const byte UInt64 = 13;
+
+        /// <summary>
+        /// A signed 16-bit integer.
+        /// </summary>
         public const byte Int16 = 14;
+
+        /// <summary>
+        /// An unsigned 16-bit integer.
+        /// </summary>
         public const byte UInt16 = 15;
+
+        /// <summary>
+        /// A <see cref="System.DateTime"/>.
+        /// </summary>
         public const byte DateTime = 16;
+
+        /// <summary>
+        /// A <see cref="System.Guid"/>, as its 16 raw bytes.
+        /// </summary>
         public const byte Guid = 17;
+
+        /// <summary>
+        /// A 64-bit floating point number.
+        /// </summary>
         public const byte Double = 18;
+
+        /// <summary>
+        /// A 32-bit floating point number.
+        /// </summary>
         public const byte Single = 19;
+
+        /// <summary>
+        /// A <see cref="System.Decimal"/>.
+        /// </summary>
         public const byte Decimal = 20;
+
+        /// <summary>
+        /// A <see cref="System.Char"/>, written as a 16-bit integer.
+        /// </summary>
         public const byte Char = 21;
+
+        /// <summary>
+        /// A byte array with a four-byte length.
+        /// </summary>
         public const byte ByteArray = 22;
+
+        /// <summary>
+        /// A null value.
+        /// </summary>
         public const byte Null = 23;
+
+        /// <summary>
+        /// The boolean value true.
+        /// </summary>
         public const byte True = 24;
+
+        /// <summary>
+        /// The boolean value false.
+        /// </summary>
         public const byte False = 25;
+
+        /// <summary>
+        /// A UTF-16 string with a four-byte length.
+        /// </summary>
         public const byte Utf16String = 26;
+
+        /// <summary>
+        /// A <see cref="System.DateTimeOffset"/>.
+        /// </summary>
         public const byte DateTimeOffset = 27;
+
+        /// <summary>
+        /// Opens a typed array. The element type name and the element count follow.
+        /// </summary>
         public const byte TypedArray = 28;
+
+        /// <summary>
+        /// A four-byte offset to the $types table written at the end of the stream.
+        /// </summary>
         public const byte TypesPointer = 29;
+
+        /// <summary>
+        /// A <see cref="System.TimeSpan"/>, as its ticks.
+        /// </summary>
         public const byte TimeSpan = 30;
+
+        /// <summary>
+        /// Opens a typed array whose element type name is 256 encoded bytes or longer.
+        /// </summary>
         public const byte TypedArrayLong = 31;
+
+        /// <summary>
+        /// A member name, UTF-16 encoded, with a one-byte length.
+        /// </summary>
         public const byte NameUtf16 = 32;
 
         /*
@@ -53,6 +184,9 @@ namespace DuraIT.FastBinaryJson
          * written before this token still reads: BYTE assigned to an sbyte property is
          * reinterpreted. The reverse does not hold - upstream rejects this token as unknown.
          */
+        /// <summary>
+        /// A signed 8-bit integer.
+        /// </summary>
         public const byte SByte = 33;
 
         /*
@@ -65,23 +199,49 @@ namespace DuraIT.FastBinaryJson
          * encoded exactly as it was. Only input that was already being corrupted produces these
          * tokens, which is why upstream not accepting them costs nothing.
          */
+        /// <summary>
+        /// A member name, UTF-8 encoded, with a four-byte length. Written from 256 encoded bytes onwards.
+        /// </summary>
         public const byte NameLong = 34;
+
+        /// <summary>
+        /// A member name, UTF-16 encoded, with a four-byte length. Written from 256 encoded bytes onwards.
+        /// </summary>
         public const byte NameUtf16Long = 35;
     }
 #pragma warning restore CA1720
 
+    /// <summary>
+    /// A typed array as it appears on the wire: the declared element type, the declared element count,
+    /// and the elements. <see cref="Bjson.Parse(byte[])"/> returns one for a typed array it is not
+    /// asked to convert.
+    /// </summary>
     public class TypedArray
     {
+        /// <summary>
+        /// The assembly-qualified name of the element type.
+        /// </summary>
         public string TypeName { get; set; } = null!;
+
+        /// <summary>
+        /// The element count declared in the payload.
+        /// </summary>
         public int Count { get; set; }
         private readonly List<object> _data = new List<object>();
 
+        /// <summary>
+        /// The elements, in order.
+        /// </summary>
         public IList<object> Data => _data;
 
         // The parser appends and the readers copy out through the concrete list, not the interface.
         internal List<object> DataList => _data;
     }
 
+    /// <summary>
+    /// Settings for serializing and deserializing. Pass an instance to a single call, or set
+    /// <see cref="Bjson.Parameters"/> to change the default for every call that does not.
+    /// </summary>
     public sealed class BjsonParameters
     {
         /// <summary>
@@ -151,6 +311,10 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         public bool UseV14TypedArray { get; set; }
 
+        /// <summary>
+        /// Resolves settings that conflict: switching extensions off also switches global types off, and
+        /// anonymous types imply that read-only properties are written.
+        /// </summary>
         public void FixValues()
         {
             if (!UseExtensions) // disable conflicting params
@@ -188,60 +352,74 @@ namespace DuraIT.FastBinaryJson
         }
     }
 
+    /// <summary>
+    /// Serializes objects to the binary JSON format and reads them back.
+    /// </summary>
     public static class Bjson
     {
         /// <summary>
-        /// Globally set-able parameters for controlling the serializer
+        /// Globally set-able parameters for controlling the serializer. Calls that do not pass their own
+        /// <see cref="BjsonParameters"/> use these.
         /// </summary>
         public static BjsonParameters Parameters { get; set; } = new BjsonParameters();
 
         /// <summary>
-        /// Parse a json and generate a Dictionary&lt;string,object&gt; or List&lt;object&gt; structure
+        /// Parses a payload without needing the target type.
         /// </summary>
-        /// <param name="json"></param>
-        /// <returns></returns>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <returns>A Dictionary&lt;string, object&gt;, a List&lt;object&gt;, a <see cref="TypedArray"/> or a scalar; null for a null payload.</returns>
+        /// <exception cref="BjsonException">If the payload is malformed.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">If a length in the payload runs past its end.</exception>
         public static object? Parse(byte[] json)
         {
             return new BjsonParser(json, Parameters.UseUtcDateTime, Parameters.UseV14TypedArray).Decode();
         }
 
         /// <summary>
-        /// Create a .net4 dynamic object from the binary json byte array
+        /// Parses a payload into a dynamic object whose members are the JSON keys. A member is looked up as
+        /// written first, then ignoring case.
         /// </summary>
-        /// <param name="json"></param>
-        /// <returns></returns>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <returns>A dynamic view over the parsed payload.</returns>
         public static dynamic ToDynamic(byte[] json)
         {
             return new DynamicJson(json);
         }
 
         /// <summary>
-        /// Register custom type handlers for your own types not natively handled by fastBinaryJSON
+        /// Registers handlers that store a type your own way, for types the serializer does not handle natively.
+        /// A registration also applies to subclasses of <paramref name="type"/>.
         /// </summary>
-        /// <param name="type"></param>
-        /// <param name="serializer"></param>
-        /// <param name="deserializer"></param>
+        /// <remarks>
+        /// Registrations are process-wide.
+        /// </remarks>
+        /// <param name="type">The type to handle.</param>
+        /// <param name="serializer">Turns a value into the string stored in its place.</param>
+        /// <param name="deserializer">Turns the stored string back into a value.</param>
         public static void RegisterCustomType(Type type, CustomTypeSerializer serializer, CustomTypeDeserializer deserializer)
         {
             TypeReflector.Instance.RegisterCustomType(type, serializer, deserializer);
         }
 
         /// <summary>
-        /// Create a binary json representation for an object
+        /// Serializes an object using <see cref="Parameters"/>.
         /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
+        /// <param name="obj">The object to write; null is written as the null token.</param>
+        /// <returns>The binary JSON bytes.</returns>
+        /// <exception cref="BjsonException">If the object graph is deeper than <see cref="BjsonParameters.SerializerMaxDepth"/>.</exception>
         public static byte[] ToBjson(object obj)
         {
             return ToBjson(obj, Parameters);
         }
 
         /// <summary>
-        /// Create a binary json representation for an object with parameter override on this call
+        /// Serializes an object using the given parameters for this call only.
         /// </summary>
-        /// <param name="obj"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>
+        /// <param name="obj">The object to write; null is written as the null token.</param>
+        /// <param name="param">The settings for this call.</param>
+        /// <returns>The binary JSON bytes.</returns>
+        /// <exception cref="ArgumentNullException">If <paramref name="param"/> is null.</exception>
+        /// <exception cref="BjsonException">If the object graph is deeper than <see cref="BjsonParameters.SerializerMaxDepth"/>.</exception>
         public static byte[] ToBjson(object obj, BjsonParameters param)
         {
 #if NET10_0_OR_GREATER
@@ -271,11 +449,13 @@ namespace DuraIT.FastBinaryJson
         }
 
         /// <summary>
-        /// Fill a given object with the binary json represenation
+        /// Fills the members of an existing object from a payload instead of creating a new one.
         /// </summary>
-        /// <param name="input"></param>
-        /// <param name="json"></param>
-        /// <returns></returns>
+        /// <param name="input">The object to fill.</param>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <returns>The filled object.</returns>
+        /// <exception cref="ArgumentNullException">If <paramref name="input"/> is null.</exception>
+        /// <exception cref="BjsonException">If the payload is malformed or names a type that cannot be created.</exception>
         public static object? FillObject(object input, byte[] json)
         {
 #if NET10_0_OR_GREATER
@@ -288,23 +468,26 @@ namespace DuraIT.FastBinaryJson
         }
 
         /// <summary>
-        /// Create a generic object from the json
+        /// Deserializes a payload to <typeparamref name="T"/> using <see cref="Parameters"/>.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="json"></param>
-        /// <returns></returns>
+        /// <typeparam name="T">The type to create.</typeparam>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <returns>The restored value, or the default for a null payload.</returns>
+        /// <exception cref="BjsonException">If the payload is malformed or names a type that cannot be created.</exception>
         public static T? ToObject<T>(byte[] json)
         {
             return new Deserializer(Parameters).ToObject<T>(json);
         }
 
         /// <summary>
-        /// Create a generic object from the json with parameter override on this call
+        /// Deserializes a payload to <typeparamref name="T"/> using the given parameters for this call only.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="json"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>
+        /// <typeparam name="T">The type to create.</typeparam>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <param name="param">The settings for this call.</param>
+        /// <returns>The restored value, or the default for a null payload.</returns>
+        /// <exception cref="ArgumentNullException">If <paramref name="param"/> is null.</exception>
+        /// <exception cref="BjsonException">If the payload is malformed or names a type that cannot be created.</exception>
         public static T? ToObject<T>(byte[] json, BjsonParameters param)
         {
 #if NET10_0_OR_GREATER
@@ -317,21 +500,24 @@ namespace DuraIT.FastBinaryJson
         }
 
         /// <summary>
-        /// Create an object from the json
+        /// Deserializes a payload to the type it was written as, using <see cref="Parameters"/>.
         /// </summary>
-        /// <param name="json"></param>
-        /// <returns></returns>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <returns>The restored value, or null for a null payload.</returns>
+        /// <exception cref="BjsonException">If the payload is malformed or names a type that cannot be created.</exception>
         public static object? ToObject(byte[] json)
         {
             return new Deserializer(Parameters).ToObject(json, null);
         }
 
         /// <summary>
-        /// Create an object from the json with parameter override on this call
+        /// Deserializes a payload to the type it was written as, using the given parameters for this call only.
         /// </summary>
-        /// <param name="json"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <param name="param">The settings for this call.</param>
+        /// <returns>The restored value, or null for a null payload.</returns>
+        /// <exception cref="ArgumentNullException">If <paramref name="param"/> is null.</exception>
+        /// <exception cref="BjsonException">If the payload is malformed or names a type that cannot be created.</exception>
         public static object? ToObject(byte[] json, BjsonParameters param)
         {
 #if NET10_0_OR_GREATER
@@ -346,18 +532,19 @@ namespace DuraIT.FastBinaryJson
         }
 
         /// <summary>
-        /// Create a typed object from the json
+        /// Deserializes a payload to the given type, using <see cref="Parameters"/>.
         /// </summary>
-        /// <param name="json"></param>
-        /// <param name="type"></param>
-        /// <returns></returns>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <param name="type">The type to create.</param>
+        /// <returns>The restored value, or null for a null payload.</returns>
+        /// <exception cref="BjsonException">If the payload is malformed or names a type that cannot be created.</exception>
         public static object? ToObject(byte[] json, Type type)
         {
             return new Deserializer(Parameters).ToObject(json, type);
         }
 
         /// <summary>
-        /// Clear the internal reflection cache so you can start from new (you will loose performance)
+        /// Clears the internal reflection cache so every type is analysed again; the next calls are slower.
         /// </summary>
         public static void ClearReflectionCache()
         {
@@ -365,10 +552,10 @@ namespace DuraIT.FastBinaryJson
         }
 
         /// <summary>
-        /// Deep copy an object i.e. clone to a new object
+        /// Clones an object by serializing it and reading it back.
         /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
+        /// <param name="obj">The object to copy.</param>
+        /// <returns>A new object with the same content.</returns>
         public static object? DeepCopy(object obj)
         {
             return new Deserializer(Parameters).ToObject(ToBjson(obj));

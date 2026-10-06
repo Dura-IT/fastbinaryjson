@@ -129,9 +129,13 @@ namespace DuraIT.FastBinaryJson
         /// the current index. Returns false with the index back on its DOC_START, and every side effect
         /// undone, when the object has to go through the two-step path.
         /// </summary>
+        /// <param name="declared">The declared type of the member or element, or null when the value's own $type decides.</param>
+        /// <param name="globaltypes">The $types table in effect, if any.</param>
         /// <param name="mayExtendSharedTypes">
         /// True only for an element of a root list, whose $types table lands in the list's shared one.
         /// </param>
+        /// <param name="result">The object that was read, when this returns true.</param>
+        /// <returns>True when the object was read here; false when it has to go through the two-step path.</returns>
         private bool TryReadObject(Type? declared, Dictionary<string, object>? globaltypes, bool mayExtendSharedTypes, out object? result)
         {
             result = null;
@@ -275,10 +279,14 @@ namespace DuraIT.FastBinaryJson
         /// <summary>
         /// Reads one member's value and applies it, as ParseDictionary's loop does for one entry.
         /// </summary>
+        /// <param name="o">The object being filled.</param>
+        /// <param name="pi">The member's metadata, or null when the key names no member.</param>
+        /// <param name="globaltypes">The $types table in effect, if any.</param>
         /// <param name="ended">
         /// Set when the value position held a structural token instead - the parser ends the object
         /// there, and so does this.
         /// </param>
+        /// <returns>The object that was filled.</returns>
         private object ReadMember(object o, PropertyMetadata? pi, Dictionary<string, object>? globaltypes, out bool ended)
         {
             ended = false;

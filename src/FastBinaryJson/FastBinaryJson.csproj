@@ -4,6 +4,8 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Public members must be documented: with this on, CS1591 fails the build for any that are not. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!--
       LangVersion must be explicit. The SDK picks it per TFM, and netstandard2.0 defaults to C# 7.3,
       which does not have nullable reference types at all - '<Nullable>enable</Nullable>' fails that
