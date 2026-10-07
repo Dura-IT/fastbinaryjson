@@ -490,3 +490,6 @@ output/
 
 # BenchmarkDotNet
 BenchmarkDotNet.Artifacts/
+
+# Strong-name key pairs are secrets and never committed
+*.snk
