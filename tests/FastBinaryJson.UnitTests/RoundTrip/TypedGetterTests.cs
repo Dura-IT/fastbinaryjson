@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
+using DuraIT.FastBinaryJson.Internal;
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.RoundTrip
@@ -31,7 +32,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(ParameterSets))]
         public void ToBjson_Primitives_WriteTheBoxingPathsBytes(BjsonParameters parameters)
         {
-            ArgumentNullException.ThrowIfNull(parameters);
+            Guard.NotNull(parameters, nameof(parameters));
             TypedGetterSubject value = TypedGetterSubject.Create();
 
             Write(value, parameters, typed: true).Should().Equal(Write(value, parameters, typed: false));
@@ -40,7 +41,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(ParameterSets))]
         public void ToBjson_ExtremeValues_WriteTheBoxingPathsBytes(BjsonParameters parameters)
         {
-            ArgumentNullException.ThrowIfNull(parameters);
+            Guard.NotNull(parameters, nameof(parameters));
             TypedGetterSubject value = TypedGetterSubject.CreateExtremes();
 
             Write(value, parameters, typed: true).Should().Equal(Write(value, parameters, typed: false));

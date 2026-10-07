@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
+using DuraIT.FastBinaryJson.Internal;
 using FastBinaryJson.UnitTests.RoundTrip;
 using NUnit.Framework;
 
@@ -135,7 +136,7 @@ namespace FastBinaryJson.UnitTests.Golden
         [TestCaseSource(nameof(Cases))]
         public void Serialize_MatchesCommittedBytes(GoldenCase testCase)
         {
-            ArgumentNullException.ThrowIfNull(testCase);
+            Guard.NotNull(testCase, nameof(testCase));
             Bjson.ClearReflectionCache();
             byte[] actual = Bjson.ToBjson(testCase.Build(), testCase.Parameters());
 
@@ -169,7 +170,7 @@ namespace FastBinaryJson.UnitTests.Golden
         [TestCaseSource(nameof(Cases))]
         public void Deserialize_CommittedBytes_RestoresValue(GoldenCase testCase)
         {
-            ArgumentNullException.ThrowIfNull(testCase);
+            Guard.NotNull(testCase, nameof(testCase));
             if (Regenerating)
             {
                 Assert.Ignore("Regenerating: the committed bytes are being rewritten, so there is nothing stable to read back.");

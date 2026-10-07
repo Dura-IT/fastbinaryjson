@@ -6,6 +6,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
+using DuraIT.FastBinaryJson.Internal;
 using FastBinaryJson.Benchmarks.Corpus;
 using FastBinaryJson.UnitTests.Golden;
 using NUnit.Framework;
@@ -29,7 +30,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(Cases))]
         public void ToObject_OneStep_MatchesTwoStep(EquivalenceCase testCase)
         {
-            ArgumentNullException.ThrowIfNull(testCase);
+            Guard.NotNull(testCase, nameof(testCase));
             byte[] bytes = Bjson.ToBjson(testCase.Build(), testCase.Parameters());
 
             Outcome twoStep = Read(bytes, testCase, oneStep: false);
@@ -44,7 +45,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
             oneStep.Error.Should().BeNull();
             oneStep.Value.Should().BeEquivalentTo(twoStep.Value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering().IgnoringCyclicReferences());
-            AssertSameShape(twoStep.Value, oneStep.Value, "root", new HashSet<object>(ReferenceEqualityComparer.Instance));
+            AssertSameShape(twoStep.Value, oneStep.Value, "root", new HashSet<object>(ReferenceComparer.Instance));
             if (testCase.StandardShape)
                 oneStep.Fallbacks.Should().Be(0, "writer output of a standard shape must not need the two-step path");
         }
@@ -62,7 +63,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [TestCaseSource(nameof(MutationSources))]
         public void ToObject_DamagedInput_BothThrowOrBothMatch(EquivalenceCase source)
         {
-            ArgumentNullException.ThrowIfNull(source);
+            Guard.NotNull(source, nameof(source));
             byte[] original = Bjson.ToBjson(source.Build(), source.Parameters());
             Random random = new Random(20260930 + original.Length);
             int succeeded = 0;
@@ -91,7 +92,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
                 oneStep
                     .Value.Should()
                     .BeEquivalentTo(twoStep.Value, o => o.PreferringRuntimeMemberTypes().WithStrictOrdering().IgnoringCyclicReferences(), context);
-                AssertSameShape(twoStep.Value, oneStep.Value, context, new HashSet<object>(ReferenceEqualityComparer.Instance));
+                AssertSameShape(twoStep.Value, oneStep.Value, context, new HashSet<object>(ReferenceComparer.Instance));
                 succeeded++;
             }
 

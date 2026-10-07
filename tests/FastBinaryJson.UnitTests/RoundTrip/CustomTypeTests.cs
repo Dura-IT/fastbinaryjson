@@ -1,4 +1,3 @@
-using System;
 using System.Net;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
@@ -35,6 +34,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         [Test]
         public void CustomType_AppliesToAFrameworkSubclassInstance()
         {
+            // ReSharper disable once RedundantSuppressNullableWarningExpression - ToString() is annotated on net10.0 only
             Bjson.RegisterCustomType(typeof(IPAddress), x => x.ToString()!, x => IPAddress.Parse(x));
 
             IPAddress.Loopback.GetType().Should().NotBe<IPAddress>("Loopback is a private ReadOnlyIPAddress subclass on .NET");
@@ -90,7 +90,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
         private static string Suffix(string value)
         {
-            return value.Substring(value.IndexOf(':', StringComparison.Ordinal) + 1);
+#pragma warning disable CA1307 // IndexOf(char, StringComparison) does not exist on .NET Framework, which runs this file too
+            return value.Substring(value.IndexOf(':') + 1);
+#pragma warning restore CA1307
         }
 
         private class Animal
