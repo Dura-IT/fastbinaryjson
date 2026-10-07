@@ -51,6 +51,10 @@ golden fixtures reference this assembly; no golden fixture covers a DataSet.
 Assembly name and namespace both differ from the original, so this package and `fastBinaryJSON` can
 sit in the same project with no duplicate type definitions and no ambiguity.
 
+The package is strong-name signed, with its own key: public key token `8cd8b707f36b302a`, which is not
+upstream's. A strong-named application can therefore reference it, and the two packages still load side
+by side.
+
 `netstandard2.0` is a permanent target, not a leftover: the people with stored data are exactly the
 ones who cannot move runtime quickly. On that target the package references `System.Memory`, which is part
 of the runtime on .NET Core and a regular NuGet package on .NET Framework. An application or test

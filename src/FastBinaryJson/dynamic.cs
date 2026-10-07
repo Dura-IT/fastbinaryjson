@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace DuraIT.FastBinaryJson
 {
-    internal class DynamicJson : DynamicObject, IEnumerable
+    internal sealed class DynamicJson : DynamicObject, IEnumerable
     {
         // Exactly one of these is populated, decided by what Parse returned - so both are
         // genuinely nullable, and every use below asserts the one the caller implied.

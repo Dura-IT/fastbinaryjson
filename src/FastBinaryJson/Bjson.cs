@@ -640,7 +640,7 @@ namespace DuraIT.FastBinaryJson
         }
     }
 
-    internal class Deserializer
+    internal sealed class Deserializer
     {
         /// <summary>
         /// Reads with <paramref name="param"/> as given: the caller passes a copy it owns, because

@@ -54,7 +54,23 @@
     <None Include="../../README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!--
+    Strong-name signing, for consumers that are themselves strong-named (a .NET Framework application
+    cannot reference an unsigned assembly from a signed one). The key pair is a secret and never lives in
+    the repository: the release workflow writes it to a temporary file and passes its path in
+    StrongNameKeyFile. Ordinary and CI builds are unsigned.
+
+    The unit tests reach internals through InternalsVisibleTo, which needs a signed friend to be named with its
+    public key,
+    so the signed build omits it, tests always run against the unsigned build, and the release pack signs the same sources afterwards.
+  -->
+  <PropertyGroup Condition="'$(StrongNameKeyFile)' != ''">
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(StrongNameKeyFile)</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <!-- Left out of a signed build: a signed assembly may only name a signed friend with its public key. -->
+  <ItemGroup Condition="'$(StrongNameKeyFile)' == ''">
     <InternalsVisibleTo Include="$(MSBuildProjectName).UnitTests" />
   </ItemGroup>
 
