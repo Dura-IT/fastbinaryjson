@@ -1,15 +1,13 @@
-#if NET10_0_OR_GREATER
 using System;
 using System.Buffers;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace DuraIT.FastBinaryJson.Internal
 {
     /// <summary>
     /// Growable output buffer backed by <see cref="ArrayPool{T}.Shared"/>, standing in for the
-    /// MemoryStream the serializer writes to on net10.0.
+    /// MemoryStream the serializer writes to, on both targets.
     /// </summary>
     /// <remarks>
     /// MemoryStream doubles by allocating, and every buffer past 85 KB lands on the large object
@@ -138,7 +136,7 @@ namespace DuraIT.FastBinaryJson.Internal
             if (position < 0 || position > _length - sizeof(int))
                 throw new ArgumentOutOfRangeException(nameof(position));
 
-            MemoryMarshal.Write(Buffer.AsSpan(position), in value);
+            Unsafe.WriteUnaligned(ref Buffer[position], value);
         }
 
         public byte[] ToArray() => Buffer.AsSpan(0, _length).ToArray();
@@ -174,4 +172,3 @@ namespace DuraIT.FastBinaryJson.Internal
         }
     }
 }
-#endif

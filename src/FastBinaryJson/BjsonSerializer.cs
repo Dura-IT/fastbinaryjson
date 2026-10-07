@@ -14,8 +14,8 @@ namespace DuraIT.FastBinaryJson
 {
     /*
      * On net10.0 the fixed-size writes go through stackalloc, strings are encoded straight into
-     * the output, and the output is a pooled buffer rather than a MemoryStream.
-     * netstandard2.0 keeps upstream's byte[] and MemoryStream path. Both write the same bytes in
+     * the output, and the output is a pooled buffer rather than a MemoryStream. netstandard2.0 keeps upstream's
+     * byte[] helpers for the fixed-size and string writes, but writes them into the same pooled buffer. Both write the same bytes in
      * the same (native) order - the golden files and the netstandard2.0 test project hold that,
      * so a divergence fails on one target rather than going unnoticed.
      *
@@ -23,11 +23,7 @@ namespace DuraIT.FastBinaryJson
      */
     internal sealed class BjsonSerializer : IDisposable
     {
-#if NET10_0_OR_GREATER
         private readonly PooledByteBuffer _output = new PooledByteBuffer();
-#else
-        private readonly MemoryStream _output = new MemoryStream();
-#endif
 
         private int _typespointer;
         private readonly int _maxDepth;
@@ -356,7 +352,7 @@ namespace DuraIT.FastBinaryJson
             WriteInt32Raw(BitConverter.SingleToInt32Bits(p));
 #else
             byte[] b = BitConverter.GetBytes(p);
-            _output.Write(b, 0, b.Length);
+            _output.Write(b);
 #endif
         }
 
@@ -367,7 +363,7 @@ namespace DuraIT.FastBinaryJson
             WriteInt64Raw(BitConverter.DoubleToInt64Bits(p));
 #else
             var b = BitConverter.GetBytes(p);
-            _output.Write(b, 0, b.Length);
+            _output.Write(b);
 #endif
         }
 
@@ -469,7 +465,7 @@ namespace DuraIT.FastBinaryJson
             g.TryWriteBytes(b);
             _output.Write(b);
 #else
-            _output.Write(g.ToByteArray(), 0, 16);
+            _output.Write(g.ToByteArray());
 #endif
         }
 
@@ -950,7 +946,7 @@ namespace DuraIT.FastBinaryJson
             MemoryMarshal.Write(buffer, in value);
             _output.Write(buffer);
 #else
-            _output.Write(Helper.GetBytes(value, false), 0, 2);
+            _output.Write(new ReadOnlySpan<byte>(Helper.GetBytes(value, false), 0, 2));
 #endif
         }
 
@@ -961,7 +957,7 @@ namespace DuraIT.FastBinaryJson
             MemoryMarshal.Write(buffer, in value);
             _output.Write(buffer);
 #else
-            _output.Write(Helper.GetBytes(value, false), 0, 4);
+            _output.Write(new ReadOnlySpan<byte>(Helper.GetBytes(value, false), 0, 4));
 #endif
         }
 
@@ -972,19 +968,14 @@ namespace DuraIT.FastBinaryJson
             MemoryMarshal.Write(buffer, in value);
             _output.Write(buffer);
 #else
-            _output.Write(Helper.GetBytes(value, false), 0, 8);
+            _output.Write(new ReadOnlySpan<byte>(Helper.GetBytes(value, false), 0, 8));
 #endif
         }
 
         // Overwrites four bytes written earlier - the $types pointer placeholder.
         private void PatchInt32(int position, int value)
         {
-#if NET10_0_OR_GREATER
             _output.WriteInt32At(position, value);
-#else
-            _output.Seek(position, SeekOrigin.Begin);
-            WriteInt32Raw(value);
-#endif
         }
 
 #if NET10_0_OR_GREATER
@@ -1033,14 +1024,12 @@ namespace DuraIT.FastBinaryJson
 #else
         private static byte[] Encode(string s, bool unicode) => unicode ? TypeReflector.UnicodeGetBytes(s) : TypeReflector.Utf8GetBytes(s);
 
-        private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes, 0, bytes.Length);
+        private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes);
 
-        private static void ReleasePooled()
-        {
-            // Nothing is pooled on this target.
-        }
+        // Idempotent: called from ConvertToBjson's finally and again from Dispose.
+        private void ReleasePooled() => _output.Dispose();
 
-        private int OutputLength => checked((int)_output.Length);
+        private int OutputLength => _output.Length;
 #endif
 
         #endregion
