@@ -14,7 +14,7 @@ namespace FastBinaryJson.UnitTests.Internal
     [TestFixture]
     [TestOf(typeof(TypeReflector))]
     [NonParallelizable]
-    public sealed class TypeReflectorTests
+    internal sealed class TypeReflectorTests
     {
         [TearDown]
         public void RemoveRegistrations()
@@ -22,43 +22,54 @@ namespace FastBinaryJson.UnitTests.Internal
             TypeReflector.Instance.ClearCustomTypes();
         }
 
-        [TestCase(typeof(Ordinary), true)]
-        [TestCase(typeof(OrdinaryStruct), true)]
-        [TestCase(typeof(DataSet), false)]
-        [TestCase(typeof(DataTable), false)]
-        [TestCase(typeof(DayOfWeek), false)]
-        [TestCase(typeof(DateTimeOffset), false)]
-        [TestCase(typeof(ExpandoObject), false)]
-        [TestCase(typeof(StringDictionary), false)]
-        [TestCase(typeof(NameValueCollection), false)]
-        [TestCase(typeof(List<int>), false)]
-        [TestCase(typeof(Dictionary<string, int>), false)]
-        [TestCase(typeof(Hashtable), false)]
-        [TestCase(typeof(int[]), false)]
-        public void IsPlainObject_Type_MatchesWhatWriteValueDoesWithIt(Type type, bool expected)
+        [TestCase(typeof(Ordinary), WriteKind.Object)]
+        [TestCase(typeof(OrdinaryStruct), WriteKind.Object)]
+        [TestCase(typeof(DataSet), WriteKind.DataSet)]
+        [TestCase(typeof(DataTable), WriteKind.DataTable)]
+        [TestCase(typeof(DayOfWeek), WriteKind.Enum)]
+        [TestCase(typeof(DateTimeOffset), WriteKind.DateTimeOffset)]
+        [TestCase(typeof(ExpandoObject), WriteKind.ExpandoDictionary)]
+        [TestCase(typeof(StringDictionary), WriteKind.StringDictionary)]
+        [TestCase(typeof(NameValueCollection), WriteKind.NameValueCollection)]
+        [TestCase(typeof(List<int>), WriteKind.Sequence)]
+        [TestCase(typeof(Dictionary<string, int>), WriteKind.StringKeyedDictionary)]
+        [TestCase(typeof(Dictionary<int, int>), WriteKind.Dictionary)]
+        [TestCase(typeof(Hashtable), WriteKind.Dictionary)]
+        [TestCase(typeof(int[]), WriteKind.Array)]
+        [TestCase(typeof(byte[]), WriteKind.Bytes)]
+        public void GetWriteKind_Type_ClassifiesItTheWayWriteValueAlwaysDid(Type type, WriteKind expected)
         {
-            TypeReflector.Instance.IsPlainObject(type).Should().Be(expected);
+            TypeReflector.Instance.GetWriteKind(type).Should().Be(expected);
         }
 
         [Test]
-        public void IsPlainObject_TypeRegisteredAfterBeingAsked_NoLongerPlain()
+        public void GetWriteKind_TypeRegisteredAfterBeingAsked_BecomesCustom()
         {
-            TypeReflector.Instance.IsPlainObject(typeof(Ordinary)).Should().BeTrue();
+            TypeReflector.Instance.GetWriteKind(typeof(Ordinary)).Should().Be(WriteKind.Object);
 
             Bjson.RegisterCustomType(typeof(Ordinary), _ => string.Empty, _ => new Ordinary());
 
-            TypeReflector.Instance.IsPlainObject(typeof(Ordinary)).Should().BeFalse();
+            TypeReflector.Instance.GetWriteKind(typeof(Ordinary)).Should().Be(WriteKind.Custom);
         }
 
         [Test]
-        public void ClearReflectionCache_AfterTypesWereAsked_DropsThePlainObjectAnswers()
+        public void GetWriteKind_RegisteredTypeThatIsAlsoASequence_StaysASequence()
         {
-            TypeReflector.Instance.IsPlainObject(typeof(Ordinary)).Should().BeTrue();
-            TypeReflector.Instance.PlainObjectCacheCount.Should().BeGreaterThan(0);
+            // The chain has always tested collections before custom registrations.
+            Bjson.RegisterCustomType(typeof(List<string>), _ => string.Empty, _ => new List<string>());
+
+            TypeReflector.Instance.GetWriteKind(typeof(List<string>)).Should().Be(WriteKind.Sequence);
+        }
+
+        [Test]
+        public void ClearReflectionCache_AfterTypesWereAsked_DropsTheClassifications()
+        {
+            TypeReflector.Instance.GetWriteKind(typeof(Ordinary)).Should().Be(WriteKind.Object);
+            TypeReflector.Instance.WriteKindCacheCount.Should().BeGreaterThan(0);
 
             TypeReflector.Instance.ClearReflectionCache();
 
-            TypeReflector.Instance.PlainObjectCacheCount.Should().Be(0);
+            TypeReflector.Instance.WriteKindCacheCount.Should().Be(0);
         }
 
         [TestCase("System.Int32, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e", "System.Int32")]

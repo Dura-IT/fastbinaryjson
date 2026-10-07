@@ -184,45 +184,69 @@ namespace DuraIT.FastBinaryJson
                 WriteDateTime(dateTime);
             else if (obj is TimeSpan timeSpan)
                 WriteTimeSpan(timeSpan);
-            else if (TypeReflector.Instance.IsPlainObject(obj.GetType()))
-                WriteObject(obj);
-            else if (obj is System.Dynamic.ExpandoObject)
-                WriteStringDictionary((IDictionary<string, object>)obj);
-            else if (obj is IDictionary stringKeyed && obj.GetType().IsGenericType && obj.GetType().GetGenericArguments()[0] == typeof(string))
-                WriteStringDictionary(stringKeyed);
-            else if (obj is IDictionary dictionary)
-                WriteDictionary(dictionary);
-            else if (obj is DataSet dataSet)
-                WriteDataset(dataSet);
-            else if (obj is DataTable dataTable)
-                WriteDataTable(dataTable);
-            else if (obj is byte[] bytes)
-                WriteBytes(bytes);
-            else if (obj is StringDictionary stringDictionary)
-                WriteSd(stringDictionary);
-            else if (obj is NameValueCollection nameValues)
-                WriteNv(nameValues);
-            else if (_params.UseTypedArrays && obj is Array)
-                WriteTypedArray((ICollection)obj);
-            else if (obj is IEnumerable sequence)
-                WriteArray(sequence);
-            else if (obj is Enum enumValue)
-                WriteEnum(enumValue);
-            else if (TypeReflector.Instance.IsTypeRegistered(obj.GetType()))
-                WriteCustom(obj);
-            /*
-             * Deliberately AFTER the custom-type check rather than up with the other primitives.
-             *
-             * Registering a custom type was the only way to store a DateTimeOffset before this
-             * branch existed, so anyone who stores one today has a registration and their stored
-             * data is a string. Letting the native form win would change their bytes on the next
-             * write, and would break their reads outright: a property whose declared type is
-             * registered is classified Custom, and that path casts the parsed value to string.
-             */
-            else if (obj is DateTimeOffset dateTimeOffset)
-                WriteDateTimeOffset(dateTimeOffset);
             else
-                WriteObject(obj);
+                WriteByKind(obj);
+        }
+
+        /*
+         * Everything that is not a primitive, dispatched on a classification cached per type. The order of the
+         * checks lives in TypeReflector.ClassifyForWrite, not here.
+         *
+         * DateTimeOffset is classified AFTER the custom-type check rather than up with the primitives.
+         * Registering a custom type was the only way to store a DateTimeOffset before its native form
+         * existed, so anyone who stores one today has a registration and their stored data is a string.
+         * Letting the native form win would change their bytes on the next write, and would break their
+         * reads outright: a property whose declared type is registered is classified Custom, and that path
+         * casts the parsed value to string.
+         */
+        private void WriteByKind(object obj)
+        {
+            switch (TypeReflector.Instance.GetWriteKind(obj.GetType()))
+            {
+                case WriteKind.ExpandoDictionary:
+                    WriteStringDictionary((IDictionary<string, object>)obj);
+                    break;
+                case WriteKind.StringKeyedDictionary:
+                    WriteStringDictionary((IDictionary)obj);
+                    break;
+                case WriteKind.Dictionary:
+                    WriteDictionary((IDictionary)obj);
+                    break;
+                case WriteKind.DataSet:
+                    WriteDataset((DataSet)obj);
+                    break;
+                case WriteKind.DataTable:
+                    WriteDataTable((DataTable)obj);
+                    break;
+                case WriteKind.Bytes:
+                    WriteBytes((byte[])obj);
+                    break;
+                case WriteKind.StringDictionary:
+                    WriteSd((StringDictionary)obj);
+                    break;
+                case WriteKind.NameValueCollection:
+                    WriteNv((NameValueCollection)obj);
+                    break;
+                case WriteKind.Array when _params.UseTypedArrays:
+                    WriteTypedArray((ICollection)obj);
+                    break;
+                case WriteKind.Array:
+                case WriteKind.Sequence:
+                    WriteArray((IEnumerable)obj);
+                    break;
+                case WriteKind.Enum:
+                    WriteEnum((Enum)obj);
+                    break;
+                case WriteKind.Custom:
+                    WriteCustom(obj);
+                    break;
+                case WriteKind.DateTimeOffset:
+                    WriteDateTimeOffset((DateTimeOffset)obj);
+                    break;
+                default:
+                    WriteObject(obj);
+                    break;
+            }
         }
 
         private void WriteSByte(sbyte p)

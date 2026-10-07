@@ -243,7 +243,7 @@ namespace DuraIT.FastBinaryJson.Internal
             // so the resolved results are no longer trustworthy.
             _serializerForType = new SafeDictionary<Type, CustomTypeSerializer?>();
             _deserializerForType = new SafeDictionary<Type, CustomTypeDeserializer?>();
-            _plainObject = new SafeDictionary<Type, bool>();
+            _writeKinds = new SafeDictionary<Type, WriteKind>();
             // reset property cache
             Instance.ResetPropertyCache();
         }
@@ -322,7 +322,7 @@ namespace DuraIT.FastBinaryJson.Internal
             CustomDeserializer = new SafeDictionary<Type, CustomTypeDeserializer>();
             _serializerForType = new SafeDictionary<Type, CustomTypeSerializer?>();
             _deserializerForType = new SafeDictionary<Type, CustomTypeDeserializer?>();
-            _plainObject = new SafeDictionary<Type, bool>();
+            _writeKinds = new SafeDictionary<Type, WriteKind>();
             ResetPropertyCache();
         }
 
@@ -341,34 +341,55 @@ namespace DuraIT.FastBinaryJson.Internal
         }
 
         /*
-         * Whether WriteValue would send a value of this exact type through every special case and land
-         * on WriteObject: not a dictionary, collection, DataSet, DataTable, enum or DateTimeOffset, and
-         * not registered as a custom type. Decided once per type from the same questions the `is` chain
-         * asks, so an ordinary object costs one lookup instead of that whole chain - the interface
-         * casts in it are the slow part. Reset whenever a registration changes the answer.
+         * How WriteValue writes a value of this exact type, decided once per type with the same questions,
+         * in the same order, as the chain of `is` tests it replaces: the interface casts in that chain are
+         * the slow part, and an ordinary object used to pay all of them. Reset whenever a registration
+         * changes the answer.
          */
-        private SafeDictionary<Type, bool> _plainObject = new SafeDictionary<Type, bool>();
+        private SafeDictionary<Type, WriteKind> _writeKinds = new SafeDictionary<Type, WriteKind>();
 
-        internal int PlainObjectCacheCount => _plainObject.Count();
+        internal int WriteKindCacheCount => _writeKinds.Count();
 
-        internal bool IsPlainObject(Type t)
+        internal WriteKind GetWriteKind(Type t)
         {
             // One reading of the field for the whole call: a registration replaces it, and an answer worked
             // out before that must go into the dictionary it was asked of, not into the fresh one.
-            SafeDictionary<Type, bool> cache = _plainObject;
-            if (cache.TryGetValue(t, out bool plain))
-                return plain;
+            SafeDictionary<Type, WriteKind> cache = _writeKinds;
+            if (cache.TryGetValue(t, out WriteKind kind))
+                return kind;
 
-            // StringDictionary and NameValueCollection are IEnumerable, so the first test covers them.
-            plain =
-                !typeof(IEnumerable).IsAssignableFrom(t)
-                && !typeof(DataSet).IsAssignableFrom(t)
-                && !typeof(DataTable).IsAssignableFrom(t)
-                && !typeof(Enum).IsAssignableFrom(t)
-                && t != typeof(DateTimeOffset)
-                && !IsTypeRegistered(t);
-            cache.Add(t, plain);
-            return plain;
+            kind = ClassifyForWrite(t);
+            cache.Add(t, kind);
+            return kind;
+        }
+
+        private WriteKind ClassifyForWrite(Type t)
+        {
+            if (typeof(System.Dynamic.ExpandoObject).IsAssignableFrom(t))
+                return WriteKind.ExpandoDictionary;
+            if (typeof(IDictionary).IsAssignableFrom(t))
+                return t.IsGenericType && t.GetGenericArguments()[0] == typeof(string) ? WriteKind.StringKeyedDictionary : WriteKind.Dictionary;
+            if (typeof(DataSet).IsAssignableFrom(t))
+                return WriteKind.DataSet;
+            if (typeof(DataTable).IsAssignableFrom(t))
+                return WriteKind.DataTable;
+            if (t == typeof(byte[]))
+                return WriteKind.Bytes;
+            if (typeof(StringDictionary).IsAssignableFrom(t))
+                return WriteKind.StringDictionary;
+            if (typeof(NameValueCollection).IsAssignableFrom(t))
+                return WriteKind.NameValueCollection;
+            if (typeof(Array).IsAssignableFrom(t))
+                return WriteKind.Array;
+            if (typeof(IEnumerable).IsAssignableFrom(t))
+                return WriteKind.Sequence;
+            if (typeof(Enum).IsAssignableFrom(t))
+                return WriteKind.Enum;
+            if (IsTypeRegistered(t))
+                return WriteKind.Custom;
+            if (t == typeof(DateTimeOffset))
+                return WriteKind.DateTimeOffset;
+            return WriteKind.Object;
         }
         #endregion
 
@@ -1210,7 +1231,7 @@ namespace DuraIT.FastBinaryJson.Internal
             _getterscache = new SafeDictionary<Type, Getters[]>(10);
             _propertycache = new SafeDictionary<string, Dictionary<string, PropertyMetadata>>(10);
             _wirenamecache = new SafeDictionary<string, WireNameMap>(10);
-            _plainObject = new SafeDictionary<Type, bool>();
+            _writeKinds = new SafeDictionary<Type, WriteKind>();
             _genericTypes = new SafeDictionary<Type, Type[]>(10);
             _genericTypeDef = new SafeDictionary<Type, Type>(10);
         }
