@@ -192,7 +192,7 @@ jobs:
           mkdir "$RUNNER_TEMP/unpacked" "$RUNNER_TEMP/check"
           unzip -q "$RUNNER_TEMP"/pack/*.nupkg -d "$RUNNER_TEMP/unpacked"
           cd "$RUNNER_TEMP/check"
-          dotnet new console --nologo -o . > /dev/null
+          dotnet new console -o . > /dev/null
           cat > Program.cs <<'CS'
           foreach (string path in args)
           {
