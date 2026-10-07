@@ -553,7 +553,7 @@ namespace DuraIT.FastBinaryJson
         private void WriteDataset(DataSet ds)
         {
             _output.WriteByte(Tokens.DocStart);
-            WritePair("$schema", _params.UseOptimizedDatasetSchema ? GetSchema(ds) : ds.GetXmlSchema());
+            WritePair(WireKeys.Schema, _params.UseOptimizedDatasetSchema ? GetSchema(ds) : ds.GetXmlSchema());
             WriteComma();
             bool tablesep = false;
             foreach (DataTable table in ds.Tables)
@@ -598,7 +598,7 @@ namespace DuraIT.FastBinaryJson
         void WriteDataTable(DataTable dt)
         {
             _output.WriteByte(Tokens.DocStart);
-            this.WritePair("$schema", _params.UseOptimizedDatasetSchema ? GetSchema(dt) : GetXmlSchema(dt));
+            this.WritePair(WireKeys.Schema, _params.UseOptimizedDatasetSchema ? GetSchema(dt) : GetXmlSchema(dt));
             WriteComma();
 
             WriteDataTableData(dt);
@@ -651,9 +651,9 @@ namespace DuraIT.FastBinaryJson
             if (_params.UseExtensions)
             {
                 if (!_params.UsingGlobalTypes)
-                    WritePairFast("$type", TypeReflector.Instance.GetTypeAssemblyName(t));
+                    WritePairFast(WireKeys.Type, TypeReflector.Instance.GetTypeAssemblyName(t));
                 else
-                    WritePairFast("$type", GetGlobalTypeId(t));
+                    WritePairFast(WireKeys.Type, GetGlobalTypeId(t));
                 append = true;
             }
 

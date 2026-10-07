@@ -852,7 +852,7 @@ namespace DuraIT.FastBinaryJson
                         v = ParseDictionary(valueDictionary, null, t2, null);
                     else if (t2 == typeof(byte[]))
                         v = kv.Value;
-                    else if (gtypes != null && t2.IsArray)
+                    else if (t2.IsArray)
                         v = CreateArray((List<object>)kv.Value, arraytype, null);
                     else if (kv.Value is IList)
                         v = CreateGenericList((List<object>)kv.Value, t2, t1, null);
@@ -995,7 +995,7 @@ namespace DuraIT.FastBinaryJson
 
             // _globalTypes is always true here when globaltypes is non-null - set just above.
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - a crafted payload can carry a null $type
-            if (d.TryGetValue("$type", out tn) && tn != null)
+            if (d.TryGetValue(WireKeys.Type, out tn) && tn != null)
                 type = ResolveType(tn, _globalTypes ? globaltypes : null);
             else if (type == typeof(object))
                 return d;
@@ -1067,7 +1067,7 @@ namespace DuraIT.FastBinaryJson
             if ((pi.IsClass || pi.IsStruct || pi.IsInterface) && v is Dictionary<string, object>)
             {
                 var oo = (Dictionary<string, object>)v;
-                if (oo.ContainsKey("$schema"))
+                if (oo.ContainsKey(WireKeys.Schema))
                     return CreateDataset(oo, globaltypes);
 
                 /*
@@ -1292,7 +1292,7 @@ namespace DuraIT.FastBinaryJson
             ds.BeginInit();
 
             // read dataset schema here
-            var schema = reader!["$schema"];
+            var schema = reader![WireKeys.Schema];
 
             if (schema is string schemaXml)
             {
@@ -1313,7 +1313,7 @@ namespace DuraIT.FastBinaryJson
 
             foreach (KeyValuePair<string, object> pair in reader)
             {
-                if (pair.Key == "$type" || pair.Key == "$schema")
+                if (pair.Key == WireKeys.Type || pair.Key == WireKeys.Schema)
                     continue;
 
                 List<object> rows = (List<object>)pair.Value;
@@ -1350,7 +1350,7 @@ namespace DuraIT.FastBinaryJson
             var dt = new DataTable();
 
             // read dataset schema here
-            var schema = reader!["$schema"];
+            var schema = reader![WireKeys.Schema];
 
             if (schema is string schemaXml)
             {
@@ -1369,7 +1369,7 @@ namespace DuraIT.FastBinaryJson
 
             foreach (var pair in reader)
             {
-                if (pair.Key == "$type" || pair.Key == "$schema")
+                if (pair.Key == WireKeys.Type || pair.Key == WireKeys.Schema)
                     continue;
 
                 var rows = (List<object>)pair.Value;

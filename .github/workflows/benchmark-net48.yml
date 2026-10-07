@@ -33,11 +33,15 @@ jobs:
       - name: Build
         run: dotnet build benchmarks/FastBinaryJson.Benchmarks/FastBinaryJson.Benchmarks.csproj -c Release -f net48 --nologo
 
+      # The input goes through an environment variable, never straight into the script: a workflow input is
+      # chosen by whoever dispatches the run, and interpolating it into a run block lets it inject commands.
       - name: Benchmark
+        env:
+          BENCHMARK_FILTER: ${{ inputs.filter }}
         run: >
           dotnet run --no-build -c Release -f net48
           --project benchmarks/FastBinaryJson.Benchmarks/FastBinaryJson.Benchmarks.csproj
-          -- bench --filter "${{ inputs.filter }}" --artifacts artifacts/benchmarks
+          -- bench --filter "$env:BENCHMARK_FILTER" --artifacts artifacts/benchmarks
 
       - name: Upload results
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1

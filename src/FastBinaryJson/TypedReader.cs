@@ -28,8 +28,8 @@ namespace DuraIT.FastBinaryJson
     internal sealed class TypedReader
     {
         // "$type" as each encoding writes it, so the head key of an object is recognised without decoding.
-        private static readonly byte[] TypeKeyUtf16 = Key(Tokens.NameUtf16, TypeReflector.UnicodeGetBytes("$type"));
-        private static readonly byte[] TypeKeyUtf8 = Key(Tokens.Name, TypeReflector.Utf8GetBytes("$type"));
+        private static readonly byte[] TypeKeyUtf16 = Key(Tokens.NameUtf16, TypeReflector.UnicodeGetBytes(WireKeys.Type));
+        private static readonly byte[] TypeKeyUtf8 = Key(Tokens.Name, TypeReflector.Utf8GetBytes(WireKeys.Type));
 
         private readonly Deserializer _deserializer;
         private readonly BjsonParser _parser;
@@ -201,7 +201,7 @@ namespace DuraIT.FastBinaryJson
                     return true;
                 }
 
-                if (name == "$type")
+                if (name == WireKeys.Type)
                 {
                     if (!TryRepeatType(globaltypes, out type))
                     {
@@ -334,7 +334,7 @@ namespace DuraIT.FastBinaryJson
         {
             int keyStart = _parser.Index - 1;
             if (_parser.TryReadKey(keyStart, TypeKeyUtf16) || _parser.TryReadKey(keyStart, TypeKeyUtf8))
-                return "$type";
+                return WireKeys.Type;
 
             return _parser.ReadName(token);
         }
