@@ -10,6 +10,7 @@ using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace DuraIT.FastBinaryJson.Internal
 {
@@ -622,9 +623,35 @@ namespace DuraIT.FastBinaryJson.Internal
                 }
 
                 Type? t = typename.StartsWith(UpstreamDatasetSchemaPrefix, StringComparison.Ordinal) ? typeof(DatasetSchema) : Type.GetType(typename);
+                if (t == null)
+                {
+                    string? bare = WithoutCoreLibrary(typename);
+                    if (bare != null)
+                        t = Type.GetType(bare);
+                }
+
                 _typecache.Add(typename, t);
                 return t;
             }
+        }
+
+        /*
+         * A name written on .NET Core qualifies framework types with System.Private.CoreLib, which .NET
+         * Framework does not have: its core library is mscorlib. Without the qualifier a framework type
+         * name resolves in whichever core library is running, so a typed array written on one runtime
+         * reads on the other. Only the qualifier of that one assembly is dropped, so a name that carries
+         * any other assembly is resolved exactly as written.
+         */
+        private static readonly Regex CoreLibraryQualifier = new Regex(
+            @", System\.Private\.CoreLib(, Version=[^,\]]+)?(, Culture=[^,\]]+)?(, PublicKeyToken=[^,\]]+)?",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled,
+            TimeSpan.FromSeconds(1)
+        );
+
+        internal static string? WithoutCoreLibrary(string typename)
+        {
+            string bare = CoreLibraryQualifier.Replace(typename, string.Empty);
+            return bare.Length == typename.Length ? null : bare;
         }
 
         internal object FastCreateList(Type objtype, int capacity)

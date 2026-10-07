@@ -61,6 +61,17 @@ namespace FastBinaryJson.UnitTests.Internal
             TypeReflector.Instance.PlainObjectCacheCount.Should().Be(0);
         }
 
+        [TestCase("System.Int32, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e", "System.Int32")]
+        [TestCase(
+            "System.Collections.Generic.List`1[[System.String, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e",
+            "System.Collections.Generic.List`1[[System.String]]"
+        )]
+        [TestCase("MyApp.Thing, MyApp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null", null)]
+        public void WithoutCoreLibrary_Name_DropsOnlyTheCoreLibraryQualifier(string name, string? expected)
+        {
+            TypeReflector.WithoutCoreLibrary(name).Should().Be(expected);
+        }
+
         public sealed class Ordinary
         {
             public int Value { get; set; }

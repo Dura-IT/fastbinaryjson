@@ -63,8 +63,9 @@ namespace FastBinaryJson.UnitTests.Golden
 
         /*
          * Typed arrays carry their element type's assembly-qualified name, and on .NET Core that names
-         * System.Private.CoreLib, which .NET Framework (mscorlib) cannot load. Those payloads are
-         * therefore runtime-specific, and these tests run on both runtimes.
+         * System.Private.CoreLib. Reading them on .NET Framework works (the qualifier is dropped when the
+         * name does not resolve), but WRITING them there produces mscorlib names, so only the byte
+         * comparison is runtime-specific. These tests run on both runtimes.
          */
         private static bool IsDotNetFramework =>
             System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework", StringComparison.Ordinal);
@@ -72,7 +73,7 @@ namespace FastBinaryJson.UnitTests.Golden
         private static void IgnoreRuntimeSpecificFixtures(GoldenCase testCase)
         {
             if (IsDotNetFramework && testCase.Name.Contains("array-typed", StringComparison.Ordinal))
-                Assert.Ignore("Typed-array fixtures name System.Private.CoreLib, which .NET Framework cannot load.");
+                Assert.Ignore("Typed-array fixtures name System.Private.CoreLib; .NET Framework writes mscorlib names for the same arrays.");
         }
 
         internal static IEnumerable<GoldenCase> Cases()
@@ -189,7 +190,6 @@ namespace FastBinaryJson.UnitTests.Golden
         public void Deserialize_CommittedBytes_RestoresValue(GoldenCase testCase)
         {
             Guard.NotNull(testCase, nameof(testCase));
-            IgnoreRuntimeSpecificFixtures(testCase);
             if (Regenerating)
             {
                 Assert.Ignore("Regenerating: the committed bytes are being rewritten, so there is nothing stable to read back.");
