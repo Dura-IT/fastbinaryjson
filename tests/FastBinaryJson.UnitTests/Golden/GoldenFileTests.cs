@@ -61,6 +61,20 @@ namespace FastBinaryJson.UnitTests.Golden
             get { return Environment.GetEnvironmentVariable(RegenerateVariable) == "1"; }
         }
 
+        /*
+         * Typed arrays carry their element type's assembly-qualified name, and on .NET Core that names
+         * System.Private.CoreLib, which .NET Framework (mscorlib) cannot load. Those payloads are
+         * therefore runtime-specific, and these tests run on both runtimes.
+         */
+        private static bool IsDotNetFramework =>
+            System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework", StringComparison.Ordinal);
+
+        private static void IgnoreRuntimeSpecificFixtures(GoldenCase testCase)
+        {
+            if (IsDotNetFramework && testCase.Name.Contains("array-typed", StringComparison.Ordinal))
+                Assert.Ignore("Typed-array fixtures name System.Private.CoreLib, which .NET Framework cannot load.");
+        }
+
         internal static IEnumerable<GoldenCase> Cases()
         {
             yield return GoldenCase.For("primitives-default", GoldenCorpus.BuildPrimitives, Defaults);
@@ -119,6 +133,9 @@ namespace FastBinaryJson.UnitTests.Golden
         [Test]
         public void Fixtures_RuntimeVersion_MatchesWhatTheyWereGeneratedWith()
         {
+            if (IsDotNetFramework)
+                Assert.Ignore("The fixtures were generated on .NET Core; .NET Framework has a different core library.");
+
             Version? runtime = typeof(int).Assembly.GetName().Version;
 
             runtime
@@ -137,6 +154,7 @@ namespace FastBinaryJson.UnitTests.Golden
         public void Serialize_MatchesCommittedBytes(GoldenCase testCase)
         {
             Guard.NotNull(testCase, nameof(testCase));
+            IgnoreRuntimeSpecificFixtures(testCase);
             Bjson.ClearReflectionCache();
             byte[] actual = Bjson.ToBjson(testCase.Build(), testCase.Parameters());
 
@@ -171,6 +189,7 @@ namespace FastBinaryJson.UnitTests.Golden
         public void Deserialize_CommittedBytes_RestoresValue(GoldenCase testCase)
         {
             Guard.NotNull(testCase, nameof(testCase));
+            IgnoreRuntimeSpecificFixtures(testCase);
             if (Regenerating)
             {
                 Assert.Ignore("Regenerating: the committed bytes are being rewritten, so there is nothing stable to read back.");

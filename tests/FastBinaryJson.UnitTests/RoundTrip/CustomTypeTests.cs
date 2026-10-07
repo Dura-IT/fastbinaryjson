@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using AwesomeAssertions;
 using DuraIT.FastBinaryJson;
@@ -37,7 +38,9 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             // ReSharper disable once RedundantSuppressNullableWarningExpression - ToString() is annotated on net10.0 only
             Bjson.RegisterCustomType(typeof(IPAddress), x => x.ToString()!, x => IPAddress.Parse(x));
 
-            IPAddress.Loopback.GetType().Should().NotBe<IPAddress>("Loopback is a private ReadOnlyIPAddress subclass on .NET");
+            // .NET Core returns a private subclass here (the point of this test); .NET Framework returns a plain IPAddress.
+            if (!System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework", StringComparison.Ordinal))
+                IPAddress.Loopback.GetType().Should().NotBe<IPAddress>("Loopback is a private ReadOnlyIPAddress subclass on .NET");
 
             AddressHolder restored = Bjson.ToObject<AddressHolder>(Bjson.ToBjson(new AddressHolder { Value = IPAddress.Loopback }))!;
 
