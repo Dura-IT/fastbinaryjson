@@ -154,3 +154,54 @@ jobs:
             jq -r '.runs[]?.results[]? | "\(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)  [\(.ruleId)] \(.message.text)"' inspectcode.sarif.json
             exit 1
           fi
+
+  # Proves the release signing path on every pull request, since the real one only runs on a tag: the
+  # secret decodes to a key, a signed pack succeeds, and both assemblies carry the expected public key
+  # token. Skipped where the secret is unavailable (pull requests from forks).
+  signing-check:
+    name: signing check
+    runs-on: ubuntu-latest
+    env:
+      STRONG_NAME_KEY_BASE64: ${{ secrets.STRONG_NAME_KEY_BASE64 }}
+      EXPECTED_PUBLIC_KEY_TOKEN: 8cd8b707f36b302a
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Setup .NET
+        if: ${{ env.STRONG_NAME_KEY_BASE64 != '' }}
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
+
+      - name: Pack signed
+        if: ${{ env.STRONG_NAME_KEY_BASE64 != '' }}
+        run: |
+          echo "$STRONG_NAME_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/strong-name.snk"
+          dotnet pack src/FastBinaryJson/FastBinaryJson.csproj -c Release --nologo -o "$RUNNER_TEMP/pack" -p:StrongNameKeyFile="$RUNNER_TEMP/strong-name.snk"
+          rm -f "$RUNNER_TEMP/strong-name.snk"
+
+      - name: Verify the public key token
+        if: ${{ env.STRONG_NAME_KEY_BASE64 != '' }}
+        run: |
+          mkdir "$RUNNER_TEMP/unpacked" "$RUNNER_TEMP/check"
+          unzip -q "$RUNNER_TEMP"/pack/*.nupkg -d "$RUNNER_TEMP/unpacked"
+          cd "$RUNNER_TEMP/check"
+          dotnet new console --nologo -o . > /dev/null
+          cat > Program.cs <<'CS'
+          foreach (string path in args)
+          {
+              byte[]? token = System.Reflection.AssemblyName.GetAssemblyName(path).GetPublicKeyToken();
+              string actual = token == null ? "(unsigned)" : System.Convert.ToHexString(token).ToLowerInvariant();
+              System.Console.WriteLine(path + ": " + actual);
+              if (actual != System.Environment.GetEnvironmentVariable("EXPECTED_PUBLIC_KEY_TOKEN"))
+                  return 1;
+          }
+          return 0;
+          CS
+          dotnet run --nologo -- "$RUNNER_TEMP"/unpacked/lib/net10.0/DuraIT.FastBinaryJson.dll "$RUNNER_TEMP"/unpacked/lib/netstandard2.0/DuraIT.FastBinaryJson.dll
