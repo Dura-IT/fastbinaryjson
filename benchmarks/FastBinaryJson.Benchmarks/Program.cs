@@ -8,7 +8,7 @@ namespace FastBinaryJson.Benchmarks
     {
         public static int Main(string[] args)
         {
-            ArgumentNullException.ThrowIfNull(args);
+            Check.NotNull(args, nameof(args));
             string mode = args.Length > 0 ? args[0].ToUpperInvariant() : "BENCH";
 
             IReadOnlyList<IPayloadCase> payloads = Payloads.All();

@@ -19,8 +19,8 @@ namespace FastBinaryJson.Benchmarks
 
         public static void PrintCompatibilityMatrix(IReadOnlyList<IPayloadCase> payloads, IReadOnlyList<ISerializerArm> arms)
         {
-            ArgumentNullException.ThrowIfNull(payloads);
-            ArgumentNullException.ThrowIfNull(arms);
+            Check.NotNull(payloads, nameof(payloads));
+            Check.NotNull(arms, nameof(arms));
             Console.WriteLine("## Round-trip compatibility");
             Console.WriteLine();
             Console.WriteLine("Serialize, deserialize, re-serialize, compare bytes. A failure here means the");
@@ -49,7 +49,7 @@ namespace FastBinaryJson.Benchmarks
         /// </summary>
         public static void PrintUpstreamIdentity(IReadOnlyList<IPayloadCase> payloads)
         {
-            ArgumentNullException.ThrowIfNull(payloads);
+            Check.NotNull(payloads, nameof(payloads));
             Console.WriteLine("## Fork vs upstream 1.6.1 output");
             Console.WriteLine();
 
@@ -102,8 +102,8 @@ namespace FastBinaryJson.Benchmarks
 
         public static void PrintSizeTable(IReadOnlyList<IPayloadCase> payloads, IReadOnlyList<ISerializerArm> arms)
         {
-            ArgumentNullException.ThrowIfNull(payloads);
-            ArgumentNullException.ThrowIfNull(arms);
+            Check.NotNull(payloads, nameof(payloads));
+            Check.NotNull(arms, nameof(arms));
             Console.WriteLine("## Encoded size (bytes)");
             Console.WriteLine();
             Console.WriteLine("`Gzip shrink` is gzip relative to that serializer's own raw output - how much slack");

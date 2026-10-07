@@ -13,7 +13,7 @@ namespace FastBinaryJson.Benchmarks
     {
         public static int GzipSize(byte[] payload)
         {
-            ArgumentNullException.ThrowIfNull(payload);
+            Check.NotNull(payload, nameof(payload));
             using (MemoryStream output = new MemoryStream())
             {
                 using (GZipStream gzip = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
@@ -27,7 +27,10 @@ namespace FastBinaryJson.Benchmarks
 
         public static int BrotliSize(byte[] payload)
         {
-            ArgumentNullException.ThrowIfNull(payload);
+            Check.NotNull(payload, nameof(payload));
+#if NETFRAMEWORK
+            throw new NotSupportedException("Brotli is not available on .NET Framework; the size report runs on net10.0.");
+#else
             byte[] buffer = new byte[BrotliEncoder.GetMaxCompressedLength(payload.Length)];
             if (!BrotliEncoder.TryCompress(payload, buffer, out int written, quality: 11, window: 22))
             {
@@ -35,6 +38,7 @@ namespace FastBinaryJson.Benchmarks
             }
 
             return written;
+#endif
         }
     }
 }
