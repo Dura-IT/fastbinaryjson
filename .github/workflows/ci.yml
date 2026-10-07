@@ -205,3 +205,74 @@ jobs:
           return 0;
           CS
           dotnet run -- "$RUNNER_TEMP"/unpacked/lib/net10.0/DuraIT.FastBinaryJson.dll "$RUNNER_TEMP"/unpacked/lib/netstandard2.0/DuraIT.FastBinaryJson.dll
+
+  # SonarCloud analysis with coverage. The only job that feeds the quality gate (code smells, security
+  # hotspots, and the 80 percent Dura IT coverage threshold, all configured in SonarCloud). Analysis
+  # settings are /d: flags here: the .NET scanner does not read sonar-project.properties and fails the
+  # end step if one exists. Skipped, not failed, where the token is unavailable (pull requests from forks).
+  sonar:
+    name: sonarcloud
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0  # Sonar needs full history for blame and new-code detection
+
+      - name: Setup .NET
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
+
+      - name: Restore tools
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: dotnet tool restore
+
+      # Binary fixtures are listed by extension on BOTH properties: sonar.exclusions only filters main
+      # sources, and a fixture inside a test project is a test source.
+      - name: Sonar begin
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: >
+          dotnet dotnet-sonarscanner begin
+          /k:"Dura-IT_fastbinaryjson"
+          /o:"durait"
+          /d:sonar.token="$SONAR_TOKEN"
+          /d:sonar.host.url="https://sonarcloud.io"
+          /d:sonar.sourceEncoding="UTF-8"
+          /d:sonar.exclusions="**/*.bjson"
+          /d:sonar.test.exclusions="**/*.bjson"
+          /d:sonar.coverage.exclusions="benchmarks/**"
+          /d:sonar.cs.cobertura.reportsPaths="artifacts/coverage/**/coverage.cobertura.xml"
+          /d:sonar.qualitygate.wait=true
+
+      - name: Build
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: dotnet build FastBinaryJson.slnx -c Release --nologo
+
+      - name: Test (net10.0 asset, with coverage)
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj
+          -c Release --no-build --nologo
+          --collect:"XPlat Code Coverage"
+          --results-directory artifacts/coverage
+
+      - name: Test (netstandard2.0 asset, with coverage)
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests.Netstandard20/FastBinaryJson.UnitTests.Netstandard20.csproj
+          -c Release --no-build --nologo
+          --collect:"XPlat Code Coverage"
+          --results-directory artifacts/coverage
+
+      - name: Sonar end
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: dotnet dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
