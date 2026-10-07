@@ -388,6 +388,11 @@ namespace DuraIT.FastBinaryJson
 
             ar.Count = ParseInt();
 
+            // Every element takes at least one byte, so a count beyond what is left is a lie, and
+            // would otherwise size an array from the payload alone.
+            if (ar.Count < 0 || ar.Count > _json.Length - Index)
+                throw new BjsonException("Typed array declares " + ar.Count + " elements but only " + (_json.Length - Index) + " bytes remain");
+
             bool breakparse = false;
             while (!breakparse)
             {

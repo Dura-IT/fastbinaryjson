@@ -40,7 +40,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             const string hostile = "<!DOCTYPE schema [<!ENTITY probe \"x\">]><xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" />";
             byte[] bytes = Bjson.ToBjson(new Dictionary<string, object> { ["$schema"] = hostile });
 
-            FluentActions.Invoking(() => Bjson.ToObject<DataTable>(bytes)).Should().Throw<XmlException>();
+            FluentActions.Invoking(() => Bjson.ToObject<DataTable>(bytes)).Should().Throw<BjsonException>().WithInnerException<XmlException>();
         }
     }
 }

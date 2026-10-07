@@ -75,13 +75,14 @@ host.
 | `TypedArray.typename` / `count` / `data` | `TypedArray.TypeName` / `Count` / `Data` |
 | `Reflection`, `myPropInfo`, `Getters`, `DatasetSchema` | no longer public |
 
-Two behaviours differ on purpose. An unrecognized token or a graph deeper than `SerializerMaxDepth`
-throws `BjsonException`, where upstream threw a bare `Exception`; it still derives from `Exception`,
-so a handler written for the base type keeps working. Other corrupt or truncated input can still
-surface as `IndexOutOfRangeException`, `ArgumentOutOfRangeException` or `NullReferenceException`; do
-not rely on catching only `BjsonException` for untrusted bytes. And a null argument to
-a public method throws `ArgumentNullException` up front. The one exception is `DeepCopy(null)`, which
-returns null, since null is a valid thing to serialize.
+Two behaviours differ on purpose. Bytes that are not a valid payload (truncated, corrupt, a declared
+size that does not fit, a type name that cannot be created) throw `BjsonException` from every entry
+point that reads bytes, with the original exception as `InnerException`; so does a graph deeper than
+`SerializerMaxDepth`. Upstream threw a bare `Exception` for some of these and `IndexOutOfRangeException`,
+`NullReferenceException` or an out-of-memory for the rest. `BjsonException` still derives from
+`Exception`, so a handler written for the base type keeps working. And a null argument to a public
+method throws `ArgumentNullException` up front. The one exception is `DeepCopy(null)`, which returns
+null, since null is a valid thing to serialize.
 
 `Reflection.RDBMode`, which let RaptorDB-style consumers resolve runtime-loaded assemblies, is gone: it
 went away with the type, and its code path was removed rather than left unreachable.

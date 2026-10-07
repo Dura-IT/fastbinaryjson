@@ -15,8 +15,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * or a crash - never an error. For a deserializer that may be handed untrusted bytes, that is a
      * memory-safety defect, not a robustness nicety.
      *
-     * Every case must fail with ArgumentOutOfRangeException, which is what the bounds-checked UTF-8
-     * path has always thrown.
+     * Every case must fail with BjsonException, whose InnerException is the ArgumentOutOfRangeException
+     * the bounds-checked reads throw.
      */
     [TestFixture]
     [TestOf(typeof(Bjson))]
@@ -27,7 +27,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = Payload(Tokens.Utf16String, BitConverter.GetBytes(1000), new byte[] { 0x41, 0x00, 0x42, 0x00 });
 
-            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<BjsonException>().WithInnerException<ArgumentOutOfRangeException>();
         }
 
         [Test]
@@ -35,7 +35,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = Payload(Tokens.Utf8String, BitConverter.GetBytes(1000), new byte[] { 0x41, 0x42 });
 
-            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<BjsonException>().WithInnerException<ArgumentOutOfRangeException>();
         }
 
         [TestCase(Tokens.Int16, 1)]
@@ -53,7 +53,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = Payload(token, Enumerable.Repeat((byte)0x7F, bytesPresent).ToArray());
 
-            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<BjsonException>().WithInnerException<ArgumentOutOfRangeException>();
         }
 
         [Test]
@@ -61,7 +61,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = Payload(Tokens.ByteArray, BitConverter.GetBytes(int.MaxValue), new byte[] { 1, 2, 3 });
 
-            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<BjsonException>().WithInnerException<ArgumentOutOfRangeException>();
         }
 
         [Test]
@@ -69,7 +69,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = Payload(Tokens.DocStart, new[] { Tokens.NameUtf16, (byte)200 }, new byte[] { 0x41, 0x00 });
 
-            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<BjsonException>().WithInnerException<ArgumentOutOfRangeException>();
         }
 
         [Test]
@@ -77,7 +77,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         {
             byte[] bytes = Payload(Tokens.TypedArrayLong, BitConverter.GetBytes((short)3000), new byte[] { 0x41, 0x00 });
 
-            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<ArgumentOutOfRangeException>();
+            FluentActions.Invoking(() => Bjson.Parse(bytes)).Should().Throw<BjsonException>().WithInnerException<ArgumentOutOfRangeException>();
         }
 
         private static byte[] Payload(byte token, params byte[][] parts)
