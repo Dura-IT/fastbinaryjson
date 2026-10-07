@@ -42,8 +42,9 @@ Deserialize GuidDense        utf8        97,941     21,256   0.22x    0.20x     
 
 ## Caveats
 
-- net10.0 only. The netstandard2.0 asset has no span-based paths and measures 8 to 11 percent slower
-  than the pre-fork unsafe version on UTF-16 serialize (run on the net10 runtime).
+- The table is net10.0 only. The netstandard2.0 asset was measured separately on the net10 runtime
+  against the pre-fork unsafe version: with the `System.Memory` reference its UTF-16 serialize and
+  deserialize are 2 to 7 percent faster than that version on every payload; UTF-8 is unchanged.
 - LargeCollection deserialize UTF-16 is noisy (error 22 microseconds on a 117 microsecond mean).
 - Raw payload size is identical to upstream except where upstream writes wrong bytes: a dictionary key
   over 256 encoded bytes is 838 bytes here against 323 upstream, because upstream truncates the length.

@@ -7,11 +7,9 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text;
-#if NET10_0_OR_GREATER
-using System.Runtime.InteropServices;
-#endif
 
 namespace DuraIT.FastBinaryJson.Internal
 {
@@ -193,17 +191,7 @@ namespace DuraIT.FastBinaryJson.Internal
 
         public static byte[] UnicodeGetBytes(string str)
         {
-#if NET10_0_OR_GREATER
             return MemoryMarshal.AsBytes(str.AsSpan()).ToArray();
-#else
-            // netstandard2.0 has no Span, and unsafe is off: copy through a per-thread scratch array so the
-            // only allocation is the result, as the pointer copy this replaced had.
-            char[] scratch = RentScratch(str.Length);
-            str.CopyTo(0, scratch, 0, str.Length);
-            byte[] b = new byte[str.Length * 2];
-            Buffer.BlockCopy(scratch, 0, b, 0, b.Length);
-            return b;
-#endif
         }
 
         public static string UnicodeGetString(byte[] b)
@@ -221,36 +209,10 @@ namespace DuraIT.FastBinaryJson.Internal
             // One allocation: the string is built straight from the bytes, and an odd trailing byte is dropped.
             return new string(MemoryMarshal.Cast<byte, char>(new ReadOnlySpan<byte>(bytes, offset, buflen & ~1)));
 #else
-            int count = buflen / 2;
-            char[] scratch = RentScratch(count);
-            Buffer.BlockCopy(bytes, offset, scratch, 0, count * 2);
-            return new string(scratch, 0, count);
+            return MemoryMarshal.Cast<byte, char>(new ReadOnlySpan<byte>(bytes, offset, buflen & ~1)).ToString();
 #endif
         }
 
-#if !NET10_0_OR_GREATER
-        private const int MaxScratchChars = 32 * 1024;
-
-        [ThreadStatic]
-        private static char[]? _scratch;
-
-        /// <summary>
-        /// A per-thread char array of at least <paramref name="length"/>; contents are not cleared. Not kept
-        /// past <see cref="MaxScratchChars"/>, so one huge string does not pin its memory to the thread.
-        /// </summary>
-        private static char[] RentScratch(int length)
-        {
-            if (length > MaxScratchChars)
-                return new char[length];
-            char[]? scratch = _scratch;
-            if (scratch == null || scratch.Length < length)
-            {
-                scratch = new char[Math.Max(length, 256)];
-                _scratch = scratch;
-            }
-            return scratch;
-        }
-#endif
         #endregion
 
         #region json custom types
