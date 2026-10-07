@@ -44,6 +44,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             byte[] registered = Bjson.ToBjson(holder);
 
             registered.Should().NotEqual(plain);
+            Bjson.ToObject<DerivedHolder>(registered)!.Value!.Text.Should().Be("base:b");
         }
 
         public class Tagged

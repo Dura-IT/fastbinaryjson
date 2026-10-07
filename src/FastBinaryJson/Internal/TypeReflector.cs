@@ -205,12 +205,9 @@ namespace DuraIT.FastBinaryJson.Internal
             if (offset < 0 || buflen < 0 || offset > bytes.Length - buflen)
                 throw new ArgumentOutOfRangeException(nameof(buflen));
 
-#if NET10_0_OR_GREATER
-            // One allocation: the string is built straight from the bytes, and an odd trailing byte is dropped.
-            return new string(MemoryMarshal.Cast<byte, char>(new ReadOnlySpan<byte>(bytes, offset, buflen & ~1)));
-#else
+            // One allocation on both targets: the string is built straight from the bytes, and an odd
+            // trailing byte is dropped.
             return MemoryMarshal.Cast<byte, char>(new ReadOnlySpan<byte>(bytes, offset, buflen & ~1)).ToString();
-#endif
         }
 
         #endregion
@@ -351,21 +348,25 @@ namespace DuraIT.FastBinaryJson.Internal
          */
         private SafeDictionary<Type, bool> _plainObject = new SafeDictionary<Type, bool>();
 
+        internal int PlainObjectCacheCount => _plainObject.Count();
+
         internal bool IsPlainObject(Type t)
         {
-            if (_plainObject.TryGetValue(t, out bool plain))
+            // One reading of the field for the whole call: a registration replaces it, and an answer worked
+            // out before that must go into the dictionary it was asked of, not into the fresh one.
+            SafeDictionary<Type, bool> cache = _plainObject;
+            if (cache.TryGetValue(t, out bool plain))
                 return plain;
 
+            // StringDictionary and NameValueCollection are IEnumerable, so the first test covers them.
             plain =
                 !typeof(IEnumerable).IsAssignableFrom(t)
                 && !typeof(DataSet).IsAssignableFrom(t)
                 && !typeof(DataTable).IsAssignableFrom(t)
                 && !typeof(Enum).IsAssignableFrom(t)
-                && !typeof(StringDictionary).IsAssignableFrom(t)
-                && !typeof(NameValueCollection).IsAssignableFrom(t)
                 && t != typeof(DateTimeOffset)
                 && !IsTypeRegistered(t);
-            _plainObject.Add(t, plain);
+            cache.Add(t, plain);
             return plain;
         }
         #endregion
@@ -1182,6 +1183,7 @@ namespace DuraIT.FastBinaryJson.Internal
             _getterscache = new SafeDictionary<Type, Getters[]>(10);
             _propertycache = new SafeDictionary<string, Dictionary<string, PropertyMetadata>>(10);
             _wirenamecache = new SafeDictionary<string, WireNameMap>(10);
+            _plainObject = new SafeDictionary<Type, bool>();
             _genericTypes = new SafeDictionary<Type, Type[]>(10);
             _genericTypeDef = new SafeDictionary<Type, Type>(10);
         }

@@ -39,12 +39,23 @@ Deserialize GuidDense        utf8        97,941     21,256   0.22x    0.20x     
 - Against run 1, serialize allocations fell another 20 to 40 percent on small payloads and serialize time
   by up to 20 percent (FlatPrimitives); deserialize FlatPrimitives is about 10 percent faster. Large
   payloads moved little, as expected: their cost is the output and the strings.
+- Against the other serializers in the same run (UTF-16 arm, fork over the other, lower is better):
+  - System.Text.Json: deserialize 0.33x to 0.67x on every payload. Serialize 0.79x on FlatPrimitives
+    and 0.69x on LargeCollection, level on NestedOrder (1.02x), and slower on GuidDense (1.48x).
+  - MessagePack: deserialize 0.10x on GuidDense and 0.97x on LargeCollection, but 1.04x on NestedOrder
+    and 1.32x on FlatPrimitives. Serialize is slower on three payloads (1.38x, 1.59x and 1.86x on
+    FlatPrimitives, NestedOrder and LargeCollection) and level on GuidDense (0.97x).
+  - The full per-arm tables are in the BenchmarkDotNet output of the benchmark project.
 
 ## Caveats
 
-- The table is net10.0 only. The netstandard2.0 asset was measured separately on the net10 runtime
-  against the pre-fork unsafe version: with the `System.Memory` reference its UTF-16 serialize and
-  deserialize are 2 to 7 percent faster than that version on every payload; UTF-8 is unchanged.
+- The table is net10.0 only. The netstandard2.0 asset was measured separately, on the net10 runtime,
+  against the pre-fork unsafe version (commit `5632962`) with an interleaved A/B harness that links the
+  benchmark corpus and references the library with `SetTargetFramework="TargetFramework=netstandard2.0"`.
+  With the `System.Memory` reference its UTF-16 serialize and deserialize came out 2 to 7 percent faster
+  than that version on every payload, and UTF-8 unchanged. That is not a .NET Framework measurement: on
+  .NET Framework `System.Memory` is the package's own portable implementation, which this run did not
+  exercise. CI runs the netstandard2.0 asset on .NET Framework for correctness only.
 - LargeCollection deserialize UTF-16 is noisy (error 22 microseconds on a 117 microsecond mean).
 - Raw payload size is identical to upstream except where upstream writes wrong bytes: a dictionary key
   over 256 encoded bytes is 838 bytes here against 323 upstream, because upstream truncates the length.

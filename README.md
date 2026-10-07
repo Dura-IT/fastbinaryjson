@@ -53,8 +53,10 @@ sit in the same project with no duplicate type definitions and no ambiguity.
 
 `netstandard2.0` is a permanent target, not a leftover: the people with stored data are exactly the
 ones who cannot move runtime quickly. On that target the package references `System.Memory`, which is part
-of the runtime on .NET Core and a regular NuGet package on .NET Framework; SDK-style projects get its
-binding redirects generated automatically.
+of the runtime on .NET Core and a regular NuGet package on .NET Framework. An application or test
+project on .NET Framework gets the assembly binding redirects generated for it; a class library, or a
+plug-in loaded into a host that owns the `app.config`, does not, and needs the redirects added by the
+host.
 
 ### Migrating from fastBinaryJSON
 

@@ -37,6 +37,17 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         }
 
         [Test]
+        public void MakeCopy_IgnoreAttributesChangedAfterwards_DoesNotReachTheCopy()
+        {
+            var parameters = new BjsonParameters();
+            BjsonParameters copy = parameters.MakeCopy();
+
+            parameters.IgnoreAttributes.Add(typeof(ObsoleteAttribute));
+
+            copy.IgnoreAttributes.Should().NotContain(typeof(ObsoleteAttribute));
+        }
+
+        [Test]
         public void ToObjectGeneric_NullPayload_ReturnsTheDefault()
         {
             byte[] nullPayload = Bjson.ToBjson(null!);

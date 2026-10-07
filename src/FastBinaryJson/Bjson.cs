@@ -297,8 +297,8 @@ namespace DuraIT.FastBinaryJson
             IgnoreAttributes = new List<Type> { typeof(System.Xml.Serialization.XmlIgnoreAttribute), typeof(NonSerializedAttribute) };
         }
 
-        // For MakeCopy: the copy shares the ignore list, which the serializer and deserializer only read,
-        // instead of building the default one just to clear it and refill it on every call.
+        // For MakeCopy: takes the already copied ignore list, instead of building the default one just to
+        // clear it and refill it on every call.
         private BjsonParameters(IList<Type> ignoreAttributes)
         {
             IgnoreAttributes = ignoreAttributes;
@@ -341,7 +341,7 @@ namespace DuraIT.FastBinaryJson
 
         internal BjsonParameters MakeCopy()
         {
-            BjsonParameters copy = new BjsonParameters(IgnoreAttributes)
+            BjsonParameters copy = new BjsonParameters(new List<Type>(IgnoreAttributes))
             {
                 UseOptimizedDatasetSchema = UseOptimizedDatasetSchema,
                 ShowReadOnlyProperties = ShowReadOnlyProperties,
