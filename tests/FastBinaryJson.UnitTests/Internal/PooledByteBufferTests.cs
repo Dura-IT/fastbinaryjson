@@ -75,6 +75,33 @@ namespace FastBinaryJson.UnitTests.Internal
         }
 
         [Test]
+        public void Reserve_PastCapacityThenAdvance_KeepsEarlierAndCommittedBytes()
+        {
+            byte[] expected = Enumerable.Range(0, 1003).Select(i => (byte)(i * 7)).ToArray();
+
+            using PooledByteBuffer buffer = new PooledByteBuffer();
+            buffer.Write(expected.AsSpan(0, 3));
+            byte[] array = buffer.Reserve(1000, out int offset);
+            expected.AsSpan(3).CopyTo(array.AsSpan(offset));
+            buffer.Advance(1000);
+
+            offset.Should().Be(3);
+            (array.Length - offset).Should().BeGreaterThanOrEqualTo(1000);
+            buffer.ToArray().Should().Equal(expected);
+        }
+
+        [Test]
+        public void Reserve_AfterDispose_Throws()
+        {
+            PooledByteBuffer buffer = new PooledByteBuffer();
+            buffer.Dispose();
+
+            Action reserve = () => buffer.Reserve(1, out _);
+
+            reserve.Should().Throw<ObjectDisposedException>();
+        }
+
+        [Test]
         public void Advance_Zero_LeavesLengthUnchanged()
         {
             using PooledByteBuffer buffer = new PooledByteBuffer();

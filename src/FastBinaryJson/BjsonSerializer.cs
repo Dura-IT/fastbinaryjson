@@ -5,19 +5,19 @@ using System.Collections.Specialized;
 using System.Data;
 using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using DuraIT.FastBinaryJson.Internal;
 
 namespace DuraIT.FastBinaryJson
 {
     /*
-     * On net10.0 the fixed-size writes go through stackalloc, strings are encoded straight into
-     * the output, and the output is a pooled buffer rather than a MemoryStream. netstandard2.0 keeps upstream's
-     * byte[] helpers for the fixed-size and string writes, but writes them into the same pooled buffer. Both write the same bytes in
-     * the same (native) order - the golden files and the netstandard2.0 test project hold that,
-     * so a divergence fails on one target rather than going unnoticed.
-     *
-     * The split lives in the small raw-write and Encode helpers at the bottom, not in the callers.
+     * Fixed-size values go through stackalloc, strings are encoded straight into the output, and the
+     * output is a pooled buffer rather than a MemoryStream, on both targets. They differ only where the
+     * netstandard2.0 BCL lacks an overload: Guid, decimal and the UTF-8 encoder call (WriteGuid,
+     * WriteDecimal, WriteBytesRaw). Both write the same bytes in the same (native) order - the golden
+     * files and the netstandard2.0 test project hold that, so a divergence fails on one target rather
+     * than going unnoticed.
      */
     internal sealed class BjsonSerializer : IDisposable
     {
@@ -269,7 +269,7 @@ namespace DuraIT.FastBinaryJson
             if (!t.IsGenericType) // != null) // non generic array
             {
                 token = false;
-                // array type name - byte[] on netstandard2.0, a PendingString on net10.0
+                // array type name
                 var b = Encode(TypeReflector.Instance.GetTypeAssemblyName(t.GetElementType()!), unicode: !_params.UseV14TypedArray);
                 if (b.Length < 256)
                 {
@@ -352,25 +352,13 @@ namespace DuraIT.FastBinaryJson
         private void WriteFloat(float p)
         {
             _output.WriteByte(Tokens.Single);
-#if NET10_0_OR_GREATER
-            WriteInt32Raw(BitConverter.SingleToInt32Bits(p));
-#else
-            Span<byte> b = stackalloc byte[sizeof(float)];
-            MemoryMarshal.Write(b, ref p);
-            _output.Write(b);
-#endif
+            WriteRaw(p);
         }
 
         private void WriteDouble(double p)
         {
             _output.WriteByte(Tokens.Double);
-#if NET10_0_OR_GREATER
-            WriteInt64Raw(BitConverter.DoubleToInt64Bits(p));
-#else
-            Span<byte> b = stackalloc byte[sizeof(double)];
-            MemoryMarshal.Write(b, ref p);
-            _output.Write(b);
-#endif
+            WriteRaw(p);
         }
 
         private void WriteByte(byte p)
@@ -472,12 +460,10 @@ namespace DuraIT.FastBinaryJson
             _output.Write(b);
 #else
             // Guid.TryWriteBytes does not exist here. A Guid's memory layout is its ToByteArray order on a
-            // little-endian machine, which is every machine this runs on, so it is written without the array.
+            // little-endian machine, so that case is written without the array; anything else keeps ToByteArray.
             if (BitConverter.IsLittleEndian)
             {
-                Span<byte> b = stackalloc byte[16];
-                MemoryMarshal.Write(b, ref g);
-                _output.Write(b);
+                WriteRaw(g);
             }
             else
             {
@@ -941,7 +927,6 @@ namespace DuraIT.FastBinaryJson
         private void WriteName(string s)
         {
             bool unicode = _params.UseUnicodeStrings;
-            // byte[] on netstandard2.0, a PendingString on net10.0
             var b = Encode(s, unicode);
             if (b.Length < 256)
             {
@@ -969,47 +954,27 @@ namespace DuraIT.FastBinaryJson
         #region Raw writes
 
         /*
-         * Native byte order on both targets, exactly as Helper.GetBytes wrote it. Not
+         * Native byte order on both targets, exactly as upstream wrote it. Not
          * BinaryPrimitives.WriteXxxLittleEndian: that would only differ on big-endian hardware, but
          * byte-identical to upstream is the rule, not "identical where it happens to matter".
          */
-        private void WriteInt16Raw(short value)
-        {
-#if NET10_0_OR_GREATER
-            Span<byte> buffer = stackalloc byte[sizeof(short)];
-            MemoryMarshal.Write(buffer, in value);
-            _output.Write(buffer);
-#else
-            Span<byte> buffer = stackalloc byte[sizeof(short)];
-            MemoryMarshal.Write(buffer, ref value);
-            _output.Write(buffer);
-#endif
-        }
+        private void WriteInt16Raw(short value) => WriteRaw(value);
 
-        private void WriteInt32Raw(int value)
-        {
-#if NET10_0_OR_GREATER
-            Span<byte> buffer = stackalloc byte[sizeof(int)];
-            MemoryMarshal.Write(buffer, in value);
-            _output.Write(buffer);
-#else
-            Span<byte> buffer = stackalloc byte[sizeof(int)];
-            MemoryMarshal.Write(buffer, ref value);
-            _output.Write(buffer);
-#endif
-        }
+        private void WriteInt32Raw(int value) => WriteRaw(value);
 
-        private void WriteInt64Raw(long value)
+        private void WriteInt64Raw(long value) => WriteRaw(value);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void WriteRaw<T>(T value)
+            where T : unmanaged
         {
+            Span<byte> buffer = stackalloc byte[Unsafe.SizeOf<T>()];
 #if NET10_0_OR_GREATER
-            Span<byte> buffer = stackalloc byte[sizeof(long)];
             MemoryMarshal.Write(buffer, in value);
-            _output.Write(buffer);
 #else
-            Span<byte> buffer = stackalloc byte[sizeof(long)];
             MemoryMarshal.Write(buffer, ref value);
-            _output.Write(buffer);
 #endif
+            _output.Write(buffer);
         }
 
         // Overwrites four bytes written earlier - the $types pointer placeholder.
@@ -1026,25 +991,15 @@ namespace DuraIT.FastBinaryJson
         /// Carrying it separately lets <c>WriteBytesRaw</c> encode straight into the output
         /// afterwards, instead of encoding into a scratch buffer and copying.
         /// </remarks>
-        private readonly struct PendingString
+        private readonly record struct PendingString(string Value, bool Unicode, int Length);
+
+        // Only measures; WriteBytesRaw produces the bytes. A null string is written as an empty one, as the
+        // netstandard2.0 build always did for UTF-16 - a NameValueCollection may hold a null key.
+        private static PendingString Encode(string? s, bool unicode)
         {
-            public PendingString(string value, bool unicode, int length)
-            {
-                Value = value;
-                Unicode = unicode;
-                Length = length;
-            }
-
-            public string Value { get; }
-
-            public bool Unicode { get; }
-
-            public int Length { get; }
+            string value = s ?? string.Empty;
+            return new PendingString(value, unicode, unicode ? value.Length * sizeof(char) : TypeReflector.Utf8GetByteCount(value));
         }
-
-        // Only measures; WriteBytesRaw produces the bytes.
-        private static PendingString Encode(string s, bool unicode) =>
-            new PendingString(s, unicode, unicode ? s.Length * sizeof(char) : TypeReflector.Utf8GetByteCount(s));
 
         /// <summary>
         /// Writes the string's bytes into the output without an intermediate copy.
