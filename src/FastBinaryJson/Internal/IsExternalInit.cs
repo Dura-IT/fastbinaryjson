@@ -1,4 +1,5 @@
 #if !NET5_0_OR_GREATER
+// ReSharper disable once CheckNamespace - the compiler finds this type only under this exact namespace.
 namespace System.Runtime.CompilerServices
 {
     /// <summary>
