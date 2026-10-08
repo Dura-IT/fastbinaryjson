@@ -13,7 +13,7 @@
       is also what lets modern C# be written once for both targets instead of twice.
     -->
     <LangVersion>latest</LangVersion>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
 
     <!--
       AssemblyName must stay different from upstream's 'fastBinaryJSON'; the project name alone
@@ -43,6 +43,7 @@
     <RepositoryUrl>https://github.com/Dura-IT/fastbinaryjson</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageOutputPath>$(MSBuildThisFileDirectory)../../artifacts/packages/</PackageOutputPath>
   </PropertyGroup>
 
@@ -52,6 +53,7 @@
   -->
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" />
   </ItemGroup>
 
   <!--
