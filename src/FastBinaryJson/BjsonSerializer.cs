@@ -374,11 +374,50 @@ namespace DuraIT.FastBinaryJson
             Span<int> b = stackalloc int[4];
             _ = decimal.GetBits(p, b);
 #else
+            if (DecimalMemoryLayoutIsKnown)
+            {
+                // GetBits order (low, middle, high, flags) out of the value's own memory (flags, high, low, middle).
+                Span<int> raw = stackalloc int[4];
+                MemoryMarshal.Write(MemoryMarshal.AsBytes(raw), ref p);
+                WriteInt32Raw(raw[2]);
+                WriteInt32Raw(raw[3]);
+                WriteInt32Raw(raw[1]);
+                WriteInt32Raw(raw[0]);
+                return;
+            }
+
             var b = decimal.GetBits(p);
 #endif
             foreach (var c in b)
                 WriteInt32Raw(c);
         }
+
+#if !NET10_0_OR_GREATER
+        /*
+         * netstandard2.0 has no decimal.GetBits(Span) and the array it returns was one allocation per value. The
+         * layout of a decimal is an implementation detail, so the shortcut is taken only if this runtime's layout
+         * is checked to be the known one against GetBits itself; any other runtime keeps the array.
+         */
+        private static readonly bool DecimalMemoryLayoutIsKnown = CheckDecimalMemoryLayout();
+
+        private static bool CheckDecimalMemoryLayout()
+        {
+            if (!BitConverter.IsLittleEndian)
+                return false;
+
+            Span<int> raw = stackalloc int[4];
+            foreach (decimal sample in new[] { 1.2345678901234567890123456789m, -79228162514264337593543950335m, 0.5m, 100.00m })
+            {
+                decimal copy = sample;
+                MemoryMarshal.Write(MemoryMarshal.AsBytes(raw), ref copy);
+                int[] bits = decimal.GetBits(sample);
+                if (raw[2] != bits[0] || raw[3] != bits[1] || raw[1] != bits[2] || raw[0] != bits[3])
+                    return false;
+            }
+
+            return true;
+        }
+#endif
 
         private void WriteULong(ulong p)
         {
