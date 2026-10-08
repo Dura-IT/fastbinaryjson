@@ -145,134 +145,167 @@ namespace DuraIT.FastBinaryJson
                 return false;
             }
 
-            int start = _parser.Index;
-            int circular = _deserializer.CircularCount;
-            Dictionary<string, object>? sharedTypes = globaltypes;
-            List<string>? addedTypes = null;
-            bool readTypes = false;
+            ReadAttempt attempt = new ReadAttempt(_parser.Index, _deserializer.CircularCount, globaltypes, declared);
 
             _parser.ReadToken(); // Tokens.DocStart
             byte t = ReadSkippingCommas();
 
             if (t == Tokens.TypesPointer)
             {
-                if (globaltypes != null && (!mayExtendSharedTypes || globaltypes.Count > 0))
-                    return Abandon(start, circular, sharedTypes, addedTypes);
+                if (!TryReadTypesTable(ref attempt, mayExtendSharedTypes))
+                    return Abandon(attempt);
 
-                Dictionary<string, object> table = _parser.ReadTypesTable();
-                if (table.Count != 1 || !table.TryGetValue("$types", out object? types))
-                    return Abandon(start, circular, sharedTypes, addedTypes);
-
-                if (globaltypes == null)
-                    globaltypes = new Dictionary<string, object>();
-                else
-                    addedTypes = new List<string>();
-
-                foreach (KeyValuePair<string, object> kv in (Dictionary<string, object>)types)
-                {
-                    globaltypes.Add(kv.Key, kv.Value);
-                    addedTypes?.Add(kv.Key);
-                }
-
-                readTypes = true;
                 t = ReadSkippingCommas();
             }
 
-            Type? type = declared;
-            string? firstMember = null;
-            bool needsDeclaredType = true;
-            if (t != Tokens.DocEnd)
+            HeadOutcome head = ReadHead(ref attempt, t, out object? reference);
+            if (head == HeadOutcome.Abandoned)
+                return Abandon(attempt);
+
+            if (head == HeadOutcome.Reference)
             {
-                string name = ReadHeadName(t);
-                _parser.ReadColon();
-
-                if (name == "$i")
-                {
-                    // ParseDictionary resolves $i before it merges $types, so it never merges both.
-                    if (readTypes)
-                        return Abandon(start, circular, sharedTypes, addedTypes);
-
-                    object? id = _parser.ReadValue(out bool broke);
-                    if (broke || _parser.PeekToken() != Tokens.DocEnd)
-                        return Abandon(start, circular, sharedTypes, addedTypes);
-
-                    _parser.ReadToken();
-                    result = _deserializer.ResolveCircular(id!);
-                    return true;
-                }
-
-                if (name == WireKeys.Type)
-                {
-                    if (!TryRepeatType(globaltypes, out type))
-                    {
-                        int valueStart = _parser.Index;
-                        if (!TryResolveTypeInPlace(globaltypes, out type))
-                        {
-                            object? tn = _parser.ReadValue(out bool broke);
-                            if (broke)
-                                return Abandon(start, circular, sharedTypes, addedTypes);
-
-                            type = _deserializer.ResolveType(tn!, globaltypes);
-                        }
-
-                        RememberType(globaltypes, valueStart, type);
-                    }
-
-                    needsDeclaredType = false;
-                }
-                else if (IsSpecialName(name))
-                {
-                    return Abandon(start, circular, sharedTypes, addedTypes);
-                }
-                else
-                {
-                    firstMember = name;
-                }
+                result = reference;
+                return true;
             }
 
             // No $type: ParseDictionary returns the dictionary itself for object, and fails for the rest.
-            if (needsDeclaredType && (type == null || type == typeof(object) || type.IsAbstract || type.IsInterface))
-                return Abandon(start, circular, sharedTypes, addedTypes);
-            if (type == null)
-                return Abandon(start, circular, sharedTypes, addedTypes);
+            Type? type = attempt.Type;
+            if (type == null || (attempt.NeedsDeclaredType && (type == typeof(object) || type.IsAbstract || type.IsInterface)))
+                return Abandon(attempt);
 
             object o = _deserializer.CreateInstance(type);
             int number = _deserializer.RegisterCircular(o);
             WireNameMap members = TypeReflector.Instance.GetWireNameMap(type, type.FullName!, _deserializer.Parameters.ShowReadOnlyProperties);
-            WireKey[] keys = members.Keys;
-            int hint = 0;
 
-            if (t == Tokens.DocEnd)
+            if (t != Tokens.DocEnd && !TryReadMembers(attempt, members, ref o))
+                return Abandon(attempt);
+
+            if (t != Tokens.DocEnd && type.IsValueType)
+                _deserializer.UpdateCircular(number, o);
+            result = o;
+            return true;
+        }
+
+        /// <summary>
+        /// Merges a leading $types table into the table in effect. False when the object must be abandoned.
+        /// </summary>
+        private bool TryReadTypesTable(ref ReadAttempt attempt, bool mayExtendSharedTypes)
+        {
+            if (attempt.Globaltypes != null && (!mayExtendSharedTypes || attempt.Globaltypes.Count > 0))
+                return false;
+
+            Dictionary<string, object> table = _parser.ReadTypesTable();
+            if (table.Count != 1 || !table.TryGetValue("$types", out object? types))
+                return false;
+
+            if (attempt.Globaltypes == null)
+                attempt.Globaltypes = new Dictionary<string, object>();
+            else
+                attempt.AddedTypes = new List<string>();
+
+            foreach (KeyValuePair<string, object> kv in (Dictionary<string, object>)types)
             {
-                result = o;
-                return true;
+                attempt.Globaltypes.Add(kv.Key, kv.Value);
+                attempt.AddedTypes?.Add(kv.Key);
             }
 
+            attempt.ReadTypes = true;
+            return true;
+        }
+
+        /// <summary>
+        /// Reads the first key of the object: a $i reference, the $type, or the first ordinary member.
+        /// </summary>
+        private HeadOutcome ReadHead(ref ReadAttempt attempt, byte t, out object? reference)
+        {
+            reference = null;
+            if (t == Tokens.DocEnd)
+                return HeadOutcome.Continue;
+
+            string name = ReadHeadName(t);
+            _parser.ReadColon();
+
+            if (name == "$i")
+                return ReadReferenceHead(attempt, out reference);
+
+            if (name == WireKeys.Type)
+                return TryReadTypeHead(ref attempt) ? HeadOutcome.Continue : HeadOutcome.Abandoned;
+
+            if (IsSpecialName(name))
+                return HeadOutcome.Abandoned;
+
+            attempt.FirstMember = name;
+            return HeadOutcome.Continue;
+        }
+
+        private HeadOutcome ReadReferenceHead(ReadAttempt attempt, out object? reference)
+        {
+            reference = null;
+
+            // ParseDictionary resolves $i before it merges $types, so it never merges both.
+            if (attempt.ReadTypes)
+                return HeadOutcome.Abandoned;
+
+            object? id = _parser.ReadValue(out bool broke);
+            if (broke || _parser.PeekToken() != Tokens.DocEnd)
+                return HeadOutcome.Abandoned;
+
+            _parser.ReadToken();
+            reference = _deserializer.ResolveCircular(id!);
+            return HeadOutcome.Reference;
+        }
+
+        private bool TryReadTypeHead(ref ReadAttempt attempt)
+        {
+            if (!TryRepeatType(attempt.Globaltypes, out Type? type))
+            {
+                int valueStart = _parser.Index;
+                if (!TryResolveTypeInPlace(attempt.Globaltypes, out type))
+                {
+                    object? tn = _parser.ReadValue(out bool broke);
+                    if (broke)
+                        return false;
+
+                    type = _deserializer.ResolveType(tn!, attempt.Globaltypes);
+                }
+
+                RememberType(attempt.Globaltypes, valueStart, type);
+            }
+
+            attempt.Type = type;
+            attempt.NeedsDeclaredType = false;
+            return true;
+        }
+
+        /// <summary>
+        /// Reads the members after the head into <paramref name="o" />. False when the object must be abandoned.
+        /// </summary>
+        private bool TryReadMembers(ReadAttempt attempt, WireNameMap members, ref object o)
+        {
+            WireKey[] keys = members.Keys;
+            int hint = 0;
             bool ended = false;
-            if (firstMember != null)
-                o = ReadMember(o, members.Find(firstMember), globaltypes, out ended);
+            if (attempt.FirstMember != null)
+                o = ReadMember(o, members.Find(attempt.FirstMember), attempt.Globaltypes, out ended);
 
             while (!ended)
             {
-                t = _parser.ReadToken();
+                byte t = _parser.ReadToken();
                 if (t == Tokens.Comma)
                     continue;
                 if (t == Tokens.DocEnd)
                     break;
                 if (t == Tokens.TypesPointer)
-                    return Abandon(start, circular, sharedTypes, addedTypes);
+                    return false;
 
                 PropertyMetadata? pi = ReadMemberKey(t, members, keys, ref hint, out bool special);
                 _parser.ReadColon();
                 if (special)
-                    return Abandon(start, circular, sharedTypes, addedTypes);
+                    return false;
 
-                o = ReadMember(o, pi, globaltypes, out ended);
+                o = ReadMember(o, pi, attempt.Globaltypes, out ended);
             }
 
-            if (type.IsValueType)
-                _deserializer.UpdateCircular(number, o);
-            result = o;
             return true;
         }
 
@@ -292,27 +325,12 @@ namespace DuraIT.FastBinaryJson
             ended = false;
             if (pi != null && pi.CanWrite)
             {
-                byte next = _parser.PeekToken();
-                if (next == Tokens.DocStart && IsPlainObjectMember(pi))
-                {
-                    object? value;
-                    if (TryReadObject(pi.Pt, globaltypes, false, out object? read))
-                        value = read;
-                    else
-                        value = _deserializer.ConvertValue(pi, _parser.ReadValue(out _)!, globaltypes);
+                if (TryReadStructuredMember(o, pi, globaltypes, out object filled))
+                    return filled;
 
-                    return pi.Setter!(o, value!);
-                }
-
-                if (next == Tokens.ArrayStart && IsPlainListMember(pi))
-                {
-                    _parser.ReadToken();
-                    return pi.Setter!(o, ReadGenericList(pi.Pt, pi.Bt, globaltypes));
-                }
+                if (pi.TypedSetter != null && TrySetTyped(o, pi))
+                    return o;
             }
-
-            if (pi != null && pi.CanWrite && pi.TypedSetter != null && TrySetTyped(o, pi))
-                return o;
 
             object? v = _parser.ReadValue(out bool broke);
             if (broke)
@@ -325,6 +343,35 @@ namespace DuraIT.FastBinaryJson
                 return pi.Setter!(o, _deserializer.ConvertValue(pi, v, globaltypes)!);
 
             return o;
+        }
+
+        /// <summary>
+        /// Reads a plain object or list value straight into the member, when its shape allows it.
+        /// </summary>
+        private bool TryReadStructuredMember(object o, PropertyMetadata pi, Dictionary<string, object>? globaltypes, out object filled)
+        {
+            filled = o;
+            byte next = _parser.PeekToken();
+            if (next == Tokens.DocStart && IsPlainObjectMember(pi))
+            {
+                object? value;
+                if (TryReadObject(pi.Pt, globaltypes, false, out object? read))
+                    value = read;
+                else
+                    value = _deserializer.ConvertValue(pi, _parser.ReadValue(out _)!, globaltypes);
+
+                filled = pi.Setter!(o, value!);
+                return true;
+            }
+
+            if (next == Tokens.ArrayStart && IsPlainListMember(pi))
+            {
+                _parser.ReadToken();
+                filled = pi.Setter!(o, ReadGenericList(pi.Pt, pi.Bt, globaltypes));
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -600,31 +647,7 @@ namespace DuraIT.FastBinaryJson
             bool broke = false;
             while (!broke)
             {
-                object? item;
-                // An object element is added as built, never through convert - as in both originals.
-                bool isObject = _parser.PeekToken() == Tokens.DocStart;
-                if (isObject)
-                {
-                    if (!TryReadObject(bt, globaltypes, mayExtendSharedTypes, out object? read))
-                        read = _deserializer.ParseDictionary((Dictionary<string, object>)_parser.ReadValue(out _)!, globaltypes, bt, null);
-                    item = read;
-                }
-                else
-                {
-                    item = _parser.ReadValue(out broke);
-                }
-
-                byte t;
-                if (!broke)
-                {
-                    items.Add(isObject ? item : convert(item));
-                    t = _parser.ReadToken();
-                }
-                else
-                {
-                    t = (byte)item!;
-                }
-
+                byte t = ReadElement(items, bt, globaltypes, mayExtendSharedTypes, convert, out broke);
                 if (t == Tokens.Comma)
                     continue;
                 if (t == Tokens.ArrayEnd)
@@ -632,6 +655,39 @@ namespace DuraIT.FastBinaryJson
             }
 
             return items;
+        }
+
+        /// <summary>
+        /// Reads one element into <paramref name="items" /> and the token after it. When the value position held a
+        /// structural token instead, nothing is added and that token is returned with <paramref name="broke" /> set.
+        /// </summary>
+        private byte ReadElement(
+            List<object?> items,
+            Type? bt,
+            Dictionary<string, object>? globaltypes,
+            bool mayExtendSharedTypes,
+            Func<object?, object?> convert,
+            out bool broke
+        )
+        {
+            broke = false;
+
+            // An object element is added as built, never through convert - as in both originals.
+            if (_parser.PeekToken() == Tokens.DocStart)
+            {
+                if (!TryReadObject(bt, globaltypes, mayExtendSharedTypes, out object? read))
+                    read = _deserializer.ParseDictionary((Dictionary<string, object>)_parser.ReadValue(out _)!, globaltypes, bt, null);
+
+                items.Add(read);
+                return _parser.ReadToken();
+            }
+
+            object? item = _parser.ReadValue(out broke);
+            if (broke)
+                return (byte)item!;
+
+            items.Add(convert(item));
+            return _parser.ReadToken();
         }
 
         private byte ReadSkippingCommas()
@@ -646,18 +702,54 @@ namespace DuraIT.FastBinaryJson
         // $type, $types, $i, $schema - anything the two-step path might treat specially.
         private static bool IsSpecialName(string name) => name.Length > 0 && name[0] == '$';
 
-        private bool Abandon(int start, int circular, Dictionary<string, object>? sharedTypes, List<string>? addedTypes)
+        private bool Abandon(ReadAttempt attempt)
         {
             _deserializer.OneStepFallbacks++;
-            _deserializer.UndoCircular(circular);
-            if (sharedTypes != null && addedTypes != null)
+            _deserializer.UndoCircular(attempt.Circular);
+            if (attempt.SharedTypes != null && attempt.AddedTypes != null)
             {
-                foreach (string key in addedTypes)
-                    sharedTypes.Remove(key);
+                foreach (string key in attempt.AddedTypes)
+                    attempt.SharedTypes.Remove(key);
             }
 
-            _parser.Index = start;
+            _parser.Index = attempt.Start;
             return false;
+        }
+
+        private enum HeadOutcome
+        {
+            Continue,
+            Reference,
+            Abandoned,
+        }
+
+        /// <summary>
+        /// What TryReadObject needs to undo if it gives up, and what it has learned about the object so far.
+        /// </summary>
+        private struct ReadAttempt
+        {
+            public ReadAttempt(int start, int circular, Dictionary<string, object>? globaltypes, Type? declared)
+            {
+                Start = start;
+                Circular = circular;
+                SharedTypes = globaltypes;
+                Globaltypes = globaltypes;
+                Type = declared;
+                AddedTypes = null;
+                FirstMember = null;
+                ReadTypes = false;
+                NeedsDeclaredType = true;
+            }
+
+            public int Start { get; }
+            public int Circular { get; }
+            public Dictionary<string, object>? SharedTypes { get; }
+            public Dictionary<string, object>? Globaltypes { get; set; }
+            public List<string>? AddedTypes { get; set; }
+            public Type? Type { get; set; }
+            public string? FirstMember { get; set; }
+            public bool ReadTypes { get; set; }
+            public bool NeedsDeclaredType { get; set; }
         }
     }
 }

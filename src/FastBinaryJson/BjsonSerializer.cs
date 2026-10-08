@@ -164,7 +164,13 @@ namespace DuraIT.FastBinaryJson
                 WriteULong(uint64);
             else if (obj is decimal dec)
                 WriteDecimal(dec);
-            else if (obj is sbyte sbyteValue)
+            else
+                WriteLessCommonValue(obj);
+        }
+
+        private void WriteLessCommonValue(object obj)
+        {
+            if (obj is sbyte sbyteValue)
                 WriteSByte(sbyteValue);
             else if (obj is byte byteValue)
                 WriteByte(byteValue);
@@ -611,37 +617,10 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteObject(object obj)
         {
-            int i;
-            if (!SeenObjects.TryGetValue(obj, out i))
-                SeenObjects.Add(obj, SeenObjects.Count + 1);
-            else
-            {
-                if (_currentDepth > 0)
-                {
-                    _output.WriteByte(Tokens.DocStart);
-                    WriteName("$i");
-                    WriteColon();
-                    WriteValue(i);
-                    _output.WriteByte(Tokens.DocEnd);
-                    return;
-                }
-            }
-            if (!_params.UsingGlobalTypes)
-                _output.WriteByte(Tokens.DocStart);
-            else
-            {
-                if (!_typesWritten)
-                {
-                    _output.WriteByte(Tokens.DocStart);
-                    // write pointer to $types position
-                    _output.WriteByte(Tokens.TypesPointer);
-                    _typespointer = OutputLength; // place holder
-                    WriteInt32Raw(0); // zero pointer for now
-                    _typesWritten = true;
-                }
-                else
-                    _output.WriteByte(Tokens.DocStart);
-            }
+            if (TryWriteReference(obj))
+                return;
+
+            WriteObjectStart();
             _currentDepth++;
             if (_currentDepth > _maxDepth)
                 throw new BjsonException("Serializer encountered maximum depth of " + _maxDepth);
@@ -661,6 +640,52 @@ namespace DuraIT.FastBinaryJson
                 t, /*_params.ShowReadOnlyProperties,*/
                 _params.IgnoreAttributes
             );
+            WriteMembers(g, obj, append);
+            _output.WriteByte(Tokens.DocEnd);
+            _currentDepth--;
+        }
+
+        /// <summary>
+        /// Registers the object, and writes a $i reference instead when it was seen before and is nested.
+        /// </summary>
+        private bool TryWriteReference(object obj)
+        {
+            int i;
+            if (!SeenObjects.TryGetValue(obj, out i))
+            {
+                SeenObjects.Add(obj, SeenObjects.Count + 1);
+                return false;
+            }
+
+            if (_currentDepth <= 0)
+                return false;
+
+            _output.WriteByte(Tokens.DocStart);
+            WriteName("$i");
+            WriteColon();
+            WriteValue(i);
+            _output.WriteByte(Tokens.DocEnd);
+            return true;
+        }
+
+        private void WriteObjectStart()
+        {
+            if (_params.UsingGlobalTypes && !_typesWritten)
+            {
+                _output.WriteByte(Tokens.DocStart);
+                // write pointer to $types position
+                _output.WriteByte(Tokens.TypesPointer);
+                _typespointer = OutputLength; // place holder
+                WriteInt32Raw(0); // zero pointer for now
+                _typesWritten = true;
+                return;
+            }
+
+            _output.WriteByte(Tokens.DocStart);
+        }
+
+        private void WriteMembers(Getters[] g, object obj, bool append)
+        {
             int c = g.Length;
             for (int ii = 0; ii < c; ii++)
             {
@@ -687,8 +712,6 @@ namespace DuraIT.FastBinaryJson
                     append = true;
                 }
             }
-            _output.WriteByte(Tokens.DocEnd);
-            _currentDepth--;
         }
 
         /// <summary>

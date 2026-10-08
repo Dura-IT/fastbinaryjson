@@ -438,54 +438,17 @@ namespace DuraIT.FastBinaryJson.Internal
                  */
                 List<KeyValuePair<string, PropertyMetadata>> aliases = new List<KeyValuePair<string, PropertyMetadata>>();
                 var bf = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
-                PropertyInfo[] pr = type.GetProperties(bf);
-                foreach (PropertyInfo p in pr)
+                foreach (PropertyInfo p in type.GetProperties(bf))
                 {
                     if (p.GetIndexParameters().Length > 0) // Property is an indexer
                         continue;
 
-                    PropertyMetadata d = CreateMyProp(p.PropertyType, p.Name);
-                    d.Setter = TypeReflector.CreateSetMethod(type, p, showReadOnlyProperties);
-                    if (d.Setter != null)
-                    {
-                        d.CanWrite = true;
-                        AddTypedSetter(d, type, p, showReadOnlyProperties);
-                    }
-                    d.Getter = TypeReflector.CreateGetMethod(type, p);
-                    var att = p.GetCustomAttributes(true);
-                    foreach (var at in att)
-                    {
-                        if (at is DataMemberAttribute dm && !string.IsNullOrEmpty(dm.Name))
-                        {
-                            d.MemberName = dm.Name;
-                        }
-                    }
-                    AddMemberKeys(sd, aliases, d, p.Name);
+                    AddMemberKeys(sd, aliases, CreatePropertyMetadata(type, p, showReadOnlyProperties), p.Name);
                 }
-                FieldInfo[] fi = type.GetFields(bf);
-                foreach (FieldInfo f in fi)
+
+                foreach (FieldInfo f in type.GetFields(bf).Where(f => !f.IsLiteral))
                 {
-                    PropertyMetadata d = CreateMyProp(f.FieldType, f.Name);
-                    if (!f.IsLiteral)
-                    {
-                        if (!f.IsInitOnly)
-                            d.Setter = TypeReflector.CreateSetField(type, f);
-                        if (d.Setter != null)
-                        {
-                            d.CanWrite = true;
-                            AddTypedSetter(d, type, f);
-                        }
-                        d.Getter = TypeReflector.CreateGetField(type, f);
-                        var att = f.GetCustomAttributes(true);
-                        foreach (var at in att)
-                        {
-                            if (at is DataMemberAttribute dm && !string.IsNullOrEmpty(dm.Name))
-                            {
-                                d.MemberName = dm.Name;
-                            }
-                        }
-                        AddMemberKeys(sd, aliases, d, f.Name);
-                    }
+                    AddMemberKeys(sd, aliases, CreateFieldMetadata(type, f), f.Name);
                 }
 
                 foreach (KeyValuePair<string, PropertyMetadata> alias in aliases.Where(alias => !sd.ContainsKey(alias.Key)))
@@ -496,6 +459,52 @@ namespace DuraIT.FastBinaryJson.Internal
                 _propertycache.Add(typename, sd);
                 return sd;
             }
+        }
+
+        private PropertyMetadata CreatePropertyMetadata(Type type, PropertyInfo p, bool showReadOnlyProperties)
+        {
+            PropertyMetadata d = CreateMyProp(p.PropertyType, p.Name);
+            d.Setter = TypeReflector.CreateSetMethod(type, p, showReadOnlyProperties);
+            if (d.Setter != null)
+            {
+                d.CanWrite = true;
+                AddTypedSetter(d, type, p, showReadOnlyProperties);
+            }
+
+            d.Getter = TypeReflector.CreateGetMethod(type, p);
+            d.MemberName = DataMemberName(p);
+            return d;
+        }
+
+        private PropertyMetadata CreateFieldMetadata(Type type, FieldInfo f)
+        {
+            PropertyMetadata d = CreateMyProp(f.FieldType, f.Name);
+            if (!f.IsInitOnly)
+                d.Setter = TypeReflector.CreateSetField(type, f);
+            if (d.Setter != null)
+            {
+                d.CanWrite = true;
+                AddTypedSetter(d, type, f);
+            }
+
+            d.Getter = TypeReflector.CreateGetField(type, f);
+            d.MemberName = DataMemberName(f);
+            return d;
+        }
+
+        /// <summary>
+        /// The [DataMember(Name = ...)] of a member, when it has a non-empty one; the last such attribute wins.
+        /// </summary>
+        private static string? DataMemberName(MemberInfo member)
+        {
+            string? name = null;
+            foreach (object at in member.GetCustomAttributes(true))
+            {
+                if (at is DataMemberAttribute dm && !string.IsNullOrEmpty(dm.Name))
+                    name = dm.Name;
+            }
+
+            return name;
         }
 
         private static void AddMemberKeys(
@@ -528,52 +537,9 @@ namespace DuraIT.FastBinaryJson.Internal
         private PropertyMetadata CreateMyProp(Type t, string name)
         {
             PropertyMetadata d = new PropertyMetadata();
-            PropertyKind dType = PropertyKind.Unknown;
-
-            if (t == typeof(int) || t == typeof(int?))
-                dType = PropertyKind.Int;
-            else if (t == typeof(long) || t == typeof(long?))
-                dType = PropertyKind.Long;
-            else if (t == typeof(string))
-                dType = PropertyKind.String;
-            else if (t == typeof(bool) || t == typeof(bool?))
-                dType = PropertyKind.Bool;
-            else if (t == typeof(DateTime) || t == typeof(DateTime?))
-                dType = PropertyKind.DateTime;
-            else if (t.IsEnum)
-                dType = PropertyKind.Enum;
-            else if (t == typeof(Guid) || t == typeof(Guid?))
-                dType = PropertyKind.Guid;
-            else if (t == typeof(sbyte) || t == typeof(sbyte?))
-                dType = PropertyKind.SByte;
-            else if (t == typeof(StringDictionary))
-                dType = PropertyKind.StringDictionary;
-            else if (t == typeof(NameValueCollection))
-                dType = PropertyKind.NameValue;
-            else if (t.IsArray)
-            {
-                d.Bt = t.GetElementType();
-                if (t == typeof(byte[]))
-                    dType = PropertyKind.ByteArray;
-                else
-                    dType = PropertyKind.Array;
-            }
-            else if (NameContainsDictionary(t))
-            {
-                d.GenericTypes = TypeReflector.Instance.GetGenericArguments(t);
-                if (d.GenericTypes.Length > 0 && d.GenericTypes[0] == typeof(string))
-                    dType = PropertyKind.StringKeyDictionary;
-                else
-                    dType = PropertyKind.Dictionary;
-            }
-            else if (t == typeof(Hashtable))
-                dType = PropertyKind.Hashtable;
-            else if (t == typeof(DataSet))
-                dType = PropertyKind.DataSet;
-            else if (t == typeof(DataTable))
-                dType = PropertyKind.DataTable;
-            else if (IsTypeRegistered(t))
-                dType = PropertyKind.Custom;
+            PropertyKind dType = ClassifyScalar(t);
+            if (dType == PropertyKind.Unknown)
+                dType = ClassifyComposite(t, d);
 
             if (t.IsValueType && !t.IsPrimitive && !t.IsEnum && t != typeof(decimal))
                 d.IsStruct = true;
@@ -593,6 +559,59 @@ namespace DuraIT.FastBinaryJson.Internal
             d.Type = dType;
 
             return d;
+        }
+
+        private static bool IsOrNullable<T>(Type t)
+            where T : struct => t == typeof(T) || t == typeof(T?);
+
+        private static PropertyKind ClassifyScalar(Type t)
+        {
+            if (IsOrNullable<int>(t))
+                return PropertyKind.Int;
+            if (IsOrNullable<long>(t))
+                return PropertyKind.Long;
+            if (t == typeof(string))
+                return PropertyKind.String;
+            if (IsOrNullable<bool>(t))
+                return PropertyKind.Bool;
+            if (IsOrNullable<DateTime>(t))
+                return PropertyKind.DateTime;
+            if (t.IsEnum)
+                return PropertyKind.Enum;
+            if (IsOrNullable<Guid>(t))
+                return PropertyKind.Guid;
+            if (IsOrNullable<sbyte>(t))
+                return PropertyKind.SByte;
+
+            return PropertyKind.Unknown;
+        }
+
+        private PropertyKind ClassifyComposite(Type t, PropertyMetadata d)
+        {
+            if (t == typeof(StringDictionary))
+                return PropertyKind.StringDictionary;
+            if (t == typeof(NameValueCollection))
+                return PropertyKind.NameValue;
+            if (t.IsArray)
+            {
+                d.Bt = t.GetElementType();
+                return t == typeof(byte[]) ? PropertyKind.ByteArray : PropertyKind.Array;
+            }
+
+            if (NameContainsDictionary(t))
+            {
+                d.GenericTypes = TypeReflector.Instance.GetGenericArguments(t);
+                return d.GenericTypes.Length > 0 && d.GenericTypes[0] == typeof(string) ? PropertyKind.StringKeyDictionary : PropertyKind.Dictionary;
+            }
+
+            if (t == typeof(Hashtable))
+                return PropertyKind.Hashtable;
+            if (t == typeof(DataSet))
+                return PropertyKind.DataSet;
+            if (t == typeof(DataTable))
+                return PropertyKind.DataTable;
+
+            return IsTypeRegistered(t) ? PropertyKind.Custom : PropertyKind.Unknown;
         }
 
         private static Type GetChangeType(Type conversionType)
@@ -840,42 +859,27 @@ namespace DuraIT.FastBinaryJson.Internal
          * and enums, because ConvertValue converts them; strings and everything else, because they
          * are references and were never boxed. bool is keyed on TRUE and stands for FALSE too.
          */
-        private static byte TypedToken(Type t)
+        private static readonly Dictionary<Type, byte> TypedTokens = new Dictionary<Type, byte>
         {
-            if (t == typeof(int))
-                return Tokens.Int32;
-            if (t == typeof(long))
-                return Tokens.Int64;
-            if (t == typeof(bool))
-                return Tokens.True;
-            if (t == typeof(DateTime))
-                return Tokens.DateTime;
-            if (t == typeof(Guid))
-                return Tokens.Guid;
-            if (t == typeof(double))
-                return Tokens.Double;
-            if (t == typeof(float))
-                return Tokens.Single;
-            if (t == typeof(decimal))
-                return Tokens.Decimal;
-            if (t == typeof(short))
-                return Tokens.Int16;
-            if (t == typeof(ushort))
-                return Tokens.UInt16;
-            if (t == typeof(uint))
-                return Tokens.UInt32;
-            if (t == typeof(ulong))
-                return Tokens.UInt64;
-            if (t == typeof(byte))
-                return Tokens.Byte;
-            if (t == typeof(char))
-                return Tokens.Char;
-            if (t == typeof(TimeSpan))
-                return Tokens.TimeSpan;
-            if (t == typeof(DateTimeOffset))
-                return Tokens.DateTimeOffset;
-            return 0;
-        }
+            [typeof(int)] = Tokens.Int32,
+            [typeof(long)] = Tokens.Int64,
+            [typeof(bool)] = Tokens.True,
+            [typeof(DateTime)] = Tokens.DateTime,
+            [typeof(Guid)] = Tokens.Guid,
+            [typeof(double)] = Tokens.Double,
+            [typeof(float)] = Tokens.Single,
+            [typeof(decimal)] = Tokens.Decimal,
+            [typeof(short)] = Tokens.Int16,
+            [typeof(ushort)] = Tokens.UInt16,
+            [typeof(uint)] = Tokens.UInt32,
+            [typeof(ulong)] = Tokens.UInt64,
+            [typeof(byte)] = Tokens.Byte,
+            [typeof(char)] = Tokens.Char,
+            [typeof(TimeSpan)] = Tokens.TimeSpan,
+            [typeof(DateTimeOffset)] = Tokens.DateTimeOffset,
+        };
+
+        private static byte TypedToken(Type t) => TypedTokens.TryGetValue(t, out byte token) ? token : (byte)0;
 
         /// <summary>
         /// Builds the boxing-free getter the writer uses for a primitive member of a class.
@@ -1024,10 +1028,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 il.Emit(OpCodes.Stloc_0);
                 il.Emit(OpCodes.Ldloca_S, lv);
                 il.Emit(OpCodes.Ldarg_1);
-                if (propertyInfo.PropertyType.IsClass)
-                    il.Emit(OpCodes.Castclass, propertyInfo.PropertyType);
-                else
-                    il.Emit(OpCodes.Unbox_Any, propertyInfo.PropertyType);
+                EmitCastToMemberType(il, propertyInfo.PropertyType);
                 il.EmitCall(OpCodes.Call, setMethod, null);
                 il.Emit(OpCodes.Ldloc_0);
                 il.Emit(OpCodes.Box, type);
@@ -1039,10 +1040,7 @@ namespace DuraIT.FastBinaryJson.Internal
                     il.Emit(OpCodes.Ldarg_0);
                     il.Emit(OpCodes.Castclass, propertyInfo.DeclaringType!);
                     il.Emit(OpCodes.Ldarg_1);
-                    if (propertyInfo.PropertyType.IsClass)
-                        il.Emit(OpCodes.Castclass, propertyInfo.PropertyType);
-                    else
-                        il.Emit(OpCodes.Unbox_Any, propertyInfo.PropertyType);
+                    EmitCastToMemberType(il, propertyInfo.PropertyType);
                     il.EmitCall(OpCodes.Callvirt, setMethod, null);
                     il.Emit(OpCodes.Ldarg_0);
                 }
@@ -1050,10 +1048,7 @@ namespace DuraIT.FastBinaryJson.Internal
                 {
                     il.Emit(OpCodes.Ldarg_0);
                     il.Emit(OpCodes.Ldarg_1);
-                    if (propertyInfo.PropertyType.IsClass)
-                        il.Emit(OpCodes.Castclass, propertyInfo.PropertyType);
-                    else
-                        il.Emit(OpCodes.Unbox_Any, propertyInfo.PropertyType);
+                    EmitCastToMemberType(il, propertyInfo.PropertyType);
                     il.Emit(OpCodes.Call, setMethod);
                 }
             }
@@ -1062,6 +1057,9 @@ namespace DuraIT.FastBinaryJson.Internal
 
             return (GenericSetter)setter.CreateDelegate(typeof(GenericSetter));
         }
+
+        private static void EmitCastToMemberType(ILGenerator il, Type memberType) =>
+            il.Emit(memberType.IsClass ? OpCodes.Castclass : OpCodes.Unbox_Any, memberType);
 
         internal static GenericGetter CreateGetField(Type type, FieldInfo fieldInfo)
         {
@@ -1134,6 +1132,9 @@ namespace DuraIT.FastBinaryJson.Internal
             return (GenericGetter)getter.CreateDelegate(typeof(GenericGetter));
         }
 
+        private static bool IsIgnored(MemberInfo member, IList<Type>? ignoreAttributes) =>
+            ignoreAttributes != null && ignoreAttributes.Any(ignoreAttr => member.IsDefined(ignoreAttr, false));
+
         public Getters[] GetGetters(
             Type type, /*bool showReadOnlyProperties,*/
             IList<Type> ignoreAttributes
@@ -1143,29 +1144,22 @@ namespace DuraIT.FastBinaryJson.Internal
             if (_getterscache.TryGetValue(type, out val))
                 return val!;
 
+            // Built apart from the lookup: the closures below would otherwise be allocated on every call, hits included.
+            val = BuildGetters(type, ignoreAttributes);
+            _getterscache.Add(type, val);
+            return val;
+        }
+
+        private static Getters[] BuildGetters(Type type, IList<Type> ignoreAttributes)
+        {
             var bf = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
-            PropertyInfo[] props = type.GetProperties(bf);
             List<Getters> getters = new List<Getters>();
-            foreach (PropertyInfo p in props)
+            foreach (PropertyInfo p in type.GetProperties(bf))
             {
-                bool readOnly = false;
-                if (p.GetIndexParameters().Length > 0)
-                { // Property is an indexer
+                if (p.GetIndexParameters().Length > 0 || IsIgnored(p, ignoreAttributes))
                     continue;
-                }
-                if (!p.CanWrite) // && (showReadOnlyProperties == false))//|| isAnonymous == false))
-                    readOnly = true; //continue;
-                if (ignoreAttributes != null && ignoreAttributes.Any(ignoreAttr => p.IsDefined(ignoreAttr, false)))
-                    continue;
-                string? mName = null;
-                var att = p.GetCustomAttributes(true);
-                foreach (var at in att)
-                {
-                    if (at is DataMemberAttribute dm && !string.IsNullOrEmpty(dm.Name))
-                    {
-                        mName = dm.Name;
-                    }
-                }
+
+                string? memberName = DataMemberName(p);
                 GenericGetter? g = CreateGetMethod(type, p);
                 if (g != null)
                 {
@@ -1173,47 +1167,29 @@ namespace DuraIT.FastBinaryJson.Internal
                     {
                         Getter = g,
                         Name = p.Name,
-                        MemberName = mName,
-                        ReadOnly = readOnly,
+                        MemberName = memberName,
+                        ReadOnly = !p.CanWrite,
                     };
                     BuildTypedGetter(ref getter, type, p.PropertyType, p.DeclaringType!, p.GetGetMethod(), null);
                     getters.Add(getter);
                 }
             }
 
-            FieldInfo[] fi = type.GetFields(bf);
-            foreach (var f in fi)
+            foreach (FieldInfo f in type.GetFields(bf).Where(f => !IsIgnored(f, ignoreAttributes) && !f.IsLiteral))
             {
-                bool readOnly = false;
-                if (f.IsInitOnly) // && (showReadOnlyProperties == false))//|| isAnonymous == false))
-                    readOnly = true; //continue;
-                if (ignoreAttributes != null && ignoreAttributes.Any(ignoreAttr => f.IsDefined(ignoreAttr, false)))
-                    continue;
-                string? mName = null;
-                var att = f.GetCustomAttributes(true);
-                foreach (var at in att)
+                string? memberName = DataMemberName(f);
+                Getters getter = new Getters
                 {
-                    if (at is DataMemberAttribute dm && !string.IsNullOrEmpty(dm.Name))
-                    {
-                        mName = dm.Name;
-                    }
-                }
-                if (!f.IsLiteral)
-                {
-                    Getters getter = new Getters
-                    {
-                        Getter = CreateGetField(type, f),
-                        Name = f.Name,
-                        MemberName = mName,
-                        ReadOnly = readOnly,
-                    };
-                    BuildTypedGetter(ref getter, type, f.FieldType, f.DeclaringType!, null, f);
-                    getters.Add(getter);
-                }
+                    Getter = CreateGetField(type, f),
+                    Name = f.Name,
+                    MemberName = memberName,
+                    ReadOnly = f.IsInitOnly,
+                };
+                BuildTypedGetter(ref getter, type, f.FieldType, f.DeclaringType!, null, f);
+                getters.Add(getter);
             }
-            val = getters.ToArray();
-            _getterscache.Add(type, val);
-            return val;
+
+            return getters.ToArray();
         }
         #endregion
 

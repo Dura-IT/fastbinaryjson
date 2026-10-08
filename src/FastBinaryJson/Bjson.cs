@@ -723,54 +723,66 @@ namespace DuraIT.FastBinaryJson
                 return read;
 
             var o = new BjsonParser(json, _params.UseUtcDateTime, _params.UseV14TypedArray).Decode();
+            return ConvertDecoded(o, type, t);
+        }
+
+        /// <summary>
+        /// Turns the parsed graph into <paramref name="type" />; <paramref name="t" /> is its generic type definition, if it has one.
+        /// </summary>
+        private object? ConvertDecoded(object? o, Type? type, Type? t)
+        {
             if (type?.IsEnum == true)
                 return CreateEnum(type, o!);
-            if (type != null && type == typeof(DataSet))
+            if (type == typeof(DataSet))
                 return CreateDataset(o as Dictionary<string, object>, null);
-
-            if (type != null && type == typeof(DataTable))
+            if (type == typeof(DataTable))
                 return CreateDataTable(o as Dictionary<string, object>, null);
             if (o is TypedArray)
-            {
                 return ParseTypedArray(new Dictionary<string, object>(), o);
-            }
+
             if (o is IDictionary)
             {
                 if (type != null && t == typeof(Dictionary<,>)) // deserialize a dictionary
                     return RootDictionary(o, type);
-                else // deserialize an object
-                    return ParseDictionary(o as Dictionary<string, object>, null, type, null);
+
+                // deserialize an object
+                return ParseDictionary(o as Dictionary<string, object>, null, type, null);
             }
 
             if (o is List<object> list)
-            {
-                if (type != null && t == typeof(Dictionary<,>)) // kv format
-                    return RootDictionary(o, type);
+                return ConvertDecodedList(list, type, t);
 
-                if (type != null && t == typeof(List<>)) // deserialize to generic list
-                    return RootList(o, type);
-
-                if (type == typeof(Hashtable))
-                    return RootHashTable(list);
-                else if (type == null)
-                {
-                    List<object> l = list;
-                    if (l.Count > 0 && l[0].GetType() == typeof(Dictionary<string, object>))
-                    {
-                        Dictionary<string, object> globals = new Dictionary<string, object>();
-                        List<object> op = new List<object>();
-                        // try to get $types
-                        foreach (var i in l)
-                            op.Add(ParseDictionary((Dictionary<string, object>)i, globals, null, null)!);
-                        return op;
-                    }
-                    return l.ToArray();
-                }
-            }
-            else if (type != null && o != null && o.GetType() != type)
+            if (type != null && o != null && o.GetType() != type)
                 return ChangeType(o, type);
 
             return o;
+        }
+
+        private object ConvertDecodedList(List<object> list, Type? type, Type? t)
+        {
+            if (type != null && t == typeof(Dictionary<,>)) // kv format
+                return RootDictionary(list, type)!;
+
+            if (type != null && t == typeof(List<>)) // deserialize to generic list
+                return RootList(list, type);
+
+            if (type == typeof(Hashtable))
+                return RootHashTable(list);
+
+            if (type != null)
+                return list;
+
+            if (list.Count > 0 && list[0].GetType() == typeof(Dictionary<string, object>))
+            {
+                Dictionary<string, object> globals = new Dictionary<string, object>();
+                List<object> op = new List<object>();
+                // try to get $types
+                foreach (object i in list)
+                    op.Add(ParseDictionary((Dictionary<string, object>)i, globals, null, null)!);
+                return op;
+            }
+
+            return list.ToArray();
         }
 
         private static object? ChangeType(object? o, Type type)
@@ -968,6 +980,31 @@ namespace DuraIT.FastBinaryJson
 
         #endregion
 
+        private Dictionary<string, object> MergeTypesTable(Dictionary<string, object>? globaltypes, Dictionary<string, object> table)
+        {
+            _globalTypes = true;
+            if (globaltypes == null)
+                globaltypes = new Dictionary<string, object>();
+            foreach (KeyValuePair<string, object> kv in table)
+            {
+                globaltypes.Add(kv.Key, kv.Value);
+            }
+
+            return globaltypes;
+        }
+
+        private object FillMembers(object o, Dictionary<string, object> d, WireNameMap props, Dictionary<string, object>? globaltypes)
+        {
+            foreach (KeyValuePair<string, object> kv in d)
+            {
+                PropertyMetadata? pi = props.Find(kv.Key);
+                if (pi != null && pi.CanWrite && kv.Value != null)
+                    o = pi.Setter!(o, ConvertValue(pi, kv.Value, globaltypes)!);
+            }
+
+            return o;
+        }
+
         internal object? ParseDictionary(Dictionary<string, object>? d, Dictionary<string, object>? globaltypes, Type? type, object? input)
         {
             object? tn;
@@ -980,15 +1017,7 @@ namespace DuraIT.FastBinaryJson
                 return ResolveCircular(tn);
 
             if (d.TryGetValue("$types", out tn))
-            {
-                _globalTypes = true;
-                if (globaltypes == null)
-                    globaltypes = new Dictionary<string, object>();
-                foreach (var kv in (Dictionary<string, object>)tn)
-                {
-                    globaltypes.Add(kv.Key, kv.Value);
-                }
-            }
+                globaltypes = MergeTypesTable(globaltypes, (Dictionary<string, object>)tn);
 
             if (globaltypes != null)
                 _globalTypes = true;
@@ -1008,15 +1037,7 @@ namespace DuraIT.FastBinaryJson
             int id = RegisterCircular(o);
 
             WireNameMap props = TypeReflector.Instance.GetWireNameMap(type, typename, _params.ShowReadOnlyProperties);
-            foreach (var kv in d)
-            {
-                var v = kv.Value;
-                PropertyMetadata? pi = props.Find(kv.Key);
-                if (pi == null)
-                    continue;
-                if (pi.CanWrite && v != null)
-                    o = pi.Setter!(o, ConvertValue(pi, v, globaltypes)!);
-            }
+            o = FillMembers(o, d, props, globaltypes);
 
             if (type.IsValueType)
                 UpdateCircular(id, o);
