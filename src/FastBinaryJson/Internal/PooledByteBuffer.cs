@@ -116,6 +116,21 @@ namespace DuraIT.FastBinaryJson.Internal
         }
 
         /// <summary>
+        /// The array to fill and the offset where the free space starts, at least
+        /// <paramref name="sizeHint"/> long, to commit with <see cref="Advance"/>. For encoders that take an array
+        /// and not a span.
+        /// </summary>
+        /// <remarks>
+        /// Only valid until the next write, like <see cref="GetSpan"/>.
+        /// </remarks>
+        public byte[] Reserve(int sizeHint, out int offset)
+        {
+            byte[] buffer = EnsureCapacity(sizeHint);
+            offset = _length;
+            return buffer;
+        }
+
+        /// <summary>
         /// Commits <paramref name="count"/> bytes written into the span from <see cref="GetSpan"/>.
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException">If count is negative or past the free space.</exception>

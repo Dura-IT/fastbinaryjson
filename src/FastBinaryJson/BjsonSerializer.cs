@@ -5,10 +5,8 @@ using System.Collections.Specialized;
 using System.Data;
 using System.Globalization;
 using System.IO;
-using DuraIT.FastBinaryJson.Internal;
-#if NET10_0_OR_GREATER
 using System.Runtime.InteropServices;
-#endif
+using DuraIT.FastBinaryJson.Internal;
 
 namespace DuraIT.FastBinaryJson
 {
@@ -357,7 +355,8 @@ namespace DuraIT.FastBinaryJson
 #if NET10_0_OR_GREATER
             WriteInt32Raw(BitConverter.SingleToInt32Bits(p));
 #else
-            byte[] b = BitConverter.GetBytes(p);
+            Span<byte> b = stackalloc byte[sizeof(float)];
+            MemoryMarshal.Write(b, ref p);
             _output.Write(b);
 #endif
         }
@@ -368,7 +367,8 @@ namespace DuraIT.FastBinaryJson
 #if NET10_0_OR_GREATER
             WriteInt64Raw(BitConverter.DoubleToInt64Bits(p));
 #else
-            var b = BitConverter.GetBytes(p);
+            Span<byte> b = stackalloc byte[sizeof(double)];
+            MemoryMarshal.Write(b, ref p);
             _output.Write(b);
 #endif
         }
@@ -471,7 +471,18 @@ namespace DuraIT.FastBinaryJson
             g.TryWriteBytes(b);
             _output.Write(b);
 #else
-            _output.Write(g.ToByteArray());
+            // Guid.TryWriteBytes does not exist here. A Guid's memory layout is its ToByteArray order on a
+            // little-endian machine, which is every machine this runs on, so it is written without the array.
+            if (BitConverter.IsLittleEndian)
+            {
+                Span<byte> b = stackalloc byte[16];
+                MemoryMarshal.Write(b, ref g);
+                _output.Write(b);
+            }
+            else
+            {
+                _output.Write(g.ToByteArray());
+            }
 #endif
         }
 
@@ -969,7 +980,9 @@ namespace DuraIT.FastBinaryJson
             MemoryMarshal.Write(buffer, in value);
             _output.Write(buffer);
 #else
-            _output.Write(new ReadOnlySpan<byte>(Helper.GetBytes(value, false), 0, 2));
+            Span<byte> buffer = stackalloc byte[sizeof(short)];
+            MemoryMarshal.Write(buffer, ref value);
+            _output.Write(buffer);
 #endif
         }
 
@@ -980,7 +993,9 @@ namespace DuraIT.FastBinaryJson
             MemoryMarshal.Write(buffer, in value);
             _output.Write(buffer);
 #else
-            _output.Write(new ReadOnlySpan<byte>(Helper.GetBytes(value, false), 0, 4));
+            Span<byte> buffer = stackalloc byte[sizeof(int)];
+            MemoryMarshal.Write(buffer, ref value);
+            _output.Write(buffer);
 #endif
         }
 
@@ -991,7 +1006,9 @@ namespace DuraIT.FastBinaryJson
             MemoryMarshal.Write(buffer, in value);
             _output.Write(buffer);
 #else
-            _output.Write(new ReadOnlySpan<byte>(Helper.GetBytes(value, false), 0, 8));
+            Span<byte> buffer = stackalloc byte[sizeof(long)];
+            MemoryMarshal.Write(buffer, ref value);
+            _output.Write(buffer);
 #endif
         }
 
@@ -1001,7 +1018,6 @@ namespace DuraIT.FastBinaryJson
             _output.WriteInt32At(position, value);
         }
 
-#if NET10_0_OR_GREATER
         /// <summary>
         /// A string whose encoded length is known but whose bytes are not produced yet.
         /// </summary>
@@ -1010,7 +1026,21 @@ namespace DuraIT.FastBinaryJson
         /// Carrying it separately lets <c>WriteBytesRaw</c> encode straight into the output
         /// afterwards, instead of encoding into a scratch buffer and copying.
         /// </remarks>
-        private readonly record struct PendingString(string Value, bool Unicode, int Length);
+        private readonly struct PendingString
+        {
+            public PendingString(string value, bool unicode, int length)
+            {
+                Value = value;
+                Unicode = unicode;
+                Length = length;
+            }
+
+            public string Value { get; }
+
+            public bool Unicode { get; }
+
+            public int Length { get; }
+        }
 
         // Only measures; WriteBytesRaw produces the bytes.
         private static PendingString Encode(string s, bool unicode) =>
@@ -1031,7 +1061,12 @@ namespace DuraIT.FastBinaryJson
 
             // Counted and encoded by the same encoder instance, so the two cannot disagree; checked
             // anyway, because the header carrying the count is already written.
+#if NET10_0_OR_GREATER
             int written = TypeReflector.Utf8GetBytes(pending.Value, _output.GetSpan(pending.Length));
+#else
+            byte[] destination = _output.Reserve(pending.Length, out int offset);
+            int written = TypeReflector.Utf8GetBytes(pending.Value, destination, offset);
+#endif
             if (written != pending.Length)
                 throw new InvalidOperationException($"UTF-8 encoder wrote {written} bytes after counting {pending.Length}.");
 
@@ -1044,16 +1079,6 @@ namespace DuraIT.FastBinaryJson
         private void ReleasePooled() => _output.Dispose();
 
         private int OutputLength => _output.Length;
-#else
-        private static byte[] Encode(string s, bool unicode) => unicode ? TypeReflector.UnicodeGetBytes(s) : TypeReflector.Utf8GetBytes(s);
-
-        private void WriteBytesRaw(byte[] bytes) => _output.Write(bytes);
-
-        // Idempotent: called from ConvertToBjson's finally and again from Dispose.
-        private void ReleasePooled() => _output.Dispose();
-
-        private int OutputLength => _output.Length;
-#endif
 
         #endregion
     }

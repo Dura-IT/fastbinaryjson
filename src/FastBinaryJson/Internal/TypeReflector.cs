@@ -173,13 +173,15 @@ namespace DuraIT.FastBinaryJson.Internal
             return Utf8.GetBytes(str);
         }
 
-#if NET10_0_OR_GREATER
         /*
-         * Span overloads over the SAME encoder instance as Utf8GetBytes, so invalid surrogates get
-         * the same replacement fallback and the bytes cannot drift between the two paths.
+         * Overloads over the SAME encoder instance as Utf8GetBytes, so invalid surrogates get the same
+         * replacement fallback and the bytes cannot drift between the paths.
          */
         internal static int Utf8GetByteCount(string str) => Utf8.GetByteCount(str);
 
+        internal static int Utf8GetBytes(string str, byte[] destination, int offset) => Utf8.GetBytes(str, 0, str.Length, destination, offset);
+
+#if NET10_0_OR_GREATER
         internal static int Utf8GetBytes(string str, Span<byte> destination) => Utf8.GetBytes(str, destination);
 
         internal static int Utf8GetChars(ReadOnlySpan<byte> bytes, Span<char> destination) => Utf8.GetChars(bytes, destination);
