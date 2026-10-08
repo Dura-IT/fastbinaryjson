@@ -13,7 +13,7 @@
       is also what lets modern C# be written once for both targets instead of twice.
     -->
     <LangVersion>latest</LangVersion>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
 
     <!--
       AssemblyName must stay different from upstream's 'fastBinaryJSON'; the project name alone
