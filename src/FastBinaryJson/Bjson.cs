@@ -250,7 +250,9 @@ namespace DuraIT.FastBinaryJson
         public bool UseOptimizedDatasetSchema { get; set; } = true;
 
         /// <summary>
-        /// Serialize readonly properties (default = False)
+        /// Restore read-only members when deserializing: get-only auto-properties, properties with a
+        /// non-public setter and readonly fields (default = False). They are written either way, and the
+        /// members are filled directly, without running a constructor.
         /// </summary>
         public bool ShowReadOnlyProperties { get; set; }
 
