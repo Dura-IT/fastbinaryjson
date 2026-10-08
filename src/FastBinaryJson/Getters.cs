@@ -1,10 +1,11 @@
 ﻿using System.Collections.Generic;
 
-namespace fastBinaryJSON
+namespace DuraIT.FastBinaryJson
 {
-    public sealed class DatasetSchema
+    internal sealed class DatasetSchema
     {
-        public List<string> Info ;//{ get; set; }
-        public string Name ;//{ get; set; }
+        // Populated by the deserializer, so both are null on a freshly constructed instance.
+        public List<string>? Info { get; set; }
+        public string? Name { get; set; }
     }
 }

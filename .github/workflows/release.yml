@@ -1,0 +1,82 @@
+name: Release
+
+# Tag-driven: push v{Version} (for example v0.1.0) matching <Version> in src/FastBinaryJson/FastBinaryJson.csproj.
+# Publishing uses NuGet Trusted Publishing (OIDC), so there is no stored NuGet API key. The strong-name
+# key is the one secret: STRONG_NAME_KEY_BASE64, the base64 of the .snk file.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    name: Pack & publish to NuGet
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required so NuGet/login can request a GitHub OIDC token
+      contents: write # required so gh can create the GitHub Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # Guards against tagging a commit where the project's Version was not bumped to match.
+      - name: Verify tag matches project version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          prop_version=$(grep -oE '<Version>[^<]+</Version>' src/FastBinaryJson/FastBinaryJson.csproj | sed -E 's/<\/?Version>//g')
+          if [ "$tag_version" != "$prop_version" ]; then
+            echo "Tag version ($tag_version) does not match the project Version ($prop_version)"
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
+
+      - name: Restore
+        run: dotnet restore FastBinaryJson.slnx
+
+      # Tests run against the unsigned build: InternalsVisibleTo does not survive signing. The signed pack
+      # below is built from the same sources.
+      - name: Test (net10.0 asset)
+        run: dotnet test tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj -c Release --no-restore --nologo
+
+      - name: Test (netstandard2.0 asset)
+        run: dotnet test tests/FastBinaryJson.UnitTests.Netstandard20/FastBinaryJson.UnitTests.Netstandard20.csproj -c Release --no-restore --nologo
+
+      - name: Write the strong-name key
+        env:
+          STRONG_NAME_KEY_BASE64: ${{ secrets.STRONG_NAME_KEY_BASE64 }}
+        run: |
+          if [ -z "$STRONG_NAME_KEY_BASE64" ]; then
+            echo "The STRONG_NAME_KEY_BASE64 secret is not set"
+            exit 1
+          fi
+          echo "$STRONG_NAME_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/strong-name.snk"
+
+      - name: Pack (signed)
+        run: dotnet pack src/FastBinaryJson/FastBinaryJson.csproj -c Release --nologo -p:StrongNameKeyFile="$RUNNER_TEMP/strong-name.snk"
+
+      - name: Remove the strong-name key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/strong-name.snk"
+
+      - name: NuGet login (OIDC -> temp API key)
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841  # v1 (v1.2.0)
+        id: login
+        with:
+          user: DuraITSolutions
+
+      - name: Push to NuGet
+        run: dotnet nuget push "artifacts/packages/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      # Runs only after a successful NuGet push, so the two never drift apart.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes --verify-tag --latest

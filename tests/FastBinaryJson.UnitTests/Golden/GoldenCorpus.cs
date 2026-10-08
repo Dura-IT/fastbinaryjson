@@ -1,7 +1,6 @@
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
 using System;
 using System.Collections.Generic;
-
-using fastBinaryJSON;
 
 namespace FastBinaryJson.UnitTests.Golden
 {
@@ -71,9 +70,24 @@ namespace FastBinaryJson.UnitTests.Golden
                 ShipTo = new Party { Name = "Acme Warehouse", City = "Kerkrade" },
                 Lines = new List<InvoiceLine>
                 {
-                    new InvoiceLine { Sku = "A-1", Quantity = 2, UnitPrice = 9.95m },
-                    new InvoiceLine { Sku = "B-2", Quantity = 10, UnitPrice = 1.05m },
-                    new InvoiceLine { Sku = "C-3", Quantity = 1, UnitPrice = 249.00m },
+                    new InvoiceLine
+                    {
+                        Sku = "A-1",
+                        Quantity = 2,
+                        UnitPrice = 9.95m,
+                    },
+                    new InvoiceLine
+                    {
+                        Sku = "B-2",
+                        Quantity = 10,
+                        UnitPrice = 1.05m,
+                    },
+                    new InvoiceLine
+                    {
+                        Sku = "C-3",
+                        Quantity = 1,
+                        UnitPrice = 249.00m,
+                    },
                 },
             };
         }
@@ -85,7 +99,12 @@ namespace FastBinaryJson.UnitTests.Golden
                 Shapes = new List<Shape>
                 {
                     new Circle { Label = "c1", Radius = 2.5d },
-                    new Rectangle { Label = "r1", Width = 3d, Height = 4d },
+                    new Rectangle
+                    {
+                        Label = "r1",
+                        Width = 3d,
+                        Height = 4d,
+                    },
                     new Circle { Label = "c2", Radius = 0.5d },
                 },
             };
@@ -93,20 +112,26 @@ namespace FastBinaryJson.UnitTests.Golden
 
         internal static int[] BuildIntArray()
         {
-            return new int[] { 1, 2, 3, 5, 8, 13, 21 };
+            return new[] { 1, 2, 3, 5, 8, 13, 21 };
         }
 
         internal static string[] BuildStringArray()
         {
-            return new string[] { "alpha", "beta", "gamma" };
+            return new[] { "alpha", "beta", "gamma" };
         }
 
         internal static Dictionary<string, Party> BuildStringKeyedDictionary()
         {
             return new Dictionary<string, Party>
             {
-                { "first", new Party { Name = "One", City = "Landgraaf" } },
-                { "second", new Party { Name = "Two", City = "Brunssum" } },
+                {
+                    "first",
+                    new Party { Name = "One", City = "Landgraaf" }
+                },
+                {
+                    "second",
+                    new Party { Name = "Two", City = "Brunssum" }
+                },
             };
         }
 
@@ -114,8 +139,14 @@ namespace FastBinaryJson.UnitTests.Golden
         {
             return new Dictionary<int, Party>
             {
-                { 10, new Party { Name = "Ten", City = "Landgraaf" } },
-                { 20, new Party { Name = "Twenty", City = "Brunssum" } },
+                {
+                    10,
+                    new Party { Name = "Ten", City = "Landgraaf" }
+                },
+                {
+                    20,
+                    new Party { Name = "Twenty", City = "Brunssum" }
+                },
             };
         }
 
@@ -156,10 +187,11 @@ namespace FastBinaryJson.UnitTests.Golden
     /*
      * char, sbyte and DateTimeOffset are deliberately absent.
      *
-     * char and sbyte serialize correctly but cannot be read back into a property of their own
-     * type; DateTimeOffset cannot be serialized at all. All three are pinned by KnownDefectTests
-     * instead, so that this corpus stays a record of the format as it actually works. Add them
-     * here as part of whichever change fixes them.
+     * They were excluded while broken - char and sbyte could not be read back into a property of
+     * their own type, and DateTimeOffset could not be serialized at all - so that this corpus
+     * stayed a record of the format as it actually worked. All three are fixed now and covered by
+     * RoundTrip tests, but they are still absent here: adding them mints new golden bytes, which is
+     * a separate change from fixing the behaviour. That is the outstanding follow-up.
      */
     internal sealed class Primitives
     {

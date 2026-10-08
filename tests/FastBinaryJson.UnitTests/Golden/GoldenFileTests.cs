@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
-
 using AwesomeAssertions;
-
-using fastBinaryJSON;
-
+using DuraIT.FastBinaryJson;
+using DuraIT.FastBinaryJson.Internal;
+using FastBinaryJson.UnitTests.RoundTrip;
 using NUnit.Framework;
 
 namespace FastBinaryJson.UnitTests.Golden
@@ -45,18 +45,35 @@ namespace FastBinaryJson.UnitTests.Golden
      * not define.
      */
     [TestFixture]
-    [TestOf(typeof(BJSON))]
+    [TestOf(typeof(Bjson))]
     public sealed class GoldenFileTests
     {
         private const string RegenerateVariable = "FBJ_REGEN_GOLDEN";
 
         private const string CoreLibraryName = "System.Private.CoreLib";
 
+        private const string LegacyEqualStructs = "legacy-equal-structs-as-reference";
+
         private static readonly Version ExpectedRuntimeVersion = new Version(10, 0, 0, 0);
 
         private static bool Regenerating
         {
             get { return Environment.GetEnvironmentVariable(RegenerateVariable) == "1"; }
+        }
+
+        /*
+         * Typed arrays carry their element type's assembly-qualified name, and on .NET Core that names
+         * System.Private.CoreLib. Reading them on .NET Framework works (the qualifier is dropped when the
+         * name does not resolve), but WRITING them there produces mscorlib names, so only the byte
+         * comparison is runtime-specific. These tests run on both runtimes.
+         */
+        private static bool IsDotNetFramework =>
+            System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework", StringComparison.Ordinal);
+
+        private static void IgnoreRuntimeSpecificFixtures(GoldenCase testCase)
+        {
+            if (IsDotNetFramework && testCase.Name.Contains("array-typed", StringComparison.Ordinal))
+                Assert.Ignore("Typed-array fixtures name System.Private.CoreLib; .NET Framework writes mscorlib names for the same arrays.");
         }
 
         internal static IEnumerable<GoldenCase> Cases()
@@ -93,9 +110,10 @@ namespace FastBinaryJson.UnitTests.Golden
                 "int-array-untyped",
                 GoldenCorpus.BuildIntArray,
                 () => With(p => p.UseTypedArrays = false),
-                bytesOnlyReason: "UseTypedArrays off leaves a root array with no type to restore to");
+                bytesOnlyReason: "UseTypedArrays off leaves a root array with no type to restore to"
+            );
 
-            yield return GoldenCase.For("string-array-typed-v14", GoldenCorpus.BuildStringArray, () => With(p => p.v1_4TypedArray = true));
+            yield return GoldenCase.For("string-array-typed-v14", GoldenCorpus.BuildStringArray, () => With(p => p.UseV14TypedArray = true));
 
             yield return GoldenCase.For("string-array-typed", GoldenCorpus.BuildStringArray, Defaults);
 
@@ -103,15 +121,11 @@ namespace FastBinaryJson.UnitTests.Golden
 
             yield return GoldenCase.For("dictionary-int-key", GoldenCorpus.BuildIntKeyedDictionary, Defaults);
 
-            // Bytes only: UseUTCDateTime routes the value through ToUniversalTime on write and
-            // ToLocalTime on read, so the round-tripped value depends on the machine's time zone
-            // even though the bytes do not. The read-back asymmetry is asserted for real in
-            // KnownDefectTests.UtcDateTime_RoundTrip_ReturnsLocalTime; here it is bytes only.
-            yield return GoldenCase.For(
-                "utc-datetime",
-                GoldenCorpus.BuildUtcClock,
-                () => With(p => p.UseUTCDateTime = true),
-                bytesOnlyReason: "round-tripped value is time-zone dependent, characterized in KnownDefectTests");
+            // Was bytes only until the UseUtcDateTime read path stopped converting: write sent the
+            // value through ToUniversalTime and read sent it through ToLocalTime, so the restored
+            // value depended on the reading machine's time zone even though the bytes did not. The
+            // read-back is asserted for real now, on every platform the matrix runs.
+            yield return GoldenCase.For("utc-datetime", GoldenCorpus.BuildUtcClock, () => With(p => p.UseUtcDateTime = true));
         }
 
         /// <summary>
@@ -120,23 +134,30 @@ namespace FastBinaryJson.UnitTests.Golden
         [Test]
         public void Fixtures_RuntimeVersion_MatchesWhatTheyWereGeneratedWith()
         {
+            if (IsDotNetFramework)
+                Assert.Ignore("The fixtures were generated on .NET Core; .NET Framework has a different core library.");
+
             Version? runtime = typeof(int).Assembly.GetName().Version;
 
-            runtime.Should()
+            runtime
+                .Should()
                 .Be(
                     ExpectedRuntimeVersion,
                     "the typed-array fixtures embed '{0}, Version={1}' in their element type's AssemblyQualifiedName, so a "
                         + "TargetFramework bump rewrites them with no serializer change. Regenerate them deliberately and "
                         + "update ExpectedRuntimeVersion in the same commit",
                     CoreLibraryName,
-                    ExpectedRuntimeVersion);
+                    ExpectedRuntimeVersion
+                );
         }
 
         [TestCaseSource(nameof(Cases))]
         public void Serialize_MatchesCommittedBytes(GoldenCase testCase)
         {
-            BJSON.ClearReflectionCache();
-            byte[] actual = BJSON.ToBJSON(testCase.Build(), testCase.Parameters());
+            Guard.NotNull(testCase, nameof(testCase));
+            IgnoreRuntimeSpecificFixtures(testCase);
+            Bjson.ClearReflectionCache();
+            byte[] actual = Bjson.ToBjson(testCase.Build(), testCase.Parameters());
 
             string path = FixturePath(testCase.Name);
 
@@ -148,7 +169,7 @@ namespace FastBinaryJson.UnitTests.Golden
                 return;
             }
 
-            if (File.Exists(path) == false)
+            if (!File.Exists(path))
             {
                 Assert.Fail("No golden file for '" + testCase.Name + "' at " + path + ". Run with " + RegenerateVariable + "=1 to create it.");
                 return;
@@ -168,6 +189,7 @@ namespace FastBinaryJson.UnitTests.Golden
         [TestCaseSource(nameof(Cases))]
         public void Deserialize_CommittedBytes_RestoresValue(GoldenCase testCase)
         {
+            Guard.NotNull(testCase, nameof(testCase));
             if (Regenerating)
             {
                 Assert.Ignore("Regenerating: the committed bytes are being rewritten, so there is nothing stable to read back.");
@@ -186,13 +208,13 @@ namespace FastBinaryJson.UnitTests.Golden
             // silent skip here would let this half of the suite erode to nothing - a dropped
             // directory or a case renamed without renaming its file turns cases into skips, and no
             // standard CI check gates a skip count.
-            if (File.Exists(path) == false)
+            if (!File.Exists(path))
             {
                 Assert.Fail("No golden file for '" + testCase.Name + "' at " + path + ". Run with " + RegenerateVariable + "=1 to create it.");
                 return;
             }
 
-            BJSON.ClearReflectionCache();
+            Bjson.ClearReflectionCache();
             object restored = testCase.Deserialize(File.ReadAllBytes(path), testCase.Parameters());
 
             // WithStrictOrdering is load-bearing. BeEquivalentTo ignores collection order by
@@ -222,28 +244,65 @@ namespace FastBinaryJson.UnitTests.Golden
         public void SharedReference_CommittedBytes_RestoreASingleSharedInstance()
         {
             string path = FixturePath("shared-reference");
-            if (File.Exists(path) == false)
+            if (!File.Exists(path))
             {
                 Assert.Fail("No golden file for 'shared-reference' at " + path + ". Run with " + RegenerateVariable + "=1 to create it.");
                 return;
             }
 
-            BJSON.ClearReflectionCache();
-            ReferenceBox restored = BJSON.ToObject<ReferenceBox>(File.ReadAllBytes(path), Defaults())!;
+            Bjson.ClearReflectionCache();
+            ReferenceBox restored = Bjson.ToObject<ReferenceBox>(File.ReadAllBytes(path), Defaults())!;
 
             restored.Third.Should().BeSameAs(restored.First, "the two fields were the same instance when written, and $i encodes that");
             restored.Second.Should().NotBeSameAs(restored.First, "the middle value was a distinct instance");
             restored.Second.Name.Should().Be("Other", "the back-reference index must not have been resolved to the wrong object");
         }
 
-        private static BJSONParameters Defaults()
+        /// <summary>
+        /// Reads bytes in which an equal struct was written as a back-reference to the first one.
+        /// </summary>
+        /// <remarks>
+        /// The writer used to look up the objects it had written by Equals, so the second of two equal
+        /// structs went out as {"$i": 2}. It compares by identity now and writes both in full, so
+        /// nothing produces these bytes any more - but stored payloads contain them, and both read
+        /// paths must resolve the reference to the first struct's value. The file was written once
+        /// by the writer before that fix (a3849df). It is read-only: it is not one of
+        /// <see cref="Cases"/>, so a regeneration run does not rewrite it.
+        /// </remarks>
+        [TestCase(true)]
+        [TestCase(false)]
+        public void LegacyEqualStructs_CommittedBytes_RestoreBothValues(bool oneStep)
         {
-            return new BJSONParameters();
+            string path = FixturePath(LegacyEqualStructs);
+            if (!File.Exists(path))
+            {
+                Assert.Fail("No legacy file '" + LegacyEqualStructs + "' at " + path + ". It cannot be regenerated: the current writer no longer produces it.");
+                return;
+            }
+
+            byte[] bytes = File.ReadAllBytes(path);
+            // Guards the premise, so the test cannot pass on a file that has lost its back-reference.
+            bytes
+                .AsSpan()
+                .IndexOf(Encoding.Unicode.GetBytes("$i"))
+                .Should()
+                .BeGreaterThanOrEqualTo(0, "the file has to hold the back-reference this test exists to read");
+
+            Bjson.ClearReflectionCache();
+            EqStructsThenShared restored = new Deserializer(Defaults()) { OneStep = oneStep }.ToObject<EqStructsThenShared>(bytes)!;
+
+            restored.A.Should().Be(new EqPoint { X = 5, Y = 6 });
+            restored.B.Should().Be(new EqPoint { X = 5, Y = 6 });
         }
 
-        private static BJSONParameters With(Action<BJSONParameters> configure)
+        private static BjsonParameters Defaults()
         {
-            BJSONParameters parameters = new BJSONParameters();
+            return new BjsonParameters();
+        }
+
+        private static BjsonParameters With(Action<BjsonParameters> configure)
+        {
+            BjsonParameters parameters = new BjsonParameters();
             configure(parameters);
             return parameters;
         }
@@ -304,7 +363,7 @@ namespace FastBinaryJson.UnitTests.Golden
                     text.Append('>');
                 }
 
-                text.Append(bytes[i].ToString("x2"));
+                text.Append(bytes[i].ToString("x2", CultureInfo.InvariantCulture));
                 text.Append(' ');
             }
 
@@ -329,7 +388,7 @@ namespace FastBinaryJson.UnitTests.Golden
         private static string FixtureDirectory()
         {
             DirectoryInfo? directory = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
-            while (directory != null && File.Exists(Path.Combine(directory.FullName, "FastBinaryJson.slnx")) == false)
+            while (directory != null && !File.Exists(Path.Combine(directory.FullName, "FastBinaryJson.slnx")))
             {
                 directory = directory.Parent;
             }
@@ -337,7 +396,8 @@ namespace FastBinaryJson.UnitTests.Golden
             if (directory == null)
             {
                 throw new DirectoryNotFoundException(
-                    "Could not locate the repository root (no FastBinaryJson.slnx above " + TestContext.CurrentContext.TestDirectory + ").");
+                    "Could not locate the repository root (no FastBinaryJson.slnx above " + TestContext.CurrentContext.TestDirectory + ")."
+                );
             }
 
             return Path.Combine(directory.FullName, "tests", "FastBinaryJson.UnitTests", "Golden", "Fixtures");

@@ -1,5 +1,24 @@
 <Solution>
-  <Project Path="src/FastBinaryJson/FastBinaryJson.csproj" />
-  <Project Path="tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj" />
-  <Project Path="benchmarks/FastBinaryJson.Benchmarks/FastBinaryJson.Benchmarks.csproj" />
+  <Folder Name="/Solution Items/">
+    <File Path=".config/dotnet-tools.json" />
+    <File Path=".editorconfig" />
+    <File Path=".github/workflows/ci.yml" />
+    <File Path="Directory.Build.props" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/FastBinaryJson.Benchmarks/FastBinaryJson.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/docs/">
+    <File Path="docs/upstream-history.txt" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/FastBinaryJson/FastBinaryJson.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj" />
+    <Project Path="tests/FastBinaryJson.UnitTests.Netstandard20/FastBinaryJson.UnitTests.Netstandard20.csproj" />
+    <Project Path="tests/FastBinaryJson.UnitTests.Net48/FastBinaryJson.UnitTests.Net48.csproj" />
+  </Folder>
 </Solution>

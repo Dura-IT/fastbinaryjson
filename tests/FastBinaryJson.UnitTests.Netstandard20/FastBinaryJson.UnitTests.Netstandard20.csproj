@@ -1,0 +1,81 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The same suite, run a second time against the library's netstandard2.0 asset.
+
+    Why this project exists: the library multi-targets net10.0;netstandard2.0, and NuGet resolves
+    the NEWEST compatible asset for a net10.0 test project. So the moment net10.0 was added, all
+    114 tests silently switched to exercising it and the netstandard2.0 path - the one consumers
+    with stored history actually get, and the reason this fork exists - stopped being asserted at
+    all. SetTargetFramework on the ProjectReference below pins this copy to the older asset.
+
+    It compiles the sibling project's sources by link rather than duplicating them, so there is
+    exactly one copy of every test and no drift is possible.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+
+    <!--
+      AssemblyName and the three version properties MUST match FastBinaryJson.UnitTests exactly.
+      The golden fixtures embed each fixture type's AssemblyQualifiedName, which carries this
+      assembly's name and version, so a different identity here would fail all 16 of them for
+      reasons that have nothing to do with the asset under test. The project FILE name differs,
+      which is what keeps the two build outputs apart under artifacts/.
+
+      It is also what keeps the library's InternalsVisibleTo working: that targets
+      'FastBinaryJson.UnitTests', the assembly name, not the project name.
+    -->
+    <AssemblyName>FastBinaryJson.UnitTests</AssemblyName>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="AwesomeAssertions" Version="9.6.0" />
+    <PackageReference Include="NUnit" Version="5.0.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+    <PackageReference Include="coverlet.collector" Version="10.1.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../FastBinaryJson.UnitTests/**/*.cs"
+      Exclude="../FastBinaryJson.UnitTests/bin/**;../FastBinaryJson.UnitTests/obj/**"
+      LinkBase="Linked"
+    />
+    <!--
+      Tests of net10.0-only library internals. This project compiles as net10.0 itself, so an
+      #if in the test file would not keep them out; the types do not exist in the netstandard2.0
+      asset it references.
+    -->
+    <Compile Remove="../FastBinaryJson.UnitTests/Internal/NameCacheTests.cs" />
+    <Compile Remove="../FastBinaryJson.UnitTests/Internal/TypeNameCacheTests.cs" />
+  </ItemGroup>
+
+  <!--
+    The benchmark corpus, compiled in as-is so the reader equivalence tests run the exact payloads
+    the benchmarks measure. Linked, not referenced: its types must not become golden-fixture types.
+  -->
+  <ItemGroup>
+    <Compile
+      Include="../../benchmarks/FastBinaryJson.Benchmarks/Corpus/*.cs"
+      LinkBase="BenchmarkCorpus"
+    />
+  </ItemGroup>
+
+  <!-- SetTargetFramework is what pins this copy to the older asset. -->
+  <ItemGroup>
+    <ProjectReference
+      Include="../../src/FastBinaryJson/FastBinaryJson.csproj"
+      SetTargetFramework="TargetFramework=netstandard2.0"
+    />
+  </ItemGroup>
+</Project>

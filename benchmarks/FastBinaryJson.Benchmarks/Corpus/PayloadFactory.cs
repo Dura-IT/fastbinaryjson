@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace FastBinaryJson.Benchmarks.Corpus
 {
@@ -15,8 +16,22 @@ namespace FastBinaryJson.Benchmarks.Corpus
 
         private static readonly string[] Words =
         {
-            "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel",
-            "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa",
+            "alpha",
+            "bravo",
+            "charlie",
+            "delta",
+            "echo",
+            "foxtrot",
+            "golf",
+            "hotel",
+            "india",
+            "juliet",
+            "kilo",
+            "lima",
+            "mike",
+            "november",
+            "oscar",
+            "papa",
         };
 
         public const int LargeCollectionCount = 1000;
@@ -66,7 +81,7 @@ namespace FastBinaryJson.Benchmarks.Corpus
             return new Dictionary<string, string>
             {
                 { "short", "ordinary value" },
-                { longKey, "value behind a key of " + longKey.Length.ToString() + " characters" },
+                { longKey, "value behind a key of " + longKey.Length.ToString(CultureInfo.InvariantCulture) + " characters" },
             };
         }
 
@@ -82,14 +97,16 @@ namespace FastBinaryJson.Benchmarks.Corpus
                 int quantity = random.Next(1, 20);
                 total += unitPrice * quantity;
 
-                lines.Add(new OrderLine
-                {
-                    LineNumber = i + 1,
-                    Sku = string.Concat("SKU-", random.Next(100000, 999999).ToString()),
-                    Description = NextSentence(random, 6),
-                    Quantity = quantity,
-                    UnitPrice = unitPrice,
-                });
+                lines.Add(
+                    new OrderLine
+                    {
+                        LineNumber = i + 1,
+                        Sku = string.Concat("SKU-", random.Next(100000, 999999).ToString(CultureInfo.InvariantCulture)),
+                        Description = NextSentence(random, 6),
+                        Quantity = quantity,
+                        UnitPrice = unitPrice,
+                    }
+                );
             }
 
             return new Order
@@ -118,16 +135,18 @@ namespace FastBinaryJson.Benchmarks.Corpus
 
             for (int i = 0; i < LargeCollectionCount; i++)
             {
-                entries.Add(new LogEntry
-                {
-                    Sequence = i,
-                    TimestampUtc = BaseUtc.AddMilliseconds(i * 37),
-                    Level = random.Next(0, 6),
-                    Source = Words[random.Next(Words.Length)],
-                    Message = NextSentence(random, 10),
-                    Succeeded = random.Next(0, 10) > 2,
-                    DurationMs = random.NextDouble() * 250.0,
-                });
+                entries.Add(
+                    new LogEntry
+                    {
+                        Sequence = i,
+                        TimestampUtc = BaseUtc.AddMilliseconds(i * 37),
+                        Level = random.Next(0, 6),
+                        Source = Words[random.Next(Words.Length)],
+                        Message = NextSentence(random, 10),
+                        Succeeded = random.Next(0, 10) > 2,
+                        DurationMs = random.NextDouble() * 250.0,
+                    }
+                );
             }
 
             return entries;
@@ -140,18 +159,20 @@ namespace FastBinaryJson.Benchmarks.Corpus
 
             for (int i = 0; i < CorrelationCount; i++)
             {
-                records.Add(new CorrelationRecord
-                {
-                    Id = NextGuid(random),
-                    TraceId = NextGuid(random),
-                    SpanId = NextGuid(random),
-                    ParentSpanId = NextGuid(random),
-                    TenantId = NextGuid(random),
-                    SessionId = NextGuid(random),
-                    RequestId = NextGuid(random),
-                    CorrelationId = NextGuid(random),
-                    Sequence = i,
-                });
+                records.Add(
+                    new CorrelationRecord
+                    {
+                        Id = NextGuid(random),
+                        TraceId = NextGuid(random),
+                        SpanId = NextGuid(random),
+                        ParentSpanId = NextGuid(random),
+                        TenantId = NextGuid(random),
+                        SessionId = NextGuid(random),
+                        RequestId = NextGuid(random),
+                        CorrelationId = NextGuid(random),
+                        Sequence = i,
+                    }
+                );
             }
 
             return records;
@@ -169,26 +190,37 @@ namespace FastBinaryJson.Benchmarks.Corpus
                 switch (i % 3)
                 {
                     case 0:
-                        shapes.Add(new Circle { Id = i, Label = label, Radius = random.NextDouble() * 100.0 });
+                        shapes.Add(
+                            new Circle
+                            {
+                                Id = i,
+                                Label = label,
+                                Radius = random.NextDouble() * 100.0,
+                            }
+                        );
                         break;
                     case 1:
-                        shapes.Add(new Rectangle
-                        {
-                            Id = i,
-                            Label = label,
-                            Width = random.NextDouble() * 100.0,
-                            Height = random.NextDouble() * 100.0,
-                        });
+                        shapes.Add(
+                            new Rectangle
+                            {
+                                Id = i,
+                                Label = label,
+                                Width = random.NextDouble() * 100.0,
+                                Height = random.NextDouble() * 100.0,
+                            }
+                        );
                         break;
                     default:
-                        shapes.Add(new Triangle
-                        {
-                            Id = i,
-                            Label = label,
-                            BaseLength = random.NextDouble() * 100.0,
-                            Height = random.NextDouble() * 100.0,
-                            Skew = random.NextDouble(),
-                        });
+                        shapes.Add(
+                            new Triangle
+                            {
+                                Id = i,
+                                Label = label,
+                                BaseLength = random.NextDouble() * 100.0,
+                                Height = random.NextDouble() * 100.0,
+                                Skew = random.NextDouble(),
+                            }
+                        );
                         break;
                 }
             }
@@ -200,15 +232,21 @@ namespace FastBinaryJson.Benchmarks.Corpus
         {
             return new Address
             {
-                Line1 = string.Concat(Words[random.Next(Words.Length)], " ", random.Next(1, 300).ToString()),
+                Line1 = string.Concat(Words[random.Next(Words.Length)], " ", random.Next(1, 300).ToString(CultureInfo.InvariantCulture)),
                 Line2 = Words[random.Next(Words.Length)],
-                PostalCode = string.Concat(random.Next(1000, 9999).ToString(), " ", Words[random.Next(Words.Length)].Substring(0, 2).ToUpperInvariant()),
+                PostalCode = string.Concat(
+                    random.Next(1000, 9999).ToString(CultureInfo.InvariantCulture),
+                    " ",
+                    Words[random.Next(Words.Length)].Substring(0, 2).ToUpperInvariant()
+                ),
                 City = Words[random.Next(Words.Length)],
                 CountryCode = "NL",
             };
         }
 
+#pragma warning disable S2245 // A fixed seed is the point: every run must build the same payloads. Nothing here is security-sensitive.
         private static Random NewRandom() => new Random(Seed);
+#pragma warning restore S2245
 
         private static long NextInt64(Random random)
         {

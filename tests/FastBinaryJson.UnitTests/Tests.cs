@@ -1,6 +1,10 @@
-﻿using fastBinaryJSON;
-using NUnit.Framework;
-using NUnit.Framework.Legacy;
+﻿// ReSharper disable InconsistentNaming - ported upstream models and tests keep upstream's names
+// ReSharper disable CollectionNeverQueried.Global - the serializer fills and reads these collections
+// ReSharper disable PossibleNullReferenceException - ported assertions: a null result is the failure they report
+// ReSharper disable AssignNullToNotNullAttribute - null input is the case under test
+// ReSharper disable DefaultStructEqualityIsUsed.Global - a struct with default equality as a dictionary key is the case under test
+// ReSharper disable UsageOfDefaultStructEquality - a struct with default equality as a dictionary key is the case under test
+// ReSharper disable UnusedAutoPropertyAccessor.Global - reflection-only models: the serializer reads and writes these members, nothing calls them
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,8 +13,13 @@ using System.Collections.Specialized;
 using System.Data;
 using System.Diagnostics;
 using System.Dynamic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
+using DuraIT.FastBinaryJson;
+using DuraIT.FastBinaryJson.Internal;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
 
 // CS8981: every type declared in this ported file is all-lowercase (tests, colclass, baseclass,
 // ...), a shape C# reserves for future language keywords. Renaming 24 types belongs to the
@@ -39,27 +48,30 @@ using System.Threading;
  * test.
  */
 
-//namespace UnitTests
-//{
 public class tests
 {
-    //[TestFixtureTearDown]
-    //public static void dteardown()
-    //{
-    //    ds = new DataSet();
-    //    GC.Collect();
-    //}
+    /*
+     * Custom type registration is process-wide and there is no public way back, so three tests in
+     * this file - CustomTypes, anonymoustype and the deleted datetimeoff - used to leave their
+     * registration in place for whatever NUnit ran next. That decided results elsewhere: a
+     * DateTimeOffset registered with a ToString()-based serializer loses sub-second precision, so
+     * any later test round-tripping one natively would silently go through the lossy path, in an
+     * order NUnit does not define.
+     */
+    [TearDown]
+    public void ClearRegistrations()
+    {
+        TypeReflector.Instance.ClearCustomTypes();
+    }
+
     #region [  helpers  ]
     static int thousandtimes = 1000;
     static int fivetimes = 5;
-    static DataSet ds = new DataSet();
-    //static bool exotic = false;
-    //static bool dsser = false;
 
     public enum Gender
     {
         Male,
-        Female
+        Female,
     }
 
     public class colclass
@@ -68,7 +80,8 @@ public class tests
         {
             items = new List<baseclass>();
             date = DateTime.Now;
-            multilineString = @"
+            multilineString =
+                @"
             AJKLjaskljLA
        ahjksjkAHJKS سلام فارسی
        AJKHSKJhaksjhAHSJKa
@@ -79,8 +92,9 @@ public class tests
             booleanValue = true;
             ordinaryDouble = 0.001;
             gender = Gender.Female;
-            intarray = new int[5] { 1, 2, 3, 4, 5 };
+            intarray = new[] { 1, 2, 3, 4, 5 };
         }
+
         public bool booleanValue { get; set; }
         public DateTime date { get; set; }
         public string multilineString { get; set; }
@@ -102,7 +116,6 @@ public class tests
         public baseclass[] arrayType { get; set; }
         public byte[] bytes { get; set; }
         public int[] intarray { get; set; }
-
     }
 
     public static colclass CreateObject(bool exotic, bool dataset)
@@ -143,7 +156,6 @@ public class tests
             c.arrayType[1] = new class2();
         }
 
-
         c.items.Add(new class1("1", "1", Guid.NewGuid()));
         c.items.Add(new class2("2", "2", "desc1"));
         c.items.Add(new class1("3", "3", Guid.NewGuid()));
@@ -163,24 +175,28 @@ public class tests
     public class class1 : baseclass
     {
         public class1() { }
+
         public class1(string name, string code, Guid g)
         {
             Name = name;
             Code = code;
             guid = g;
         }
+
         public Guid guid { get; set; }
     }
 
     public class class2 : baseclass
     {
         public class2() { }
+
         public class2(string name, string code, string desc)
         {
             Name = name;
             Code = code;
             description = desc;
         }
+
         public string description { get; set; }
     }
 
@@ -201,7 +217,12 @@ public class tests
         public string Name { get; set; }
         public string Field1;
         public int Field2;
-        public string ppp { get { return "sdfas df "; } }
+#pragma warning disable CA1822, S2325 // A read-only INSTANCE property is the shape under test
+        public string ppp
+        {
+            get { return "sdfas df "; }
+        }
+#pragma warning restore CA1822, S2325
         public DateTime date { get; set; }
         public DataTable ds { get; set; }
     }
@@ -212,7 +233,12 @@ public class tests
         public string Name { get; set; }
         public string Field1;
         public int Field2;
-        public string ppp { get { return "sdfas df "; } }
+#pragma warning disable CA1822, S2325 // A read-only INSTANCE property is the shape under test
+        public string ppp
+        {
+            get { return "sdfas df "; }
+        }
+#pragma warning restore CA1822, S2325
         public DateTime date { get; set; }
         public DataTable ds { get; set; }
     }
@@ -259,9 +285,13 @@ public class tests
     [Test]
     public static void objectarray()
     {
-        var o = new object[3] { 1, "sdfsdfs", DateTime.Now };
-        var b = BJSON.ToBJSON(o);
-        var s = BJSON.ToObject(b);
+        var o = new object[] { 1, "sdfsdfs", DateTime.Now };
+        var b = Bjson.ToBjson(o);
+        var s = Bjson.ToObject(b) as object[];
+        ClassicAssert.IsNotNull(s);
+        ClassicAssert.AreEqual(3, s.Length);
+        ClassicAssert.AreEqual(1, s[0]);
+        ClassicAssert.AreEqual("sdfsdfs", s[1]);
     }
 
     [Test]
@@ -272,11 +302,12 @@ public class tests
         r.Field1 = "dsasdF";
         r.Field2 = 2312;
         r.date = DateTime.Now;
-        r.ds = CreateDataset().Tables[0];
+        using DataSet dataset = CreateDataset();
+        r.ds = dataset.Tables[0];
 
-        var b = BJSON.ToBJSON(r);
+        var b = Bjson.ToBjson(r);
 
-        var o = BJSON.ToObject(b);
+        var o = Bjson.ToObject(b);
 
         ClassicAssert.AreEqual(2312, (o as Retclass).Field2);
     }
@@ -289,11 +320,12 @@ public class tests
         r.Field1 = "dsasdF";
         r.Field2 = 2312;
         r.date = DateTime.Now;
-        r.ds = CreateDataset().Tables[0];
+        using DataSet dataset = CreateDataset();
+        r.ds = dataset.Tables[0];
 
-        var b = BJSON.ToBJSON(r);
+        var b = Bjson.ToBjson(r);
 
-        var o = BJSON.ToObject(b);
+        var o = Bjson.ToObject(b);
 
         ClassicAssert.AreEqual(2312, ((Retstruct)o).Field2);
     }
@@ -306,11 +338,12 @@ public class tests
         r.Field1 = "dsasdF";
         r.Field2 = 2312;
         r.date = DateTime.Now;
-        r.ds = CreateDataset().Tables[0];
+        using DataSet dataset = CreateDataset();
+        r.ds = dataset.Tables[0];
 
-        var s = BJSON.ToBJSON(r);
+        var s = Bjson.ToBjson(r);
 
-        var o = BJSON.Parse(s);
+        var o = Bjson.Parse(s);
 
         ClassicAssert.IsNotNull(o);
     }
@@ -319,11 +352,12 @@ public class tests
     public static void StringListTest()
     {
         List<string> ls = new List<string>();
-        ls.AddRange(new string[] { "a", "b", "c", "d" });
+        string[] letters = { "a", "b", "c", "d" };
+        ls.AddRange(letters);
 
-        var s = BJSON.ToBJSON(ls);
+        var s = Bjson.ToBjson(ls);
 
-        var o = BJSON.ToObject(s);
+        var o = Bjson.ToObject(s);
 
         ClassicAssert.IsNotNull(o);
     }
@@ -332,12 +366,13 @@ public class tests
     public static void IntListTest()
     {
         List<int> ls = new List<int>();
-        ls.AddRange(new int[] { 1, 2, 3, 4, 5, 10 });
+        int[] numbers = { 1, 2, 3, 4, 5, 10 };
+        ls.AddRange(numbers);
 
-        var s = BJSON.ToBJSON(ls);
+        var s = Bjson.ToBjson(ls);
 
-        var p = BJSON.Parse(s);
-        var o = BJSON.ToObject(s); // long[] {1,2,3,4,5,10}
+        ClassicAssert.IsNotNull(Bjson.Parse(s));
+        var o = Bjson.ToObject(s); // long[] {1,2,3,4,5,10}
 
         ClassicAssert.IsNotNull(o);
     }
@@ -345,25 +380,25 @@ public class tests
     [Test]
     public static void Variables()
     {
-        var s = BJSON.ToBJSON(42);
-        var o = BJSON.ToObject(s);
-        ClassicAssert.AreEqual(o, 42);
+        var s = Bjson.ToBjson(42);
+        var o = Bjson.ToObject(s);
+        ClassicAssert.AreEqual(42, o);
 
-        s = BJSON.ToBJSON("hello");
-        o = BJSON.ToObject(s);
-        ClassicAssert.AreEqual(o, "hello");
+        s = Bjson.ToBjson("hello");
+        o = Bjson.ToObject(s);
+        ClassicAssert.AreEqual("hello", o);
     }
 
     [Test]
     public static void List_int()
     {
         List<int> ls = new List<int>();
-        ls.AddRange(new int[] { 1, 2, 3, 4, 5, 10 });
+        int[] numbers = { 1, 2, 3, 4, 5, 10 };
+        ls.AddRange(numbers);
 
-        var s = BJSON.ToBJSON(ls);
-        Console.WriteLine(s);
-        var p = BJSON.Parse(s);
-        var o = BJSON.ToObject<List<int>>(s);
+        var s = Bjson.ToBjson(ls);
+        ClassicAssert.IsNotNull(Bjson.Parse(s));
+        var o = Bjson.ToObject<List<int>>(s);
 
         ClassicAssert.IsNotNull(o);
     }
@@ -372,10 +407,26 @@ public class tests
     public static void Dictionary_String_RetClass()
     {
         Dictionary<string, Retclass> r = new Dictionary<string, Retclass>();
-        r.Add("11", new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        r.Add("12", new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        var s = BJSON.ToBJSON(r);
-        var o = BJSON.ToObject<Dictionary<string, Retclass>>(s);
+        r.Add(
+            "11",
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        r.Add(
+            "12",
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        var s = Bjson.ToBjson(r);
+        var o = Bjson.ToObject<Dictionary<string, Retclass>>(s);
         ClassicAssert.AreEqual(2, o.Count);
     }
 
@@ -383,10 +434,26 @@ public class tests
     public static void Dictionary_String_RetClass_noextensions()
     {
         Dictionary<string, Retclass> r = new Dictionary<string, Retclass>();
-        r.Add("11", new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        r.Add("12", new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        var s = BJSON.ToBJSON(r, new BJSONParameters { UseExtensions = false });
-        var o = BJSON.ToObject<Dictionary<string, Retclass>>(s);
+        r.Add(
+            "11",
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        r.Add(
+            "12",
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        var s = Bjson.ToBjson(r, new BjsonParameters { UseExtensions = false });
+        var o = Bjson.ToObject<Dictionary<string, Retclass>>(s);
         ClassicAssert.AreEqual(2, o.Count);
     }
 
@@ -394,10 +461,26 @@ public class tests
     public static void Dictionary_int_RetClass()
     {
         Dictionary<int, Retclass> r = new Dictionary<int, Retclass>();
-        r.Add(11, new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        r.Add(12, new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        var s = BJSON.ToBJSON(r);
-        var o = BJSON.ToObject<Dictionary<int, Retclass>>(s);
+        r.Add(
+            11,
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        r.Add(
+            12,
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        var s = Bjson.ToBjson(r);
+        var o = Bjson.ToObject<Dictionary<int, Retclass>>(s);
         ClassicAssert.AreEqual(2, o.Count);
     }
 
@@ -405,10 +488,26 @@ public class tests
     public static void Dictionary_int_RetClass_noextensions()
     {
         Dictionary<int, Retclass> r = new Dictionary<int, Retclass>();
-        r.Add(11, new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        r.Add(12, new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        var s = BJSON.ToBJSON(r, new BJSONParameters { UseExtensions = false });
-        var o = BJSON.ToObject<Dictionary<int, Retclass>>(s);
+        r.Add(
+            11,
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        r.Add(
+            12,
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        var s = Bjson.ToBjson(r, new BjsonParameters { UseExtensions = false });
+        var o = Bjson.ToObject<Dictionary<int, Retclass>>(s);
         ClassicAssert.AreEqual(2, o.Count);
     }
 
@@ -416,10 +515,36 @@ public class tests
     public static void Dictionary_Retstruct_RetClass()
     {
         Dictionary<Retstruct, Retclass> r = new Dictionary<Retstruct, Retclass>();
-        r.Add(new Retstruct { Field1 = "111", Field2 = 1, date = DateTime.Now }, new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        r.Add(new Retstruct { Field1 = "222", Field2 = 2, date = DateTime.Now }, new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        var s = BJSON.ToBJSON(r);
-        var o = BJSON.ToObject<Dictionary<Retstruct, Retclass>>(s);
+        r.Add(
+            new Retstruct
+            {
+                Field1 = "111",
+                Field2 = 1,
+                date = DateTime.Now,
+            },
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        r.Add(
+            new Retstruct
+            {
+                Field1 = "222",
+                Field2 = 2,
+                date = DateTime.Now,
+            },
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        var s = Bjson.ToBjson(r);
+        var o = Bjson.ToObject<Dictionary<Retstruct, Retclass>>(s);
         ClassicAssert.AreEqual(2, o.Count);
     }
 
@@ -427,10 +552,36 @@ public class tests
     public static void Dictionary_Retstruct_RetClass_noextentions()
     {
         Dictionary<Retstruct, Retclass> r = new Dictionary<Retstruct, Retclass>();
-        r.Add(new Retstruct { Field1 = "111", Field2 = 1, date = DateTime.Now }, new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        r.Add(new Retstruct { Field1 = "222", Field2 = 2, date = DateTime.Now }, new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        var s = BJSON.ToBJSON(r, new BJSONParameters { UseExtensions = false });
-        var o = BJSON.ToObject<Dictionary<Retstruct, Retclass>>(s);
+        r.Add(
+            new Retstruct
+            {
+                Field1 = "111",
+                Field2 = 1,
+                date = DateTime.Now,
+            },
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        r.Add(
+            new Retstruct
+            {
+                Field1 = "222",
+                Field2 = 2,
+                date = DateTime.Now,
+            },
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        var s = Bjson.ToBjson(r, new BjsonParameters { UseExtensions = false });
+        var o = Bjson.ToObject<Dictionary<Retstruct, Retclass>>(s);
         ClassicAssert.AreEqual(2, o.Count);
     }
 
@@ -438,10 +589,24 @@ public class tests
     public static void List_RetClass()
     {
         List<Retclass> r = new List<Retclass>();
-        r.Add(new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        r.Add(new Retclass { Field1 = "222", Field2 = 3, date = DateTime.Now });
-        var s = BJSON.ToBJSON(r);
-        var o = BJSON.ToObject<List<Retclass>>(s);
+        r.Add(
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        r.Add(
+            new Retclass
+            {
+                Field1 = "222",
+                Field2 = 3,
+                date = DateTime.Now,
+            }
+        );
+        var s = Bjson.ToBjson(r);
+        var o = Bjson.ToObject<List<Retclass>>(s);
         ClassicAssert.AreEqual(2, o.Count);
     }
 
@@ -449,10 +614,24 @@ public class tests
     public static void List_RetClass_noextensions()
     {
         List<Retclass> r = new List<Retclass>();
-        r.Add(new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now });
-        r.Add(new Retclass { Field1 = "222", Field2 = 3, date = DateTime.Now });
-        var s = BJSON.ToBJSON(r, new BJSONParameters { UseExtensions = false });
-        var o = BJSON.ToObject<List<Retclass>>(s);
+        r.Add(
+            new Retclass
+            {
+                Field1 = "111",
+                Field2 = 2,
+                date = DateTime.Now,
+            }
+        );
+        r.Add(
+            new Retclass
+            {
+                Field1 = "222",
+                Field2 = 3,
+                date = DateTime.Now,
+            }
+        );
+        var s = Bjson.ToBjson(r, new BjsonParameters { UseExtensions = false });
+        var o = Bjson.ToObject<List<Retclass>>(s);
         ClassicAssert.AreEqual(2, o.Count);
     }
 
@@ -467,48 +646,77 @@ public class tests
         ne.dic.Add("hello", new class1("asda", "asdas", Guid.NewGuid()));
         ne.objs = new baseclass[] { new class1("a", "1", Guid.NewGuid()), new class2("b", "2", "desc") };
 
-        byte[] str = BJSON.ToBJSON(ne, new BJSONParameters { UseExtensions = false, UsingGlobalTypes = false });
-        object dic = BJSON.Parse(str);
-        object oo = BJSON.ToObject<NoExt>(str);
+        byte[] str = Bjson.ToBjson(ne, new BjsonParameters { UseExtensions = false, UsingGlobalTypes = false });
+        ClassicAssert.IsNotNull(Bjson.Parse(str));
+        NoExt oo = Bjson.ToObject<NoExt>(str);
+        ClassicAssert.AreEqual("here", oo.Address);
 
         NoExt nee = new NoExt();
         nee.intern = new NoExt { Name = "aaa" };
-        BJSON.FillObject(nee, str);
+        Bjson.FillObject(nee, str);
+        ClassicAssert.AreEqual("here", nee.Address);
+        ClassicAssert.AreEqual(10, nee.Age);
     }
 
     [Test]
     public static void AnonymousTypes()
     {
         Console.WriteLine(".net version = " + Environment.Version);
-        var q = new { Name = "asassa", Address = "asadasd", Age = 12 };
-        byte[] sq = BJSON.ToBJSON(q, new BJSONParameters { EnableAnonymousTypes = true });
+        var q = new
+        {
+            Name = "asassa",
+            Address = "asadasd",
+            Age = 12,
+        };
+        byte[] sq = Bjson.ToBjson(q, new BjsonParameters { EnableAnonymousTypes = true });
+        ClassicAssert.IsNotEmpty(sq);
     }
 
     [Test]
     public static void List_NestedRetClass()
     {
         List<RetNestedclass> r = new List<RetNestedclass>();
-        r.Add(new RetNestedclass { Nested = new Retclass { Field1 = "111", Field2 = 2, date = DateTime.Now } });
-        r.Add(new RetNestedclass { Nested = new Retclass { Field1 = "222", Field2 = 3, date = DateTime.Now } });
-        var s = BJSON.ToBJSON(r);
-        var o = BJSON.ToObject<List<RetNestedclass>>(s);
+        r.Add(
+            new RetNestedclass
+            {
+                Nested = new Retclass
+                {
+                    Field1 = "111",
+                    Field2 = 2,
+                    date = DateTime.Now,
+                },
+            }
+        );
+        r.Add(
+            new RetNestedclass
+            {
+                Nested = new Retclass
+                {
+                    Field1 = "222",
+                    Field2 = 3,
+                    date = DateTime.Now,
+                },
+            }
+        );
+        var s = Bjson.ToBjson(r);
+        var o = Bjson.ToObject<List<RetNestedclass>>(s);
         ClassicAssert.AreEqual(2, o.Count);
     }
 
     [Test]
     public static void NullTest()
     {
-        var s = BJSON.ToBJSON(null);
-        ClassicAssert.AreEqual(s[0], TOKENS.NULL);
-        var o = BJSON.ToObject(s);
+        var s = Bjson.ToBjson(null);
+        ClassicAssert.AreEqual(Tokens.Null, s[0]);
+        var o = Bjson.ToObject(s);
         ClassicAssert.AreEqual(null, o);
     }
 
     [Test]
     public static void ZeroArray()
     {
-        var s = BJSON.ToBJSON(new object[] { });
-        var o = BJSON.ToObject(s);
+        var s = Bjson.ToBjson(Array.Empty<object>());
+        var o = Bjson.ToObject(s);
         var a = o as object[];
         ClassicAssert.AreEqual(0, a.Length);
     }
@@ -523,10 +731,10 @@ public class tests
         var original = Thread.CurrentThread.CurrentCulture;
         try
         {
-            Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de");
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("de");
             decimal d = 3.141592654M;
-            var s = BJSON.ToBJSON(d);
-            var o = BJSON.ToObject(s);
+            var s = Bjson.ToBjson(d);
+            var o = Bjson.ToObject(s);
             ClassicAssert.AreEqual(d, (decimal)o);
         }
         finally
@@ -540,32 +748,34 @@ public class tests
         public int[] ints { get; set; }
         public string[] strs;
     }
+
     [Test]
     public static void ArrayTest()
     {
         arrayclass a = new arrayclass();
-        a.ints = new int[] { 3, 1, 4 };
-        a.strs = new string[] { "a", "b", "c" };
-        var s = BJSON.ToBJSON(a);
-        var o = BJSON.ToObject(s);
+        a.ints = new[] { 3, 1, 4 };
+        a.strs = new[] { "a", "b", "c" };
+        var s = Bjson.ToBjson(a);
+        var o = (arrayclass)Bjson.ToObject(s);
+        CollectionAssert.AreEqual(a.ints, o.ints);
+        CollectionAssert.AreEqual(a.strs, o.strs);
     }
 
     [Test]
     public static void Datasets()
     {
-        var ds = CreateDataset();
+        using DataSet ds = CreateDataset();
 
-        var s = BJSON.ToBJSON(ds);
+        var s = Bjson.ToBjson(ds);
 
-        var o = BJSON.ToObject<DataSet>(s);
+        var o = Bjson.ToObject<DataSet>(s);
 
         ClassicAssert.AreEqual(typeof(DataSet), o.GetType());
         ClassicAssert.IsNotNull(o);
         ClassicAssert.AreEqual(2, o.Tables.Count);
 
-
-        s = BJSON.ToBJSON(ds.Tables[0]);
-        var oo = BJSON.ToObject<DataTable>(s);
+        s = Bjson.ToBjson(ds.Tables[0]);
+        var oo = Bjson.ToObject<DataTable>(s);
         ClassicAssert.IsNotNull(oo);
         ClassicAssert.AreEqual(typeof(DataTable), oo.GetType());
         ClassicAssert.AreEqual(100, oo.Rows.Count);
@@ -574,12 +784,16 @@ public class tests
     [Test]
     public static void DynamicTest()
     {
-        var obj = new { Name = "aaaaaa", Age = 10, dob = DateTime.Parse("2000-01-01 00:00:00"), inner = new { prop = 30 } };
+        var obj = new
+        {
+            Name = "aaaaaa",
+            Age = 10,
+            dob = DateTime.Parse("2000-01-01 00:00:00", CultureInfo.InvariantCulture),
+            inner = new { prop = 30 },
+        };
 
-        byte[] b = BJSON.ToBJSON(
-            obj,
-            new BJSONParameters { UseExtensions = false, EnableAnonymousTypes = true });
-        dynamic d = fastBinaryJSON.BJSON.ToDynamic(b);
+        byte[] b = Bjson.ToBjson(obj, new BjsonParameters { UseExtensions = false, EnableAnonymousTypes = true });
+        dynamic d = Bjson.ToDynamic(b);
         var ss = d.Name;
         var oo = d.Age;
         var dob = d.dob;
@@ -588,7 +802,7 @@ public class tests
         ClassicAssert.AreEqual("aaaaaa", ss);
         ClassicAssert.AreEqual(10, oo);
         ClassicAssert.AreEqual(30, inp);
-        ClassicAssert.AreEqual(DateTime.Parse("2000-01-01 00:00:00"), dob);
+        ClassicAssert.AreEqual(DateTime.Parse("2000-01-01 00:00:00", CultureInfo.InvariantCulture), dob);
     }
 
     public class diclist
@@ -603,14 +817,14 @@ public class tests
         dd.d = new Dictionary<string, List<string>>();
         dd.d.Add("a", new List<string> { "1", "2", "3" });
         dd.d.Add("b", new List<string> { "4", "5", "7" });
-        byte[] s = BJSON.ToBJSON(dd, new BJSONParameters { UseExtensions = false });
-        var o = BJSON.ToObject<diclist>(s);
+        byte[] s = Bjson.ToBjson(dd, new BjsonParameters { UseExtensions = false });
+        var o = Bjson.ToObject<diclist>(s);
         ClassicAssert.AreEqual(3, o.d["a"].Count);
 
-        s = BJSON.ToBJSON(dd.d, new BJSONParameters { UseExtensions = false });
-        var oo = BJSON.ToObject<Dictionary<string, List<string>>>(s);
+        s = Bjson.ToBjson(dd.d, new BjsonParameters { UseExtensions = false });
+        var oo = Bjson.ToObject<Dictionary<string, List<string>>>(s);
         ClassicAssert.AreEqual(3, oo["a"].Count);
-        var ooo = BJSON.ToObject<Dictionary<string, string[]>>(s);
+        var ooo = Bjson.ToObject<Dictionary<string, string[]>>(s);
         ClassicAssert.AreEqual(3, ooo["b"].Length);
     }
 
@@ -621,9 +835,9 @@ public class tests
         h.Add(1, "dsjfhksa");
         h.Add("dsds", new class1());
 
-        var s = BJSON.ToBJSON(h);
+        var s = Bjson.ToBjson(h);
 
-        var o = BJSON.ToObject<Hashtable>(s);
+        var o = Bjson.ToObject<Hashtable>(s);
         ClassicAssert.AreEqual(typeof(Hashtable), o.GetType());
         ClassicAssert.AreEqual(typeof(class1), o["dsds"].GetType());
     }
@@ -641,32 +855,34 @@ public class tests
         var nv = new NameValueCollection();
         nv.Add("1", "a");
         nv.Add("2", "b");
-        var s = BJSON.ToBJSON(nv);
-        var oo = BJSON.ToObject<NameValueCollection>(s);
+        var s = Bjson.ToBjson(nv);
+        var oo = Bjson.ToObject<NameValueCollection>(s);
         ClassicAssert.AreEqual("a", oo["1"]);
         var sd = new StringDictionary();
         sd.Add("1", "a");
         sd.Add("2", "b");
-        s = BJSON.ToBJSON(sd);
-        var o = BJSON.ToObject<StringDictionary>(s);
+        s = Bjson.ToBjson(sd);
+        var o = Bjson.ToObject<StringDictionary>(s);
         ClassicAssert.AreEqual("b", o["2"]);
 
         coltest c = new coltest();
         c.name = "aaa";
         c.nv = nv;
         c.sd = sd;
-        s = BJSON.ToBJSON(c);
-        var ooo = BJSON.ToObject(s);
+        s = Bjson.ToBjson(c);
+        var ooo = Bjson.ToObject(s);
         ClassicAssert.AreEqual("a", (ooo as coltest).nv["1"]);
         ClassicAssert.AreEqual("b", (ooo as coltest).sd["2"]);
     }
 
     public enum enumt
     {
+        None = 0,
         A = 65,
         B = 90,
-        C = 100
+        C = 100,
     }
+
     public class constch
     {
         public enumt e = enumt.B;
@@ -677,38 +893,52 @@ public class tests
     [Test]
     public static void consttest()
     {
-        var s = BJSON.ToBJSON(new constch());
-        var o = BJSON.ToObject(s);
+        var s = Bjson.ToBjson(new constch());
+        var o = (constch)Bjson.ToObject(s);
+        ClassicAssert.AreEqual("aa", o.Name);
+        ClassicAssert.AreEqual(enumt.B, o.e);
     }
 
-    public class ignoreatt : Attribute
-    {
-    }
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public sealed class IgnoreMarkerAttribute : Attribute { }
 
     public class ignore
     {
         public string Name { get; set; }
+
         [System.Xml.Serialization.XmlIgnore]
         public int Age1 { get; set; }
-        [ignoreatt]
+
+        [IgnoreMarker]
         public int Age2;
     }
-    public class ignore1 : ignore
-    {
-    }
+
+#pragma warning disable S2094 // An empty derived type is the case under test
+    public class ignore1 : ignore { }
+#pragma warning restore S2094
 
     [Test]
     public static void IgnoreAttributes()
     {
-        var i = new ignore { Age1 = 10, Age2 = 20, Name = "aa" };
-        var s = BJSON.ToBJSON(i);
-        var o = BJSON.ToObject<ignore>(s);
+        var i = new ignore
+        {
+            Age1 = 10,
+            Age2 = 20,
+            Name = "aa",
+        };
+        var s = Bjson.ToBjson(i);
+        var o = Bjson.ToObject<ignore>(s);
         ClassicAssert.AreEqual(0, o.Age1);
-        i = new ignore1 { Age1 = 10, Age2 = 20, Name = "bb" };
-        var j = new BJSONParameters();
-        j.IgnoreAttributes.Add(typeof(ignoreatt));
-        s = BJSON.ToBJSON(i, j);
-        var oo = BJSON.ToObject<ignore1>(s);
+        i = new ignore1
+        {
+            Age1 = 10,
+            Age2 = 20,
+            Name = "bb",
+        };
+        var j = new BjsonParameters();
+        j.IgnoreAttributes.Add(typeof(IgnoreMarkerAttribute));
+        s = Bjson.ToBjson(i, j);
+        var oo = Bjson.ToObject<ignore1>(s);
         ClassicAssert.AreEqual(0, oo.Age1);
         ClassicAssert.AreEqual(0, oo.Age2);
     }
@@ -716,7 +946,10 @@ public class tests
     public class nondefaultctor
     {
         public nondefaultctor(int a)
-        { age = a; }
+        {
+            age = a;
+        }
+
         public int age;
     }
 
@@ -724,17 +957,14 @@ public class tests
     public static void NonDefaultConstructor()
     {
         var o = new nondefaultctor(10);
-        //fastBinaryJSON.BJSON.Parameters.ParametricConstructorOverride = true;
-        var s = BJSON.ToBJSON(o);
-        //Console.WriteLine(s);
-        var obj = BJSON.ToObject<nondefaultctor>(s, new BJSONParameters { ParametricConstructorOverride = true });
+        var s = Bjson.ToBjson(o);
+        var obj = Bjson.ToObject<nondefaultctor>(s, new BjsonParameters { ParametricConstructorOverride = true });
         ClassicAssert.AreEqual(10, obj.age);
         List<nondefaultctor> l = new List<nondefaultctor> { o, o, o };
-        s = BJSON.ToBJSON(l);
-        var obj2 = BJSON.ToObject<List<nondefaultctor>>(s, new BJSONParameters { ParametricConstructorOverride = true });
+        s = Bjson.ToBjson(l);
+        var obj2 = Bjson.ToObject<List<nondefaultctor>>(s, new BjsonParameters { ParametricConstructorOverride = true });
         ClassicAssert.AreEqual(3, obj2.Count);
         ClassicAssert.AreEqual(10, obj2[1].age);
-        //fastBinaryJSON.BJSON.Parameters.ParametricConstructorOverride = false;
     }
 
     public class o1
@@ -743,11 +973,13 @@ public class tests
         public o2 o2obj;
         public o3 child;
     }
+
     public class o2
     {
         public int o2int;
         public o1 parent;
     }
+
     public class o3
     {
         public int o3int;
@@ -757,13 +989,17 @@ public class tests
     [Test]
     public static void CircularReferences()
     {
-        var o = new o1 { o1int = 1, child = new o3 { o3int = 3 }, o2obj = new o2 { o2int = 2 } };
+        var o = new o1
+        {
+            o1int = 1,
+            child = new o3 { o3int = 3 },
+            o2obj = new o2 { o2int = 2 },
+        };
         o.o2obj.parent = o;
         o.child.child = o.o2obj;
 
-        var s = BJSON.ToBJSON(o, new BJSONParameters());
-        //Console.WriteLine(BJSON.Beautify(s));
-        var p = BJSON.ToObject<o1>(s);
+        var s = Bjson.ToBjson(o, new BjsonParameters());
+        var p = Bjson.ToObject<o1>(s);
         ClassicAssert.AreEqual(p, p.o2obj.parent);
         ClassicAssert.AreEqual(p.o2obj, p.child.child);
     }
@@ -772,32 +1008,34 @@ public class tests
     {
         public List<List<object>> r;
     }
+
     public class lol2
     {
         public List<object[]> r;
     }
+
     [Test]
     public static void ListOfList()
     {
-        var o = new List<List<object>> { new List<object> { 1, 2, 3 }, new List<object> { "aa", 3, "bb" } };
-        var s = BJSON.ToBJSON(o);
-        //Console.WriteLine(s);
-        var i = BJSON.ToObject(s);
+        var o = new List<List<object>>
+        {
+            new List<object> { 1, 2, 3 },
+            new List<object> { "aa", 3, "bb" },
+        };
+        var s = Bjson.ToBjson(o);
+        ClassicAssert.IsNotNull(Bjson.ToObject(s));
         var p = new lol { r = o };
-        s = BJSON.ToBJSON(p);
-        //Console.WriteLine(s);
-        i = BJSON.ToObject(s);
+        s = Bjson.ToBjson(p);
+        var i = Bjson.ToObject(s);
         ClassicAssert.AreEqual(3, (i as lol).r[0].Count);
 
         var oo = new List<object[]> { new object[] { 1, 2, 3 }, new object[] { "a", 4, "b" } };
-        s = BJSON.ToBJSON(oo);
-        //Console.WriteLine(s);
-        var ii = BJSON.ToObject(s);
+        s = Bjson.ToBjson(oo);
+        ClassicAssert.IsNotNull(Bjson.ToObject(s));
         lol2 l = new lol2() { r = oo };
 
-        s = BJSON.ToBJSON(l);
-        //Console.WriteLine(s);
-        var iii = BJSON.ToObject(s);
+        s = Bjson.ToBjson(l);
+        var iii = Bjson.ToObject(s);
         ClassicAssert.AreEqual(3, (iii as lol2).r[0].Length);
     }
 
@@ -851,14 +1089,12 @@ public class tests
         r.TheReferenceA = r.ListOfAs[2];
         r.NextRoot = r;
 
+        Root back = Bjson.ToObject<Root>(Bjson.ToBjson(r));
 
-        //Console.WriteLine("JSON:\n---\n{0}\n---", BJSON.ToBJSON(r));
-
-        //Console.WriteLine();
-
-        //Console.WriteLine("Nice JSON:\n---\n{0}\n---", BJSON.ToBJSON(BJSON.ToObject<Root>(BJSON.ToBJSON(r))));
+        ClassicAssert.AreEqual("Žlutý kůň ∊ WORLD", back.UnicodeText);
+        ClassicAssert.AreEqual(3, back.ListOfAs.Count);
+        ClassicAssert.AreSame(back, back.NextRoot);
     }
-
 
     public struct Foo
     {
@@ -876,8 +1112,9 @@ public class tests
         Bar b = new Bar();
         b.foo = new Foo();
         b.foo.name = "Buzz";
-        var json = BJSON.ToBJSON(b);
-        Bar bar = BJSON.ToObject<Bar>(json);
+        var json = Bjson.ToBjson(b);
+        Bar bar = Bjson.ToObject<Bar>(json);
+        ClassicAssert.AreEqual("Buzz", bar.foo.name);
     }
 
     public class readonlyclass
@@ -887,8 +1124,12 @@ public class tests
             ROName = "bb";
             Age = 10;
         }
-        private string _ro = "aa";
-        public string ROAddress { get { return _ro; } }
+
+        private readonly string _ro = "aa";
+        public string ROAddress
+        {
+            get { return _ro; }
+        }
         public string ROName { get; private set; }
         public int Age { get; set; }
     }
@@ -896,8 +1137,9 @@ public class tests
     [Test]
     public static void ReadonlyTest()
     {
-        var s = BJSON.ToBJSON(new readonlyclass(), new BJSONParameters { ShowReadOnlyProperties = true });
-        var o = BJSON.ToObject(s);
+        var s = Bjson.ToBjson(new readonlyclass(), new BjsonParameters { ShowReadOnlyProperties = true });
+        var o = Bjson.ToObject(s);
+        ClassicAssert.IsInstanceOf<readonlyclass>(o);
     }
 
     public class InstrumentSettings
@@ -916,14 +1158,15 @@ public class tests
     public static void statictest()
     {
         var s = new InstrumentSettings();
-        BJSONParameters pa = new BJSONParameters();
+        BjsonParameters pa = new BjsonParameters();
         pa.UseExtensions = false;
         InstrumentSettings.isOk = true;
         InstrumentSettings.isBad = true;
 
-        var jsonStr = BJSON.ToBJSON(s, pa);
+        var jsonStr = Bjson.ToBjson(s, pa);
 
-        var o = BJSON.ToObject<InstrumentSettings>(jsonStr);
+        var o = Bjson.ToObject<InstrumentSettings>(jsonStr);
+        ClassicAssert.AreEqual("Wireless", o.dataProtocol);
     }
 
     public class arrayclass2
@@ -939,32 +1182,22 @@ public class tests
     public static void ArrayTest2()
     {
         arrayclass2 a = new arrayclass2();
-        a.ints = new int[] { 3, 1, 4 };
-        a.strs = new string[] { "a", "b", "c" };
-        a.int2d = new int[][] { new int[] { 1, 2, 3 }, new int[] { 2, 3, 4 } };
-        a.int3d = new int[][][] {        new int[][] {
-            new int[] { 0, 0, 1 },
-            new int[] { 0, 1, 0 }
-        },
-        null,
-        new int[][] {
-            new int[] { 0, 0, 2 },
-            new int[] { 0, 2, 0 },
-            null
-        }
-    };
-        a.class2d = new baseclass[][]{
-        new baseclass[] {
-            new baseclass () { Name = "a", Code = "A" },
-            new baseclass () { Name = "b", Code = "B" }
-        },
-        new baseclass[] {
-            new baseclass () { Name = "c" }
-        },
-        null
-    };
-        var s = BJSON.ToBJSON(a);
-        var o = BJSON.ToObject<arrayclass2>(s);
+        a.ints = new[] { 3, 1, 4 };
+        a.strs = new[] { "a", "b", "c" };
+        a.int2d = new[] { new[] { 1, 2, 3 }, new[] { 2, 3, 4 } };
+        a.int3d = new[] { new[] { new[] { 0, 0, 1 }, new[] { 0, 1, 0 } }, null, new[] { new[] { 0, 0, 2 }, new[] { 0, 2, 0 }, null } };
+        a.class2d = new[]
+        {
+            new[]
+            {
+                new baseclass() { Name = "a", Code = "A" },
+                new baseclass() { Name = "b", Code = "B" },
+            },
+            new[] { new baseclass() { Name = "c" } },
+            null,
+        };
+        var s = Bjson.ToBjson(a);
+        var o = Bjson.ToObject<arrayclass2>(s);
         CollectionAssert.AreEqual(a.ints, o.ints);
         CollectionAssert.AreEqual(a.strs, o.strs);
         CollectionAssert.AreEqual(a.int2d[0], o.int2d[0]);
@@ -1003,30 +1236,32 @@ public class tests
         Dictionary<string, object> dict = new Dictionary<string, object>();
 
         dict.Add("C", new List<float>() { 1.1f, 2.2f, 3.3f });
-        var json = BJSON.ToBJSON(dict);
+        var json = Bjson.ToBjson(dict);
 
-        var des = BJSON.ToObject<Dictionary<string, List<float>>>(json);
-        ClassicAssert.IsInstanceOf(typeof(List<float>), des["C"]);
+        var des = Bjson.ToObject<Dictionary<string, List<float>>>(json);
+        ClassicAssert.IsInstanceOf<List<float>>(des["C"]);
     }
 
     [Test]
     public static void exotic_deserialize()
     {
         Console.WriteLine();
+#pragma warning disable CA1303 // Timing smoke test progress text; nothing here is localised
         Console.Write("fastbinaryjson deserialize");
+#pragma warning restore CA1303
         colclass c = CreateObject(true, true);
         var stopwatch = new Stopwatch();
         for (int pp = 0; pp < fivetimes; pp++)
         {
             colclass deserializedStore;
-            byte[] jsonText = null;
+            byte[] jsonText;
 
             stopwatch.Restart();
-            jsonText = BJSON.ToBJSON(c);
-            //Console.WriteLine(" size = " + jsonText.Length);
+            jsonText = Bjson.ToBjson(c);
             for (int i = 0; i < thousandtimes; i++)
             {
-                deserializedStore = (colclass)BJSON.ToObject(jsonText);
+                deserializedStore = (colclass)Bjson.ToObject(jsonText);
+                ClassicAssert.IsNotNull(deserializedStore);
             }
             stopwatch.Stop();
             Console.Write("\t" + stopwatch.ElapsedMilliseconds);
@@ -1037,7 +1272,9 @@ public class tests
     public static void exotic_serialize()
     {
         Console.WriteLine();
+#pragma warning disable CA1303 // Timing smoke test progress text; nothing here is localised
         Console.Write("fastbinaryjson serialize");
+#pragma warning restore CA1303
         colclass c = CreateObject(true, true);
         var stopwatch = new Stopwatch();
         for (int pp = 0; pp < fivetimes; pp++)
@@ -1046,8 +1283,9 @@ public class tests
             stopwatch.Restart();
             for (int i = 0; i < thousandtimes; i++)
             {
-                jsonText = BJSON.ToBJSON(c);
+                jsonText = Bjson.ToBjson(c);
             }
+            ClassicAssert.IsNotEmpty(jsonText);
             stopwatch.Stop();
             Console.Write("\t" + stopwatch.ElapsedMilliseconds);
         }
@@ -1057,27 +1295,35 @@ public class tests
     {
         public System.Net.IPAddress ip;
     }
+
     [Test]
     public static void CustomTypes()
     {
         var ip = new ctype();
-        // Was `System.Net.IPAddress.Loopback` upstream. On .NET (Core) that static returns a
-        // private subclass, System.Net.IPAddress+ReadOnlyIPAddress, where on .NET Framework 4.0
-        // it returned a plain IPAddress. IsTypeRegistered matches the exact runtime type, so the
-        // custom type registered below no longer applies, serialization falls through to
-        // reflection, and reflection reaches IPAddress.ScopeId, which throws SocketException for
-        // any IPv4 address. Constructing the address directly restores the type the test was
-        // written against. The exact-match gap itself is a real library limitation, recorded
-        // separately - it is not fixed here.
-        ip.ip = new System.Net.IPAddress(new byte[] { 127, 0, 0, 1 });
+        // Back to upstream's `IPAddress.Loopback`. It had to be replaced with a directly
+        // constructed address for a while: on .NET that static returns a private
+        // System.Net.IPAddress+ReadOnlyIPAddress subclass, and registration used to match the exact
+        // runtime type, so the registration below was skipped and reflection reached
+        // IPAddress.ScopeId, which throws SocketException for any IPv4 address. Registration now
+        // resolves through the base chain, so the original line works again - see
+        // RoundTrip.CustomTypeTests.
+        ip.ip = System.Net.IPAddress.Loopback;
 
-        BJSON.RegisterCustomType(typeof(System.Net.IPAddress),
-            (x) => { return x.ToString(); },
-            (x) => { return System.Net.IPAddress.Parse(x); });
+        Bjson.RegisterCustomType(
+            typeof(System.Net.IPAddress),
+            (x) =>
+            {
+                return x.ToString();
+            },
+            (x) =>
+            {
+                return System.Net.IPAddress.Parse(x);
+            }
+        );
 
-        var s = BJSON.ToBJSON(ip);
+        var s = Bjson.ToBjson(ip);
 
-        var o = BJSON.ToObject<ctype>(s);
+        var o = Bjson.ToObject<ctype>(s);
         ClassicAssert.AreEqual(ip.ip, o.ip);
     }
 
@@ -1090,61 +1336,59 @@ public class tests
             Collection = collection;
         }
 
-        public readonlyProps()
-        {
-        }
+        public readonlyProps() { }
     }
 
     [Test]
-    public static void ReadOnlyProperty() // rbeurskens 
+    public static void ReadOnlyProperty() // rbeurskens
     {
         var dto = new readonlyProps(new List<string> { "test", "test2" });
 
-        // Upstream set BJSON.Parameters.ShowReadOnlyProperties and never put it back. That is a
-        // process-wide singleton, so every later test using a parameterless BJSON call ran under
+        // Upstream set Bjson.Parameters.ShowReadOnlyProperties and never put it back. That is a
+        // process-wide singleton, so every later test using a parameterless Bjson call ran under
         // the mutated value, with no ordering guarantee about which ones. Passed explicitly here
         // instead, which leaves the global untouched.
-        var parameters = new BJSONParameters { ShowReadOnlyProperties = true };
-        var s = BJSON.ToBJSON(dto, parameters);
-        var o = BJSON.ToObject<readonlyProps>(s, parameters);
+        var parameters = new BjsonParameters { ShowReadOnlyProperties = true };
+        var s = Bjson.ToBjson(dto, parameters);
+        var o = Bjson.ToObject<readonlyProps>(s, parameters);
 
         ClassicAssert.IsNotNull(o);
         CollectionAssert.AreEqual(dto.Collection, o.Collection);
     }
 
-    //[Test]
-    //public static void stringint()
-    //{
-    //    var s = BJSON.ToBJSON("42");
-
-    //    var o = BJSON.ToObject<long>(s);
-    //}
-
     [Test]
     public static void anonymoustype()
     {
-        var jsonParameters = new BJSONParameters { EnableAnonymousTypes = true };
-        BJSON.RegisterCustomType(typeof(DateTimeOffset),
-            (x) => { return x.ToString(); },
-            (x) => { return DateTimeOffset.Parse(x); }
+        var jsonParameters = new BjsonParameters { EnableAnonymousTypes = true };
+        Bjson.RegisterCustomType(
+            typeof(DateTimeOffset),
+            (x) =>
+            {
+                return x.ToString();
+            },
+            (x) =>
+            {
+                return DateTimeOffset.Parse(x, CultureInfo.InvariantCulture);
+            }
         );
         var data = new List<DateTimeOffset>();
         data.Add(new DateTimeOffset(DateTime.Now));
 
         var anonTypeWithDateTimeOffset = data.Select(entry => new { DateTimeOffset = entry }).ToList();
-        var json = BJSON.ToBJSON(anonTypeWithDateTimeOffset.First(), jsonParameters); // this will throw
+        var json = Bjson.ToBjson(anonTypeWithDateTimeOffset[0], jsonParameters);
+        ClassicAssert.IsNotEmpty(json);
 
         var obj = new
         {
             Name = "aa",
             Age = 42,
-            Code = "007"
+            Code = "007",
         };
 
-        json = BJSON.ToBJSON(obj, jsonParameters);
-        var p = BJSON.Parse(json);
+        json = Bjson.ToBjson(obj, jsonParameters);
+        var p = Bjson.Parse(json);
         ClassicAssert.True((p as Dictionary<string, object>).ContainsKey("Name"));
-        BJSON.ClearReflectionCache();
+        Bjson.ClearReflectionCache();
     }
 
     [Test]
@@ -1156,8 +1400,8 @@ public class tests
         obj.UserDate = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
         obj.UserBase = "";
 
-        var s = BJSON.ToBJSON(obj);
-        var p = BJSON.Parse(s);
+        var s = Bjson.ToBjson(obj);
+        var p = Bjson.Parse(s);
         ClassicAssert.True((p as Dictionary<string, object>).ContainsKey("UserView"));
     }
 
@@ -1167,15 +1411,16 @@ public class tests
         double d = double.NaN;
         float f = float.NaN;
 
-        var s = BJSON.ToBJSON(d);
-        var o = BJSON.ToObject<double>(s);
+        var s = Bjson.ToBjson(d);
+        var o = Bjson.ToObject<double>(s);
         ClassicAssert.AreEqual(d, o);
 
-        s = BJSON.ToBJSON(f);
-        var oo = BJSON.ToObject<float>(s);
+        s = Bjson.ToBjson(f);
+        var oo = Bjson.ToObject<float>(s);
         ClassicAssert.AreEqual(f, oo);
 
-        var pp = BJSON.ToObject<Single>(s);
+        var pp = Bjson.ToObject<Single>(s);
+        ClassicAssert.AreEqual(f, pp);
     }
 
     [Test]
@@ -1183,11 +1428,11 @@ public class tests
     {
         Dictionary<string, object> dict = new Dictionary<string, object>();
         dict["With \"Quotes\""] = "With \"Quotes\"";
-        BJSONParameters p = new BJSONParameters();
+        BjsonParameters p = new BjsonParameters();
         p.EnableAnonymousTypes = false;
         p.UseExtensions = false;
-        var s = BJSON.ToBJSON(dict, p);
-        var d = BJSON.ToObject<Dictionary<string, string>>(s);
+        var s = Bjson.ToBjson(dict, p);
+        var d = Bjson.ToObject<Dictionary<string, string>>(s);
         ClassicAssert.AreEqual(1, d.Count);
         ClassicAssert.AreEqual("With \"Quotes\"", d.Keys.First());
     }
@@ -1195,60 +1440,38 @@ public class tests
     [Test]
     public static void ByteArrayInDictionary()
     {
-        var s = BJSON.ToBJSON(new Dictionary<string, byte[]>
-                {
-                    { "Test", new byte[10] },
-                    { "Test 2", new byte[0] }
-                });
+        var s = Bjson.ToBjson(new Dictionary<string, byte[]> { { "Test", new byte[10] }, { "Test 2", Array.Empty<byte>() } });
 
-        var d = BJSON.ToObject<Dictionary<string, byte[]>>(s);
+        var d = Bjson.ToObject<Dictionary<string, byte[]>>(s);
         ClassicAssert.AreEqual(typeof(byte[]), d["Test 2"].GetType());
-    }
-
-    public class dto
-    {
-        public DateTimeOffset date;
-    }
-
-    [Test]
-    public static void datetimeoff()
-    {
-        DateTimeOffset dt = new DateTimeOffset(DateTime.Now);
-        BJSON.RegisterCustomType(typeof(DateTimeOffset),
-            (x) => { return x.ToString(); },
-            (x) => { return DateTimeOffset.Parse(x); }
-        );
-
-        var t = new dto();
-        t.date = dt;
-
-        var s = BJSON.ToBJSON(t);
-        var d = BJSON.ToObject(s);
-
-        s = BJSON.ToBJSON(dt);
-        d = BJSON.ToObject<DateTimeOffset>(s);
-        //ClassicAssert.AreEqual(dt, d);
     }
 
     public class X
     {
-        private int i;
-        public X(int i) { this.i = i; }
-        public int I { get { return this.i; } }
+        private readonly int i;
+
+        public X(int i)
+        {
+            this.i = i;
+        }
+
+        public int I
+        {
+            get { return this.i; }
+        }
     }
 
     [Test]
     public static void ReadonlyProperty()
     {
         var x = new X(10);
-        var s = BJSON.ToBJSON(x, new BJSONParameters { ShowReadOnlyProperties = true });
-        var b = BJSON.Parse(s);
+        var s = Bjson.ToBjson(x, new BjsonParameters { ShowReadOnlyProperties = true });
+        var b = Bjson.Parse(s);
         ClassicAssert.True((b as Dictionary<string, object>).ContainsKey("I"));
-        var o = BJSON.ToObject<X>(s, new BJSONParameters { ParametricConstructorOverride = true });
+        var o = Bjson.ToObject<X>(s, new BjsonParameters { ParametricConstructorOverride = true });
         // no set available -> I = 0
         ClassicAssert.AreEqual(0, o.I);
     }
-
 
     public class il
     {
@@ -1265,10 +1488,11 @@ public class tests
         i.list.Add(new class2("4", "5", "hi"));
         i.name = "hi";
 
-        var s = BJSON.ToBJSON(i);//, new JSONParameters { UseExtensions = true });
-                                 //Console.WriteLine(s);
+        var s = Bjson.ToBjson(i);
 
-        var o = BJSON.ToObject<il>(s);
+        var o = Bjson.ToObject<il>(s);
+        ClassicAssert.AreEqual("hi", o.name);
+        ClassicAssert.AreEqual(2, o.list.Count);
     }
 
     public interface iintfc
@@ -1280,39 +1504,14 @@ public class tests
     public class intfc : iintfc
     {
         public string address = "fadfsdf";
-        private int _age;
-        public int age
-        {
-            get
-            {
-                return _age;
-            }
-
-            set
-            {
-                _age = value;
-            }
-        }
-        private string _name;
-        public string name
-        {
-            get
-            {
-                return _name;
-            }
-
-            set
-            {
-                _name = value;
-            }
-        }
+        public int age { get; set; }
+        public string name { get; set; }
     }
 
     public class it
     {
         public iintfc i { get; set; }
         public string name = "bb";
-
     }
 
     [Test]
@@ -1326,12 +1525,12 @@ public class tests
 
         ii.i = i;
 
-        var s = BJSON.ToBJSON(ii);
+        var s = Bjson.ToBjson(ii);
 
-        var o = BJSON.ToObject(s);
-
+        var o = (it)Bjson.ToObject(s);
+        ClassicAssert.AreEqual(10, o.i.age);
+        ClassicAssert.AreEqual("aa", o.i.name);
     }
-
 
     [Test]
     public static void nested_dictionary()
@@ -1340,9 +1539,9 @@ public class tests
         dic.Add(0, new Dictionary<string, double> { { "PX_LAST", 1.1 }, { "PX_LOW", 1.0 } });
         dic.Add(1, new Dictionary<string, double> { { "PX_LAST", 2.1 }, { "PX_LOW", 2.0 } });
 
-        var s = BJSON.ToBJSON(dic);
-        var obj = BJSON.ToObject<Dictionary<int, Dictionary<string, double>>>(s);
-        ClassicAssert.AreEqual(2, obj[0].Count());
+        var s = Bjson.ToBjson(dic);
+        var obj = Bjson.ToObject<Dictionary<int, Dictionary<string, double>>>(s);
+        ClassicAssert.AreEqual(2, obj[0].Count);
     }
 
     public class dyen
@@ -1354,25 +1553,15 @@ public class tests
     [Test]
     public static void DynamicEnumerate()
     {
-        var oo = new[] {
-                new dyen{ Prop1 = "1111", Prop2 ="2222" },
-                new dyen{ Prop1 = "11111", Prop2 ="22222" }
-            };
+        var oo = new[]
+        {
+            new dyen { Prop1 = "1111", Prop2 = "2222" },
+            new dyen { Prop1 = "11111", Prop2 = "22222" },
+        };
 
-        var j = BJSON.ToBJSON(oo);
-        //            @"[
-        //   {
-        //      ""Prop1"" : ""Info 1"",
-        //      ""Prop2"" : ""More Info 1""
-        //   },
-        //   {
-        //      ""Prop1"" : ""Info 2"",
-        //      ""Prop2"" : ""More Info 2""
-        //   }
-        //]";
+        var j = Bjson.ToBjson(oo);
 
-
-        var testObject = BJSON.ToDynamic(j);
+        var testObject = Bjson.ToDynamic(j);
         foreach (var o in testObject)
         {
             Console.WriteLine(o.Prop1);
@@ -1391,16 +1580,16 @@ public class tests
         var o = new objcontainer();
         o.ds = CreateDataset();
 
-        var s = BJSON.ToBJSON(o);
+        var s = Bjson.ToBjson(o);
 
-        var r = BJSON.ToObject<objcontainer>(s);
+        var r = Bjson.ToObject<objcontainer>(s);
         Console.WriteLine("" + r.ds.GetType());
         ClassicAssert.True(r.ds.GetType() == typeof(DataSet));
     }
 
     public class simpclass
     {
-        public int[] ints = new int[2] { 1, 2 };
+        public int[] ints = new[] { 1, 2 };
         public string name = "aa";
         public long age = 42;
     }
@@ -1408,21 +1597,17 @@ public class tests
     [Test]
     public static void TypedArrays()
     {
-        var i = new List<int>().GetType();
-        var a = new int[0];
-        var t = a.GetType();
         var o = new objcontainer();
-        o.ds = new simpclass[] { new simpclass(), new simpclass() };
-        var s = BJSON.ToBJSON(o);
+        o.ds = new[] { new simpclass(), new simpclass() };
+        var s = Bjson.ToBjson(o);
 
-        var r = BJSON.ToObject<objcontainer>(s);
+        var r = Bjson.ToObject<objcontainer>(s);
         ClassicAssert.True(typeof(simpclass[]) == r.ds.GetType());
 
-
         // value type array as root
-        var ii = new int[] { 1, 2, 3, 4, 5 };
-        s = BJSON.ToBJSON(ii);
-        var rr = BJSON.ToObject<int[]>(s);
+        var ii = new[] { 1, 2, 3, 4, 5 };
+        s = Bjson.ToBjson(ii);
+        var rr = Bjson.ToObject<int[]>(s);
         ClassicAssert.True(typeof(int[]) == rr.GetType());
     }
 
@@ -1430,8 +1615,9 @@ public class tests
     public static void Timespan()
     {
         TimeSpan ts = new TimeSpan(2, 2, 2, 2);
-        var b = BJSON.ToBJSON(ts);
-        var o = BJSON.ToObject<TimeSpan>(b);
+        var b = Bjson.ToBjson(ts);
+        var o = Bjson.ToObject<TimeSpan>(b);
+        ClassicAssert.AreEqual(ts, o);
     }
 
     public class DigitLimit
@@ -1440,7 +1626,6 @@ public class tests
         public float Fmax;
         public decimal MminDec;
         public decimal MmaxDec;
-
 
         public decimal Mmin;
         public decimal Mmax;
@@ -1463,7 +1648,6 @@ public class tests
         public int Imax;
         public uint UImax;
 
-
         //public IntPtr Iptr1 = new IntPtr(0); //Serialized to a Dict, exception on deserialization
         //public IntPtr Iptr2 = new IntPtr(0x33445566); //Serialized to a Dict, exception on deserialization
         //public UIntPtr UIptr1 = new UIntPtr(0); //Serialized to a Dict, exception on deserialization
@@ -1474,8 +1658,8 @@ public class tests
     public static void digitlimits()
     {
         var d = new DigitLimit();
-        d.Fmin = float.MinValue;// serializer loss on tostring() 
-        d.Fmax = float.MaxValue;// serializer loss on tostring()
+        d.Fmin = float.MinValue; // serializer loss on tostring()
+        d.Fmax = float.MaxValue; // serializer loss on tostring()
         d.MminDec = -7.9228162514264337593543950335m; //OK to be serialized but lost precision in deserialization
         d.MmaxDec = +7.9228162514264337593543950335m; //OK to be serialized but lost precision in deserialization
 
@@ -1500,11 +1684,9 @@ public class tests
         d.Imax = int.MaxValue;
         d.UImax = uint.MaxValue;
 
-
-        var s = BJSON.ToBJSON(d);
+        var s = Bjson.ToBjson(d);
         Console.WriteLine(s);
-        var o = BJSON.ToObject<DigitLimit>(s);
-
+        var o = Bjson.ToObject<DigitLimit>(s);
 
         //ok
         ClassicAssert.AreEqual(d.Dmax, o.Dmax);
@@ -1533,36 +1715,39 @@ public class tests
         ClassicAssert.AreEqual(d.Fmin, o.Fmin);
         ClassicAssert.AreEqual(d.MmaxDec, o.MmaxDec);
         ClassicAssert.AreEqual(d.MminDec, o.MminDec);
-
     }
 
+#pragma warning disable S2094 // An empty type is the case under test
     public class test { }
+#pragma warning restore S2094
+
     [Test]
     public static void ArrayOfObjectExtOff()
     {
-        var s = BJSON.ToBJSON(new test[] { new test(), new test() }, new BJSONParameters { UseExtensions = false });
-        var o = BJSON.ToObject<test[]>(s);
+        var s = Bjson.ToBjson(new[] { new test(), new test() }, new BjsonParameters { UseExtensions = false });
+        var o = Bjson.ToObject<test[]>(s);
         Console.WriteLine(o.GetType().ToString());
         ClassicAssert.AreEqual(typeof(test[]), o.GetType());
     }
+
     [Test]
     public static void ArrayOfObjectsWithoutTypeInfoToObjectTyped()
     {
-        var s = BJSON.ToBJSON(new test[] { new test(), new test() });
-        var o = BJSON.ToObject<test[]>(s);
+        var s = Bjson.ToBjson(new[] { new test(), new test() });
+        var o = Bjson.ToObject<test[]>(s);
         Console.WriteLine(o.GetType().ToString());
         ClassicAssert.AreEqual(typeof(test[]), o.GetType());
     }
+
     [Test]
     public static void ArrayOfObjectsWithTypeInfoToObject()
     {
-        var s = BJSON.ToBJSON(new test[] { new test(), new test() });
-        var o = BJSON.ToObject(s);
+        var s = Bjson.ToBjson(new[] { new test(), new test() });
+        var o = Bjson.ToObject(s);
         Console.WriteLine(o.GetType().ToString());
         var i = o as test[];
         ClassicAssert.AreEqual(typeof(test), i[0].GetType());
     }
-
 
     public class KeyAndValue<TKey, TValue>
     {
@@ -1581,21 +1766,22 @@ public class tests
     public class CommandSendInfo
     {
         public KeyAndValue<string, Version>[] Items { get; set; }
-
     }
 
     [Test]
     public static void Longname()
     {
-
         var input = new CommandSendInfo
         {
-            Items = new KeyAndValue<string, Version>[] { new KeyAndValue<string, Version> { Key = "Test", Value = new Version() } }
+            Items = new[]
+            {
+                new KeyAndValue<string, Version> { Key = "Test", Value = new Version() },
+            },
         };
 
-        var bjson = fastBinaryJSON.BJSON.ToBJSON(input);
+        var bjson = Bjson.ToBjson(input);
 
-        var output = fastBinaryJSON.BJSON.ToObject<CommandSendInfo>(bjson);
+        var output = Bjson.ToObject<CommandSendInfo>(bjson);
 
         ClassicAssert.AreEqual("Test", output.Items[0].Key);
     }
@@ -1611,47 +1797,47 @@ public class tests
         dd.Add("Key4", "Value4");
         dd.Add("Key5", "Value5");
         d.Add("Section1", dd);
-        var s = BJSON.ToBJSON(d, new BJSONParameters { UseExtensions = false });
-        var o = BJSON.ToObject<Dictionary<string, Dictionary<string, string>>>(s);
+        var s = Bjson.ToBjson(d, new BjsonParameters { UseExtensions = false });
+        var o = Bjson.ToObject<Dictionary<string, Dictionary<string, string>>>(s);
         var v = o["Section1"];
 
         ClassicAssert.AreEqual(5, v.Count);
         ClassicAssert.AreEqual("Value2", v["Key2"]);
     }
 
-
-    public enum MyEnum
+    public enum Letter
     {
         a,
-        b
+        b,
     }
+
     [Test]
     public static void RootEnum()
     {
-        var e = MyEnum.b;
-        var s = BJSON.ToBJSON(e);
+        var e = Letter.b;
+        var s = Bjson.ToBjson(e);
 
-        var o = BJSON.ToObject<MyEnum>(s);
+        var o = Bjson.ToObject<Letter>(s);
         ClassicAssert.AreEqual(e, o);
 
-        o = (MyEnum)BJSON.ToObject(s, typeof(MyEnum));
+        o = Bjson.ToObject<Letter>(s);
         ClassicAssert.AreEqual(e, o);
     }
 
-
-    private class npc
+    private sealed class npc
     {
         public int a = 1;
         public int b = 2;
     }
+
     [Test]
     public static void NonPublicClass()
     {
         var p = new npc();
         p.a = 10;
         p.b = 20;
-        var s = BJSON.ToBJSON(p);
-        var o = (npc)BJSON.ToObject(s);
+        var s = Bjson.ToBjson(p);
+        var o = (npc)Bjson.ToObject(s);
         ClassicAssert.AreEqual(10, o.a);
         ClassicAssert.AreEqual(20, o.b);
     }
@@ -1669,7 +1855,6 @@ public class tests
         public virtual ObservableCollection<Item> Items { get; set; }
     }
 
-
     [Test]
     public static void noncapacitylist()
     {
@@ -1677,33 +1862,16 @@ public class tests
         {
             Id = 1,
             Stuff = "test",
-            Items = new ObservableCollection<Item>()
+            Items = new ObservableCollection<Item>(),
         };
 
         testObject.Items.Add(new Item { Id = 1, Data = "Item 1" });
         testObject.Items.Add(new Item { Id = 2, Data = "Item 2" });
 
-        var s = BJSON.ToBJSON(testObject);
+        var s = Bjson.ToBjson(testObject);
 
         TestObject copyObject = new TestObject();
-        BJSON.FillObject(copyObject, s);
+        Bjson.FillObject(copyObject, s);
+        ClassicAssert.AreEqual(2, copyObject.Items.Count);
     }
-
-    //public class sizeop
-    //{
-    //    public int a = 10;
-    //    public int b = 1000;
-    //    public int v = 1000 * 1000;
-    //}
-
-    //[Test]
-    //public static void sizetest()
-    //{
-    //    var s = BJSON.ToBJSON(new sizeop(), new BJSONParameters { OptimizeSize = true , UseExtensions = false });
-    //    var t = BJSON.ToBJSON(new sizeop(), new BJSONParameters { UseExtensions = false});
-    //    var o = BJSON.ToObject<sizeop>(s);
-
-    //    ClassicAssert.AreEqual(10, o.a);
-    //}
-}// tests.
-//}
+} // tests.

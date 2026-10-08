@@ -19,14 +19,14 @@ namespace FastBinaryJson.Benchmarks.Benchmarks
     [SimpleJob(launchCount: 3, warmupCount: 3, iterationCount: 5)]
     public class ThroughputBenchmarks
     {
-        private PayloadCase _payload = null!;
+        private IPayloadCase _payload = null!;
         private ISerializerArm _arm = null!;
         private byte[] _encoded = null!;
 
         [Params("FlatPrimitives", "NestedOrder", "LargeCollection", "GuidDense")]
         public string Payload { get; set; } = string.Empty;
 
-        [Params("fbj-utf16", "fbj-utf8", "stj", "msgpack")]
+        [Params("fbj-utf16", "fbj-utf8", "upstream-utf16", "upstream-utf8", "stj", "msgpack")]
         public string Arm { get; set; } = string.Empty;
 
         [GlobalSetup]

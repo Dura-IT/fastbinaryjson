@@ -37,18 +37,15 @@ jobs:
         with:
           dotnet-version: "10.0.x"
           cache: true
-          cache-dependency-path: '**/*.csproj'
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
 
       - name: Restore
         run: dotnet restore FastBinaryJson.slnx
 
-      # Both configurations are built and tested, which is not redundant here.
-      # Upstream's Release configuration never compiled at all (AllowUnsafeBlocks
-      # was scoped to Debug, giving 10x CS0227), and the NET4 define was
-      # Debug-only - that one gates [DataMember(Name=...)] handling, so the two
-      # configurations would not have been wire-compatible with each other. PR #1
-      # hoisted both properties to project level; these two steps are what keeps
-      # that fixed.
+      # Both configurations are built and tested: the library's output differs by define and by
+      # target, and a break in only one of them is exactly what a single build would hide.
       - name: Build (Debug)
         run: dotnet build FastBinaryJson.slnx --no-restore -c Debug --nologo
 
@@ -59,6 +56,26 @@ jobs:
         run: >
           dotnet test tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj
           -c Debug --no-build --nologo
+
+      # The netstandard2.0 asset is the one consumers with stored data get, and it has per-target
+      # code paths (#if NET10_0_OR_GREATER) that the net10.0 run never executes.
+      - name: Test netstandard2.0 asset (Debug)
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests.Netstandard20/FastBinaryJson.UnitTests.Netstandard20.csproj
+          -c Debug --no-build --nologo
+
+      - name: Test netstandard2.0 asset (Release)
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests.Netstandard20/FastBinaryJson.UnitTests.Netstandard20.csproj
+          -c Release --no-build --nologo
+
+      # The same asset on .NET Framework, where System.Memory is the package's own implementation rather
+      # than the runtime's. Windows only: that is where .NET Framework runs.
+      - name: Test netstandard2.0 asset on .NET Framework 4.8 (Release)
+        if: ${{ runner.os == 'Windows' }}
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests.Net48/FastBinaryJson.UnitTests.Net48.csproj
+          -c Release --no-build --nologo
 
       - name: Test (Release, with coverage)
         run: >
@@ -78,3 +95,184 @@ jobs:
           name: coverage
           path: artifacts/coverage/**/coverage.cobertura.xml
           if-no-files-found: error
+
+  # ReSharper InspectCode: the engine behind Rider's live hints, run headless. It reads the committed
+  # FastBinaryJson.sln.DotSettings, so the editor and CI agree. -e=WARNING mirrors TreatWarningsAsErrors:
+  # Warning and Error fail the job, Suggestion/Hint/Info stay advisory. The repo is public, so findings
+  # also land in code scanning.
+  inspect-code:
+    name: inspectcode (resharper)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # upload-sarif writes to code scanning
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
+
+      # A malformed settings file is ignored SILENTLY by ReSharper, taking every suppression in it
+      # with it. Also fails when no settings file exists, so a rename cannot make this a no-op.
+      - name: Validate DotSettings files are well-formed XML
+        run: |
+          shopt -s nullglob
+          files=(*.sln.DotSettings)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No *.sln.DotSettings found"
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parse(sys.argv[1])" "$f"
+          done
+
+      - name: Inspect code
+        uses: JetBrains/ReSharper-InspectCode@96fdc3456bf2908dd877213a2644ccb9e3010785  # v0.14
+        with:
+          solution: FastBinaryJson.slnx
+          severity: WARNING
+          output: inspectcode.sarif.json
+          upload-sarif: true
+          # Keep in sync with .config/dotnet-tools.json: a drift between the version CI installs and
+          # the one `dotnet jb` runs locally silently changes which inspections fire.
+          tool-version: 2026.2.1
+
+      # InspectCode exits 0 even when it reports findings, so the gate has to be explicit.
+      - name: Fail on findings
+        run: |
+          count=$(jq '[.runs[]?.results[]?] | length' inspectcode.sarif.json)
+          echo "InspectCode findings at WARNING or above: $count"
+          if [ "$count" -gt 0 ]; then
+            jq -r '.runs[]?.results[]? | "\(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)  [\(.ruleId)] \(.message.text)"' inspectcode.sarif.json
+            exit 1
+          fi
+
+  # Proves the release signing path on every pull request, since the real one only runs on a tag: the
+  # secret decodes to a key, a signed pack succeeds, and both assemblies carry the expected public key
+  # token. Skipped where the secret is unavailable (pull requests from forks).
+  signing-check:
+    name: signing check
+    runs-on: ubuntu-latest
+    env:
+      STRONG_NAME_KEY_BASE64: ${{ secrets.STRONG_NAME_KEY_BASE64 }}
+      EXPECTED_PUBLIC_KEY_TOKEN: 8cd8b707f36b302a
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Setup .NET
+        if: ${{ env.STRONG_NAME_KEY_BASE64 != '' }}
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
+
+      - name: Pack signed
+        if: ${{ env.STRONG_NAME_KEY_BASE64 != '' }}
+        run: |
+          echo "$STRONG_NAME_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/strong-name.snk"
+          dotnet pack src/FastBinaryJson/FastBinaryJson.csproj -c Release --nologo -o "$RUNNER_TEMP/pack" -p:StrongNameKeyFile="$RUNNER_TEMP/strong-name.snk"
+          rm -f "$RUNNER_TEMP/strong-name.snk"
+
+      - name: Verify the public key token
+        if: ${{ env.STRONG_NAME_KEY_BASE64 != '' }}
+        run: |
+          mkdir "$RUNNER_TEMP/unpacked" "$RUNNER_TEMP/check"
+          unzip -q "$RUNNER_TEMP"/pack/*.nupkg -d "$RUNNER_TEMP/unpacked"
+          cd "$RUNNER_TEMP/check"
+          dotnet new console -o . > /dev/null
+          cat > Program.cs <<'CS'
+          foreach (string path in args)
+          {
+              byte[]? token = System.Reflection.AssemblyName.GetAssemblyName(path).GetPublicKeyToken();
+              string actual = token == null ? "(unsigned)" : System.Convert.ToHexString(token).ToLowerInvariant();
+              System.Console.WriteLine(path + ": " + actual);
+              if (actual != System.Environment.GetEnvironmentVariable("EXPECTED_PUBLIC_KEY_TOKEN"))
+                  return 1;
+          }
+          return 0;
+          CS
+          dotnet run -- "$RUNNER_TEMP"/unpacked/lib/net10.0/DuraIT.FastBinaryJson.dll "$RUNNER_TEMP"/unpacked/lib/netstandard2.0/DuraIT.FastBinaryJson.dll
+
+  # SonarCloud analysis with coverage. The only job that feeds the quality gate (code smells, security
+  # hotspots, and the 80 percent Dura IT coverage threshold, all configured in SonarCloud). Analysis
+  # settings are /d: flags here: the .NET scanner does not read sonar-project.properties and fails the
+  # end step if one exists. Skipped, not failed, where the token is unavailable (pull requests from forks).
+  sonar:
+    name: sonarcloud
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0  # Sonar needs full history for blame and new-code detection
+
+      - name: Setup .NET
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
+
+      - name: Restore tools
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: dotnet tool restore
+
+      # Binary fixtures are listed by extension on BOTH properties: sonar.exclusions only filters main
+      # sources, and a fixture inside a test project is a test source.
+      - name: Sonar begin
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: >
+          dotnet dotnet-sonarscanner begin
+          /k:"Dura-IT_fastbinaryjson"
+          /o:"durait"
+          /d:sonar.token="$SONAR_TOKEN"
+          /d:sonar.host.url="https://sonarcloud.io"
+          /d:sonar.sourceEncoding="UTF-8"
+          /d:sonar.exclusions="**/*.bjson"
+          /d:sonar.test.exclusions="**/*.bjson"
+          /d:sonar.coverage.exclusions="benchmarks/**"
+          /d:sonar.cs.cobertura.reportsPaths="artifacts/coverage/**/coverage.cobertura.xml"
+          /d:sonar.qualitygate.wait=true
+
+      - name: Build
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: dotnet build FastBinaryJson.slnx -c Release --nologo
+
+      - name: Test (net10.0 asset, with coverage)
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests/FastBinaryJson.UnitTests.csproj
+          -c Release --no-build --nologo
+          --collect:"XPlat Code Coverage"
+          --results-directory artifacts/coverage
+
+      - name: Test (netstandard2.0 asset, with coverage)
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: >
+          dotnet test tests/FastBinaryJson.UnitTests.Netstandard20/FastBinaryJson.UnitTests.Netstandard20.csproj
+          -c Release --no-build --nologo
+          --collect:"XPlat Code Coverage"
+          --results-directory artifacts/coverage
+
+      - name: Sonar end
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: dotnet dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
