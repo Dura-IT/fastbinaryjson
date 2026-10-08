@@ -145,21 +145,5 @@ namespace DuraIT.FastBinaryJson.Internal
             if (length < 0 || start > json.Length - length)
                 throw new ArgumentOutOfRangeException(nameof(length), what + " length runs past the end of the payload.");
         }
-
-        internal static byte[] GetBytes(long num, bool reverse)
-        {
-            byte[] buffer = BitConverter.GetBytes(num);
-            if (reverse)
-                Array.Reverse(buffer);
-            return buffer;
-        }
-
-        public static byte[] GetBytes(int num, bool reverse)
-        {
-            byte[] buffer = BitConverter.GetBytes(num);
-            if (reverse)
-                Array.Reverse(buffer);
-            return buffer;
-        }
     }
 }

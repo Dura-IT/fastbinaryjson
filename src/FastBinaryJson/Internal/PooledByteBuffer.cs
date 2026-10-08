@@ -14,7 +14,7 @@ namespace DuraIT.FastBinaryJson.Internal
     /// heap, so a large payload left a trail of discarded LOH arrays and gen2 collections behind it.
     /// Renting instead means only the final <see cref="ToArray"/> copy is allocated. Member names
     /// match MemoryStream's so the serializer's call sites are the same on both targets;
-    /// <see cref="GetSpan"/> and <see cref="Advance"/> are the exception, net10.0-only, and named
+    /// <see cref="GetSpan"/>, <see cref="Reserve"/> and <see cref="Advance"/> are the exception, named
     /// after <see cref="IBufferWriter{T}"/>.
     /// </remarks>
     internal sealed class PooledByteBuffer : IDisposable
@@ -111,8 +111,23 @@ namespace DuraIT.FastBinaryJson.Internal
         /// </remarks>
         public Span<byte> GetSpan(int sizeHint)
         {
+            byte[] buffer = Reserve(sizeHint, out int offset);
+            return buffer.AsSpan(offset);
+        }
+
+        /// <summary>
+        /// The array to fill and the offset where the free space starts, at least
+        /// <paramref name="sizeHint"/> long, to commit with <see cref="Advance"/>. For encoders that take an array
+        /// and not a span.
+        /// </summary>
+        /// <remarks>
+        /// Only valid until the next write, like <see cref="GetSpan"/>.
+        /// </remarks>
+        public byte[] Reserve(int sizeHint, out int offset)
+        {
             byte[] buffer = EnsureCapacity(sizeHint);
-            return buffer.AsSpan(_length);
+            offset = _length;
+            return buffer;
         }
 
         /// <summary>
