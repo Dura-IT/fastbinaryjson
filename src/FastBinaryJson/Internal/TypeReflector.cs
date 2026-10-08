@@ -133,8 +133,18 @@ namespace DuraIT.FastBinaryJson.Internal
             10
         );
 
-        // Companion of _propertycache, same key, reset wherever it is.
+        /*
+         * What a type exposes depends on ShowReadOnlyProperties, so the member metadata is kept per setting. One cache
+         * keyed by type name alone gave whichever call touched a type first the last word for the rest of the process.
+         */
+        private SafeDictionary<string, Dictionary<string, PropertyMetadata>> _propertycacheReadOnly = new SafeDictionary<
+            string,
+            Dictionary<string, PropertyMetadata>
+        >(10);
+
+        // Companions of _propertycache and _propertycacheReadOnly, same keys, reset wherever they are.
         private SafeDictionary<string, WireNameMap> _wirenamecache = new SafeDictionary<string, WireNameMap>(10);
+        private SafeDictionary<string, WireNameMap> _wirenamecacheReadOnly = new SafeDictionary<string, WireNameMap>(10);
         private SafeDictionary<Type, Type[]> _genericTypes = new SafeDictionary<Type, Type[]>(10);
         private SafeDictionary<Type, Type> _genericTypeDef = new SafeDictionary<Type, Type>(10);
         private static SafeDictionary<short, OpCode>? _opCodes;
@@ -424,7 +434,8 @@ namespace DuraIT.FastBinaryJson.Internal
         public Dictionary<string, PropertyMetadata> Getproperties(Type type, string typename, bool showReadOnlyProperties)
         {
             Dictionary<string, PropertyMetadata>? sd;
-            if (_propertycache.TryGetValue(typename, out sd))
+            SafeDictionary<string, Dictionary<string, PropertyMetadata>> cache = showReadOnlyProperties ? _propertycacheReadOnly : _propertycache;
+            if (cache.TryGetValue(typename, out sd))
             {
                 return sd!;
             }
@@ -450,7 +461,7 @@ namespace DuraIT.FastBinaryJson.Internal
 
                 foreach (FieldInfo f in type.GetFields(bf).Where(f => !f.IsLiteral))
                 {
-                    AddMemberKeys(sd, aliases, CreateFieldMetadata(type, f), f.Name);
+                    AddMemberKeys(sd, aliases, CreateFieldMetadata(type, f, showReadOnlyProperties), f.Name);
                 }
 
                 foreach (KeyValuePair<string, PropertyMetadata> alias in aliases.Where(alias => !sd.ContainsKey(alias.Key)))
@@ -458,7 +469,7 @@ namespace DuraIT.FastBinaryJson.Internal
                     sd.Add(alias.Key, alias.Value);
                 }
 
-                _propertycache.Add(typename, sd);
+                cache.Add(typename, sd);
                 return sd;
             }
         }
@@ -478,10 +489,11 @@ namespace DuraIT.FastBinaryJson.Internal
             return d;
         }
 
-        private PropertyMetadata CreateFieldMetadata(Type type, FieldInfo f)
+        private PropertyMetadata CreateFieldMetadata(Type type, FieldInfo f, bool showReadOnlyProperties)
         {
             PropertyMetadata d = CreateMyProp(f.FieldType, f.Name);
-            if (!f.IsInitOnly)
+            // A readonly field is restored only when read-only members are asked for, like a get-only property.
+            if (!f.IsInitOnly || showReadOnlyProperties)
                 d.Setter = TypeReflector.CreateSetField(type, f);
             if (d.Setter != null)
             {
@@ -528,11 +540,12 @@ namespace DuraIT.FastBinaryJson.Internal
 
         internal WireNameMap GetWireNameMap(Type type, string typename, bool showReadOnlyProperties)
         {
-            if (_wirenamecache.TryGetValue(typename, out WireNameMap? map))
+            SafeDictionary<string, WireNameMap> cache = showReadOnlyProperties ? _wirenamecacheReadOnly : _wirenamecache;
+            if (cache.TryGetValue(typename, out WireNameMap? map))
                 return map!;
 
             map = new WireNameMap(Getproperties(type, typename, showReadOnlyProperties));
-            _wirenamecache.Add(typename, map);
+            cache.Add(typename, map);
             return map;
         }
 
@@ -1198,7 +1211,9 @@ namespace DuraIT.FastBinaryJson.Internal
         internal void ResetPropertyCache()
         {
             _propertycache = new SafeDictionary<string, Dictionary<string, PropertyMetadata>>();
+            _propertycacheReadOnly = new SafeDictionary<string, Dictionary<string, PropertyMetadata>>();
             _wirenamecache = new SafeDictionary<string, WireNameMap>();
+            _wirenamecacheReadOnly = new SafeDictionary<string, WireNameMap>();
         }
 
         internal void ClearReflectionCache()
@@ -1208,7 +1223,9 @@ namespace DuraIT.FastBinaryJson.Internal
             _constrcache = new SafeDictionary<Type, CreateObject>(10);
             _getterscache = new SafeDictionary<Type, Getters[]>(10);
             _propertycache = new SafeDictionary<string, Dictionary<string, PropertyMetadata>>(10);
+            _propertycacheReadOnly = new SafeDictionary<string, Dictionary<string, PropertyMetadata>>(10);
             _wirenamecache = new SafeDictionary<string, WireNameMap>(10);
+            _wirenamecacheReadOnly = new SafeDictionary<string, WireNameMap>(10);
             _writeKinds = new SafeDictionary<Type, WriteKind>();
             _genericTypes = new SafeDictionary<Type, Type[]>(10);
             _genericTypeDef = new SafeDictionary<Type, Type>(10);
