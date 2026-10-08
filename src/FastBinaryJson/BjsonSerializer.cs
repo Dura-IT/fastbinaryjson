@@ -370,15 +370,56 @@ namespace DuraIT.FastBinaryJson
         private void WriteDecimal(decimal p)
         {
             _output.WriteByte(Tokens.Decimal);
-#if NET10_0_OR_GREATER
             Span<int> b = stackalloc int[4];
+#if NET10_0_OR_GREATER
             _ = decimal.GetBits(p, b);
 #else
-            var b = decimal.GetBits(p);
+            DecimalBits(p, b);
 #endif
             foreach (var c in b)
                 WriteInt32Raw(c);
         }
+
+#if !NET10_0_OR_GREATER
+        /*
+         * netstandard2.0 has no decimal.GetBits(Span) and the array it returns was one allocation per value. The
+         * layout of a decimal is an implementation detail, so the shortcut is taken only if this runtime's layout
+         * is checked to be the known one against GetBits itself; any other runtime keeps the array.
+         */
+        private static readonly bool DecimalMemoryLayoutIsKnown = CheckDecimalMemoryLayout();
+
+        // GetBits order (low, middle, high, flags) out of the value's own memory (flags, high, low, middle).
+        private static void DecimalBits(decimal value, Span<int> destination)
+        {
+            if (DecimalMemoryLayoutIsKnown)
+            {
+                Span<int> raw = stackalloc int[4];
+                MemoryMarshal.Write(MemoryMarshal.AsBytes(raw), ref value);
+                destination[0] = raw[2];
+                destination[1] = raw[3];
+                destination[2] = raw[1];
+                destination[3] = raw[0];
+                return;
+            }
+
+            decimal.GetBits(value).CopyTo(destination);
+        }
+
+        private static bool CheckDecimalMemoryLayout()
+        {
+            bool known = BitConverter.IsLittleEndian;
+            Span<int> raw = stackalloc int[4];
+            foreach (decimal sample in new[] { 1.2345678901234567890123456789m, -79228162514264337593543950335m, 0.5m, 100.00m })
+            {
+                decimal copy = sample;
+                MemoryMarshal.Write(MemoryMarshal.AsBytes(raw), ref copy);
+                int[] bits = decimal.GetBits(sample);
+                known &= raw[2] == bits[0] && raw[3] == bits[1] && raw[1] == bits[2] && raw[0] == bits[3];
+            }
+
+            return known;
+        }
+#endif
 
         private void WriteULong(ulong p)
         {
