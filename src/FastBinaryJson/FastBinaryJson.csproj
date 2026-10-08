@@ -44,6 +44,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
+    <PackageReleaseNotes>https://github.com/Dura-IT/fastbinaryjson/releases</PackageReleaseNotes>
     <PackageOutputPath>$(MSBuildThisFileDirectory)../../artifacts/packages/</PackageOutputPath>
   </PropertyGroup>
 
