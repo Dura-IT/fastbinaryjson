@@ -194,20 +194,32 @@ namespace DuraIT.FastBinaryJson
             if (attempt.Globaltypes != null && (!mayExtendSharedTypes || attempt.Globaltypes.Count > 0))
                 return false;
 
+            bool root = attempt.Globaltypes == null;
+            if (root && _parser.TryReuseTypesTable(out Dictionary<string, object>? master))
+            {
+                attempt.Globaltypes = new Dictionary<string, object>(master!);
+                attempt.ReadTypes = true;
+                return true;
+            }
+
             Dictionary<string, object> table = _parser.ReadTypesTable();
             if (table.Count != 1 || !table.TryGetValue("$types", out object? types))
                 return false;
 
-            if (attempt.Globaltypes == null)
+            Dictionary<string, object> parsed = (Dictionary<string, object>)types;
+            if (root)
                 attempt.Globaltypes = new Dictionary<string, object>();
             else
                 attempt.AddedTypes = new List<string>();
 
-            foreach (KeyValuePair<string, object> kv in (Dictionary<string, object>)types)
+            foreach (KeyValuePair<string, object> kv in parsed)
             {
-                attempt.Globaltypes.Add(kv.Key, kv.Value);
+                attempt.Globaltypes!.Add(kv.Key, kv.Value);
                 attempt.AddedTypes?.Add(kv.Key);
             }
+
+            if (root)
+                _parser.RememberTypesTable(parsed);
 
             attempt.ReadTypes = true;
             return true;

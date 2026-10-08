@@ -224,6 +224,31 @@ namespace DuraIT.FastBinaryJson
             return dic;
         }
 
+        /// <summary>
+        /// Takes the $types table from <see cref="TypesTableCache"/> when the pointer at <see cref="Index"/> leads
+        /// to the same bytes as last time, and moves past the pointer like <see cref="ReadTypesTable"/> does.
+        /// </summary>
+        /// <param name="types">The cached master table, which must be copied and never modified.</param>
+        /// <returns>False, with nothing moved, when there is no match.</returns>
+        internal bool TryReuseTypesTable(out Dictionary<string, object>? types)
+        {
+            types = null;
+            if (Index + 4 > _json.Length || !TypesTableCache.TryGet(_json, Helper.ToInt32(_json, Index), out types))
+                return false;
+
+            Index += 4;
+            return true;
+        }
+
+        /// <summary>
+        /// Keeps the table just returned by <see cref="ReadTypesTable"/> for <see cref="TryReuseTypesTable"/>.
+        /// </summary>
+        /// <param name="types">The parsed $types dictionary; the cache takes ownership of it.</param>
+        internal void RememberTypesTable(Dictionary<string, object> types)
+        {
+            TypesTableCache.Remember(_json, Helper.ToInt32(_json, Index - 4), types);
+        }
+
         #endregion
 
         private string ParseName2() // unicode byte len string -> <128 len chars
