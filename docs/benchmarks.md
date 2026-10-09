@@ -1,61 +1,54 @@
-# Benchmark: this fork against upstream fastBinaryJSON 1.6.1
+# Benchmark: this package against upstream fastBinaryJSON 1.6.1 and System.Text.Json
 
-Measured 2026-10-06 with BenchmarkDotNet 0.15.8 (3 launches, 3 warmups, 5 iterations each) on an
-Apple M5 Pro, .NET 10.0.12, Arm64, net10.0 asset of this package at commit `b70d29b`. Upstream is the
-1.6.1 package from NuGet. Both write the same bytes for every payload below, so the comparison is
-like for like. The corpus and the benchmark classes are in `benchmarks/FastBinaryJson.Benchmarks`;
-run them with `dotnet run -c Release --project benchmarks/FastBinaryJson.Benchmarks -- bench --filter '*'`.
+Measured 2026-10-08 with BenchmarkDotNet 0.15.8 (3 launches, 3 warmups, 5 iterations each) on an Apple M5 Pro,
+.NET 10.0.12, Arm64, the net10.0 build of 0.3.0 (commit `2c1e3bf`), on an otherwise idle machine. Upstream is
+the 1.6.1 package from NuGet and System.Text.Json uses its default options (`JsonSerializerDefaults.General`).
+This package and upstream write the same bytes for every payload below. The corpus and the benchmark classes are
+in `benchmarks/FastBinaryJson.Benchmarks`.
 
-Ratios are fork over upstream, so lower is better. The "(run 1)" columns are the same ratios from an
-earlier run the same day, before four optimizations: the serializer's id and type tables are kept per
-thread between calls, a UTF-16 `$type` is resolved without a zeroed stack buffer, ordinary objects skip
-the chain of special cases in the writer, and the parameter copy shares the ignore list.
+Reproduce:
 
 ```
-op          payload          enc    upstream ns    fork ns    time  (run 1)  upstream B    fork B   alloc  (run 1)
-Serialize   FlatPrimitives   utf16          604        211   0.35x    0.43x       5,576     1,016   0.18x    0.28x
-Serialize   FlatPrimitives   utf8           617        219   0.35x    0.42x       3,880       688   0.18x    0.31x
-Serialize   NestedOrder      utf16        8,047      2,490   0.31x    0.34x      68,152     8,440   0.12x    0.16x
-Serialize   NestedOrder      utf8         8,589      2,850   0.33x    0.35x      45,792     5,344   0.12x    0.17x
-Serialize   LargeCollection  utf16      708,874    116,682   0.16x    0.18x   3,928,622   583,914   0.15x    0.17x
-Serialize   LargeCollection  utf8       423,414    129,468   0.31x    0.33x   2,379,564   333,239   0.14x    0.18x
-Serialize   GuidDense        utf16       87,640     27,576   0.31x    0.31x     683,774   122,226   0.18x    0.21x
-Serialize   GuidDense        utf8        75,550     20,108   0.27x    0.29x     599,948    80,000   0.13x    0.17x
-Deserialize FlatPrimitives   utf16          739        311   0.42x    0.48x       4,688     1,656   0.35x    0.40x
-Deserialize FlatPrimitives   utf8           761        341   0.45x    0.52x       4,688     1,656   0.35x    0.40x
-Deserialize NestedOrder      utf16        9,299      3,307   0.36x    0.42x      42,240    10,048   0.24x    0.24x
-Deserialize NestedOrder      utf8         9,992      4,101   0.41x    0.41x      42,240    10,048   0.24x    0.24x
-Deserialize LargeCollection  utf16      463,980    111,802   0.24x    0.25x   1,913,112   285,152   0.15x    0.15x
-Deserialize LargeCollection  utf8       501,168    122,783   0.24x    0.24x   1,913,112   285,152   0.15x    0.15x
-Deserialize GuidDense        utf16       92,273     19,691   0.21x    0.21x     500,544    40,856   0.08x    0.08x
-Deserialize GuidDense        utf8        97,941     21,256   0.22x    0.20x     500,544    40,856   0.08x    0.08x
+dotnet run -c Release --project benchmarks/FastBinaryJson.Benchmarks -- bench --filter '*ThroughputBenchmarks*'
+dotnet run -c Release --project benchmarks/FastBinaryJson.Benchmarks -- sizes
 ```
 
-## Summary
+The `fbj-utf16` arm is this package at its defaults; `upstream-utf16` is the original with the same setting.
 
-- Time: 0.16x to 0.45x of upstream, roughly 2 to 6 times faster, in both encodings and both directions.
-- Allocations: 0.08x to 0.35x of upstream. Deserializing the GuidDense payload allocates 41 KB where
-  upstream allocates 500 KB.
-- Against run 1, serialize allocations fell another 20 to 40 percent on small payloads and serialize time
-  by up to 20 percent (FlatPrimitives); deserialize FlatPrimitives is about 10 percent faster. Large
-  payloads moved little, as expected: their cost is the output and the strings.
-- Against the other serializers in the same run (UTF-16 arm, fork over the other, lower is better):
-  - System.Text.Json: deserialize 0.33x to 0.67x on every payload. Serialize 0.79x on FlatPrimitives
-    and 0.69x on LargeCollection, level on NestedOrder (1.02x), and slower on GuidDense (1.48x).
-  - MessagePack: deserialize 0.10x on GuidDense and 0.97x on LargeCollection, but 1.04x on NestedOrder
-    and 1.32x on FlatPrimitives. Serialize is slower on three payloads (1.38x, 1.59x and 1.86x on
-    FlatPrimitives, NestedOrder and LargeCollection) and level on GuidDense (0.97x).
-  - The full per-arm tables are in the BenchmarkDotNet output of the benchmark project.
+```
+| Method      | Payload         | Arm            | Mean         | Error        | StdDev       | Gen0     | Gen1     | Gen2     | Allocated |
+|------------ |---------------- |--------------- |-------------:|-------------:|-------------:|---------:|---------:|---------:|----------:|
+| Serialize   | FlatPrimitives  | fbj-utf16      |     220.5 ns |     11.41 ns |      8.91 ns |   0.1299 |        - |        - |    1088 B |
+| Deserialize | FlatPrimitives  | fbj-utf16      |     256.3 ns |      6.16 ns |      5.46 ns |   0.0944 |        - |        - |     792 B |
+| Serialize   | FlatPrimitives  | stj            |     267.7 ns |      3.06 ns |      2.56 ns |   0.0515 |        - |        - |     432 B |
+| Deserialize | FlatPrimitives  | stj            |     467.6 ns |      1.98 ns |      1.85 ns |   0.0267 |        - |        - |     224 B |
+| Serialize   | FlatPrimitives  | upstream-utf16 |     615.6 ns |      3.43 ns |      3.04 ns |   0.6666 |   0.0038 |        - |    5576 B |
+| Deserialize | FlatPrimitives  | upstream-utf16 |     746.2 ns |      4.92 ns |      4.36 ns |   0.5598 |   0.0067 |        - |    4688 B |
+| Serialize   | GuidDense       | fbj-utf16      |  24,916.2 ns |    362.93 ns |    321.73 ns |  38.4521 |  38.4521 |  38.4521 |  122298 B |
+| Deserialize | GuidDense       | fbj-utf16      |  19,925.9 ns |    117.08 ns |    103.79 ns |   4.8828 |   0.5798 |        - |   40928 B |
+| Serialize   | GuidDense       | stj            |  18,609.9 ns |     71.77 ns |     63.62 ns |   9.9792 |        - |        - |   84032 B |
+| Deserialize | GuidDense       | stj            |  59,978.0 ns |    899.44 ns |    751.08 ns |   4.1504 |   0.4272 |        - |   35136 B |
+| Serialize   | GuidDense       | upstream-utf16 |  90,931.2 ns |  1,321.93 ns |  1,103.88 ns |  79.9561 |  79.9561 |  79.9561 |  683774 B |
+| Deserialize | GuidDense       | upstream-utf16 |  95,258.7 ns |    464.36 ns |    411.65 ns |  59.8145 |   0.4883 |        - |  500544 B |
+| Serialize   | LargeCollection | fbj-utf16      | 118,329.1 ns |  1,177.86 ns |  1,044.14 ns | 123.1689 | 122.9248 | 122.9248 |  583962 B |
+| Deserialize | LargeCollection | fbj-utf16      | 103,287.2 ns |    692.42 ns |    578.20 ns |  34.0576 |  11.3525 |        - |  285224 B |
+| Serialize   | LargeCollection | stj            | 173,019.2 ns |  1,264.76 ns |    987.44 ns |  62.2559 |  62.2559 |  62.2559 |  208343 B |
+| Deserialize | LargeCollection | stj            | 284,991.3 ns |  1,136.49 ns |    887.30 ns |  30.7617 |  10.2539 |        - |  260696 B |
+| Serialize   | LargeCollection | upstream-utf16 | 671,396.5 ns | 36,131.68 ns | 32,029.80 ns | 641.6016 | 476.5625 | 476.5625 | 3928684 B |
+| Deserialize | LargeCollection | upstream-utf16 | 475,717.0 ns |  2,640.25 ns |  2,204.73 ns | 228.5156 | 113.7695 |        - | 1913112 B |
+| Serialize   | NestedOrder     | fbj-utf16      |   2,437.5 ns |      9.98 ns |      8.85 ns |   1.0147 |        - |        - |    8512 B |
+| Deserialize | NestedOrder     | fbj-utf16      |   3,343.1 ns |     11.89 ns |     10.54 ns |   0.9842 |   0.0229 |        - |    8248 B |
+| Serialize   | NestedOrder     | stj            |   2,459.5 ns |     50.98 ns |     47.69 ns |   0.4616 |        - |        - |    3864 B |
+| Deserialize | NestedOrder     | stj            |   5,522.4 ns |     13.89 ns |     12.99 ns |   0.8392 |   0.0153 |        - |    7080 B |
+| Serialize   | NestedOrder     | upstream-utf16 |   8,227.8 ns |     66.86 ns |     55.83 ns |   8.1177 |   0.4730 |        - |   68152 B |
+| Deserialize | NestedOrder     | upstream-utf16 |   9,560.1 ns |    110.51 ns |     92.28 ns |   5.0354 |   0.5341 |        - |   42240 B |
+```
 
-## Caveats
+## Notes
 
-- The table is net10.0 only. The netstandard2.0 asset was measured separately, on the net10 runtime,
-  against the pre-fork unsafe version (commit `5632962`) with an interleaved A/B harness that links the
-  benchmark corpus and references the library with `SetTargetFramework="TargetFramework=netstandard2.0"`.
-  With the `System.Memory` reference its UTF-16 serialize and deserialize came out 2 to 7 percent faster
-  than that version on every payload, and UTF-8 unchanged. That is not a .NET Framework measurement: on
-  .NET Framework `System.Memory` is the package's own portable implementation, which this run did not
-  exercise. CI runs the netstandard2.0 asset on .NET Framework for correctness only.
-- LargeCollection deserialize UTF-16 is noisy (error 22 microseconds on a 117 microsecond mean).
-- Raw payload size is identical to upstream except where upstream writes wrong bytes: a dictionary key
-  over 256 encoded bytes is 838 bytes here against 323 upstream, because upstream truncates the length.
+- The payloads are synthetic and small. Your own data decides the result, so measure it.
+- System.Text.Json writes no type information, so it cannot read back a polymorphic graph without extra
+  configuration. This package can, which these benchmarks do not measure.
+- Timings on a shared CI runner are noisier than on an idle workstation. A .NET Framework 4.8 run is available
+  through the `benchmark-net48` workflow.
+- The README summarises these results and the size tables.
