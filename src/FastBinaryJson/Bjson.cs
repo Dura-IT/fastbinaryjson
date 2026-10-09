@@ -408,6 +408,29 @@ namespace DuraIT.FastBinaryJson
         }
 
         /// <summary>
+        /// Parses a payload without needing the target type, using the given parameters for this call only.
+        /// </summary>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <param name="param">The settings for this call.</param>
+        /// <returns>A Dictionary&lt;string, object&gt;, a List&lt;object&gt;, a <see cref="TypedArray"/> or a scalar; null for a null payload.</returns>
+        /// <exception cref="ArgumentNullException">If <paramref name="json"/> or <paramref name="param"/> is null.</exception>
+        /// <exception cref="BjsonException">If the payload is corrupt, truncated or otherwise not valid binary JSON.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">If a length in the payload runs past its end.</exception>
+        public static object? Parse(byte[] json, BjsonParameters param)
+        {
+            Guard.NotNull(json, nameof(json));
+            Guard.NotNull(param, nameof(param));
+            try
+            {
+                return new BjsonParser(json, param.UseUtcDateTime, param.UseV14TypedArray).Decode();
+            }
+            catch (Exception ex) when (IsInvalidInput(ex))
+            {
+                throw InvalidInput(ex);
+            }
+        }
+
+        /// <summary>
         /// Parses a payload into a dynamic object whose members are the JSON keys. A member is looked up as
         /// written first, then ignoring case.
         /// </summary>
@@ -616,6 +639,32 @@ namespace DuraIT.FastBinaryJson
             try
             {
                 return new Deserializer(Parameters.MakeCopy()).ToObject(json, type);
+            }
+            catch (Exception ex) when (IsInvalidInput(ex))
+            {
+                throw InvalidInput(ex);
+            }
+        }
+
+        /// <summary>
+        /// Deserializes a payload to the given type, using the given parameters for this call only.
+        /// </summary>
+        /// <param name="json">The binary JSON bytes.</param>
+        /// <param name="type">The type to create.</param>
+        /// <param name="param">The settings for this call.</param>
+        /// <returns>The restored value, or null for a null payload.</returns>
+        /// <exception cref="ArgumentNullException">If <paramref name="json"/>, <paramref name="type"/> or <paramref name="param"/> is null.</exception>
+        /// <exception cref="BjsonException">If the payload names a type that cannot be created. The payload is corrupt, truncated or otherwise not valid binary JSON.</exception>
+        public static object? ToObject(byte[] json, Type type, BjsonParameters param)
+        {
+            Guard.NotNull(json, nameof(json));
+            Guard.NotNull(type, nameof(type));
+            Guard.NotNull(param, nameof(param));
+            param = param.MakeCopy();
+            param.FixValues();
+            try
+            {
+                return new Deserializer(param).ToObject(json, type);
             }
             catch (Exception ex) when (IsInvalidInput(ex))
             {
