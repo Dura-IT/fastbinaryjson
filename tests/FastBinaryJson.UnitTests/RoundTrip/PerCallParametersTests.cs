@@ -10,6 +10,8 @@ namespace FastBinaryJson.UnitTests.RoundTrip
      * Reads that take a type or no type at all now also take the settings for the call, so a caller that
      * decides the type at run time does not have to change the global Bjson.Parameters to choose them.
      */
+    // The non-generic overload is the subject here, so CA2263's advice to call the generic one does not apply.
+#pragma warning disable CA2263
     [TestFixture]
     [TestOf(typeof(Bjson))]
     public sealed class PerCallParametersTests
@@ -31,7 +33,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             object? back = Bjson.ToObject(bytes, typeof(Stamped), parameters);
 
             back.Should().BeOfType<Stamped>();
-            ((Stamped)back!).Name.Should().Be("n");
+            ((Stamped)back).Name.Should().Be("n");
             ((Stamped)back).When.Kind.Should().Be(DateTimeKind.Utc);
             ((Stamped)back).When.Should().Be(original.When);
         }
@@ -79,7 +81,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             object? withParameters = Bjson.Parse(bytes, new BjsonParameters());
 
             withParameters.Should().BeOfType<Dictionary<string, object>>();
-            ((Dictionary<string, object>)withParameters!)["Name"].Should().Be("n");
+            ((Dictionary<string, object>)withParameters)["Name"].Should().Be("n");
             withParameters.Should().BeEquivalentTo(Bjson.Parse(bytes));
         }
 
@@ -102,4 +104,5 @@ namespace FastBinaryJson.UnitTests.RoundTrip
             parse.Should().Throw<BjsonException>();
         }
     }
+#pragma warning restore CA2263
 }
