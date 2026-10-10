@@ -13,9 +13,9 @@ namespace DuraIT.FastBinaryJson
         private readonly IDictionary<string, object>? _dictionary;
         private readonly IList<object>? _list;
 
-        public DynamicJson(byte[] json)
+        public DynamicJson(byte[] json, BjsonParameters param)
         {
-            var parse = Bjson.Parse(json);
+            var parse = Bjson.Parse(json, param);
 
             if (parse is IDictionary<string, object> parsedDictionary)
                 _dictionary = parsedDictionary;
