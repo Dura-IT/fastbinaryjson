@@ -83,8 +83,8 @@ Allocation per call, bytes:
 | LargeCollection | 583,962 | 3,928,684 | 208,343 | 285,224 | 1,913,112 | 260,696 |
 | GuidDense | 122,298 | 683,774 | 84,032 | 40,928 | 500,544 | 35,136 |
 
-Size on the wire, bytes. This package writes the same bytes as upstream, so one column covers both. The
-UTF-8 setting (`UseUnicodeStrings = false`) is the smaller of the two encodings:
+Size on the wire, bytes. On these four payloads this package writes the same bytes as upstream (the cases
+where it does not are listed under Compatibility below), so one column covers both. The UTF-8 setting (`UseUnicodeStrings = false`) is the smaller of the two encodings:
 
 | Payload | This package, UTF-16 | UTF-8 | STJ | Gzip: this package, UTF-16 | UTF-8 | STJ |
 |---|---:|---:|---:|---:|---:|---:|
@@ -94,14 +94,17 @@ UTF-8 setting (`UseUnicodeStrings = false`) is the smaller of the two encodings:
 | GuidDense | 122,001 | 79,801 | 83,691 | 30,890 | 30,039 | 37,199 |
 
 What the numbers say: against the original this package is roughly 3 to 6 times faster and allocates a
-fraction of the memory, with the same bytes. Against System.Text.Json it is faster to deserialize on all
-four payloads and level or faster to serialize on three of them, but it allocates more in most cases
+fraction of the memory, with the same bytes on these payloads. Against System.Text.Json it is faster to deserialize on all
+four payloads and level or faster to serialize on three of them, but it allocates more in every case
 and writes larger output, except for GUID-heavy data, where the UTF-8 setting and gzip both come out
 smaller. System.Text.Json
 does not carry type information, so it cannot read back a polymorphic graph without extra configuration.
-Full tables, the machine and the method are in
-[docs/benchmarks.md](https://github.com/Dura-IT/fastbinaryjson/blob/master/docs/benchmarks.md); run them
-yourself with `dotnet run -c Release --project benchmarks/FastBinaryJson.Benchmarks -- bench`.
+The raw BenchmarkDotNet output for the UTF-16 arms, the machine and the method are in
+[docs/benchmarks.md](https://github.com/Dura-IT/fastbinaryjson/blob/master/docs/benchmarks.md). Run the
+timing and allocation benchmark yourself with
+`dotnet run -c Release -f net10.0 --project benchmarks/FastBinaryJson.Benchmarks -- bench --filter '*ThroughputBenchmarks*'`,
+and print the size and gzip tables with
+`dotnet run -c Release -f net10.0 --project benchmarks/FastBinaryJson.Benchmarks -- sizes`.
 
 ## Compatibility with fastBinaryJSON
 

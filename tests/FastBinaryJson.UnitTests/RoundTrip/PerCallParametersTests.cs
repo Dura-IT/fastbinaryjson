@@ -103,6 +103,119 @@ namespace FastBinaryJson.UnitTests.RoundTrip
 
             parse.Should().Throw<BjsonException>();
         }
+
+        [Test]
+        public void Parse_WithParameters_UsesTheParametersOfTheCall()
+        {
+            byte[] bytes = Bjson.ToBjson(
+                new Stamped { When = new DateTime(2026, 10, 8, 12, 0, 0, DateTimeKind.Utc) },
+                new BjsonParameters { UseUtcDateTime = true }
+            );
+
+            Dictionary<string, object> utc = (Dictionary<string, object>)Bjson.Parse(bytes, new BjsonParameters { UseUtcDateTime = true })!;
+            Dictionary<string, object> notUtc = (Dictionary<string, object>)Bjson.Parse(bytes, new BjsonParameters { UseUtcDateTime = false })!;
+
+            ((DateTime)utc["When"]).Kind.Should().Be(DateTimeKind.Utc);
+            ((DateTime)notUtc["When"]).Kind.Should().NotBe(DateTimeKind.Utc);
+        }
+
+        [Test]
+        public void ToObject_TypeAndParameters_LeavesTheCallersParametersAlone()
+        {
+            byte[] bytes = Bjson.ToBjson(new Stamped());
+            BjsonParameters parameters = new BjsonParameters { EnableAnonymousTypes = true };
+            BjsonParameters global = Bjson.Parameters;
+
+            Bjson.ToObject(bytes, typeof(Stamped), parameters);
+
+            parameters.ShowReadOnlyProperties.Should().BeFalse();
+            Bjson.Parameters.Should().BeSameAs(global);
+        }
+
+        [Test]
+        public void ToObject_TypeAndParameters_ResolvesConflictingSettings()
+        {
+            byte[] bytes = Bjson.ToBjson(new ReadOnlyHolder { Items = { 1, 2 } }, new BjsonParameters { ShowReadOnlyProperties = true });
+
+            ReadOnlyHolder? read = (ReadOnlyHolder?)Bjson.ToObject(bytes, typeof(ReadOnlyHolder), new BjsonParameters { EnableAnonymousTypes = true });
+
+            read!.Items.Should().Equal(1, 2);
+        }
+
+        [Test]
+        public void ToDynamic_WithParameters_UsesTheParametersOfTheCall()
+        {
+            byte[] bytes = Bjson.ToBjson(
+                new Stamped { When = new DateTime(2026, 10, 8, 12, 0, 0, DateTimeKind.Utc) },
+                new BjsonParameters { UseUtcDateTime = true }
+            );
+
+            dynamic utc = Bjson.ToDynamic(bytes, new BjsonParameters { UseUtcDateTime = true });
+            dynamic notUtc = Bjson.ToDynamic(bytes, new BjsonParameters { UseUtcDateTime = false });
+
+            ((DateTime)utc.When).Kind.Should().Be(DateTimeKind.Utc);
+            ((DateTime)notUtc.When).Kind.Should().NotBe(DateTimeKind.Utc);
+        }
+
+        [Test]
+        public void ToDynamic_WithParameters_NullArguments_Throw()
+        {
+            byte[] bytes = Bjson.ToBjson(new Stamped());
+
+            ((Action)(() => Bjson.ToDynamic(null!, new BjsonParameters()))).Should().Throw<ArgumentNullException>();
+            ((Action)(() => Bjson.ToDynamic(bytes, null!))).Should().Throw<ArgumentNullException>();
+        }
+
+        [Test]
+        public void FillObject_WithParameters_UsesTheParametersOfTheCall()
+        {
+            byte[] bytes = Bjson.ToBjson(
+                new Stamped { When = new DateTime(2026, 10, 8, 12, 0, 0, DateTimeKind.Utc) },
+                new BjsonParameters { UseUtcDateTime = true }
+            );
+            Stamped utc = new Stamped();
+            Stamped notUtc = new Stamped();
+
+            Bjson.FillObject(utc, bytes, new BjsonParameters { UseUtcDateTime = true });
+            Bjson.FillObject(notUtc, bytes, new BjsonParameters { UseUtcDateTime = false });
+
+            utc.When.Kind.Should().Be(DateTimeKind.Utc);
+            notUtc.When.Kind.Should().NotBe(DateTimeKind.Utc);
+        }
+
+        [Test]
+        public void FillObject_WithParameters_NullArguments_Throw()
+        {
+            byte[] bytes = Bjson.ToBjson(new Stamped());
+
+            ((Action)(() => Bjson.FillObject(new Stamped(), null!, new BjsonParameters()))).Should().Throw<ArgumentNullException>();
+            ((Action)(() => Bjson.FillObject(null!, bytes, new BjsonParameters()))).Should().Throw<ArgumentNullException>();
+            ((Action)(() => Bjson.FillObject(new Stamped(), bytes, null!))).Should().Throw<ArgumentNullException>();
+        }
+
+        [Test]
+        public void DeepCopy_WithParameters_UsesTheParametersOfTheCall()
+        {
+            Stamped original = new Stamped { When = new DateTime(2026, 10, 8, 12, 0, 0, DateTimeKind.Utc), Name = "n" };
+
+            Stamped utc = (Stamped)Bjson.DeepCopy(original, new BjsonParameters { UseUtcDateTime = true })!;
+            Stamped notUtc = (Stamped)Bjson.DeepCopy(original, new BjsonParameters { UseUtcDateTime = false })!;
+
+            utc.Name.Should().Be("n");
+            utc.When.Kind.Should().Be(DateTimeKind.Utc);
+            notUtc.When.Kind.Should().NotBe(DateTimeKind.Utc);
+        }
+
+        [Test]
+        public void DeepCopy_WithParameters_NullParameters_Throws()
+        {
+            ((Action)(() => Bjson.DeepCopy(new Stamped(), null!))).Should().Throw<ArgumentNullException>();
+        }
+
+        public sealed class ReadOnlyHolder
+        {
+            public List<int> Items { get; } = new List<int>();
+        }
     }
 #pragma warning restore CA2263
 }
