@@ -99,7 +99,7 @@ four payloads and level or faster to serialize on three of them, but it allocate
 and writes larger output, except for GUID-heavy data, where the UTF-8 setting and gzip both come out
 smaller. System.Text.Json
 does not carry type information, so it cannot read back a polymorphic graph without extra configuration.
-The raw BenchmarkDotNet output for the UTF-16 arms, the machine and the method are in
+The raw BenchmarkDotNet output for every arm (UTF-16 and UTF-8, upstream, System.Text.Json and MessagePack), the machine and the method are in
 [docs/benchmarks.md](https://github.com/Dura-IT/fastbinaryjson/blob/master/docs/benchmarks.md). Run the
 timing and allocation benchmark yourself with
 `dotnet run -c Release -f net10.0 --project benchmarks/FastBinaryJson.Benchmarks -- bench --filter '*ThroughputBenchmarks*'`,
