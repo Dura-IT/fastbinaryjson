@@ -9,8 +9,8 @@ in `benchmarks/FastBinaryJson.Benchmarks`.
 Reproduce:
 
 ```
-dotnet run -c Release --project benchmarks/FastBinaryJson.Benchmarks -- bench --filter '*ThroughputBenchmarks*'
-dotnet run -c Release --project benchmarks/FastBinaryJson.Benchmarks -- sizes
+dotnet run -c Release -f net10.0 --project benchmarks/FastBinaryJson.Benchmarks -- bench --filter '*ThroughputBenchmarks*'
+dotnet run -c Release -f net10.0 --project benchmarks/FastBinaryJson.Benchmarks -- sizes
 ```
 
 The `fbj-utf16` arm is this package at its defaults; `upstream-utf16` is the original with the same setting.
@@ -51,4 +51,5 @@ The `fbj-utf16` arm is this package at its defaults; `upstream-utf16` is the ori
   configuration. This package can, which these benchmarks do not measure.
 - Timings on a shared CI runner are noisier than on an idle workstation. A .NET Framework 4.8 run is available
   through the `benchmark-net48` workflow.
-- The README summarises these results and the size tables.
+- The size and gzip tables are in the README; the `sizes` command above prints them, along with the cases where this
+  package's bytes differ from upstream's (for example a dictionary key of 256 encoded bytes or more).
