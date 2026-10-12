@@ -263,7 +263,6 @@ namespace DuraIT.FastBinaryJson
 
         private void WriteTypedArray(ICollection array)
         {
-            bool pendingSeperator = false;
             bool token = true;
             var t = array.GetType();
             if (!t.IsGenericType) // != null) // non generic array
@@ -289,15 +288,7 @@ namespace DuraIT.FastBinaryJson
             if (token)
                 _output.WriteByte(Tokens.ArrayStart);
 
-            foreach (object obj in array)
-            {
-                if (pendingSeperator)
-                    WriteComma();
-
-                WriteValue(obj);
-
-                pendingSeperator = true;
-            }
+            WriteElements(array);
             _output.WriteByte(Tokens.ArrayEnd);
         }
 
@@ -761,6 +752,14 @@ namespace DuraIT.FastBinaryJson
         internal bool TypedGetters { get; set; } = true;
 
         /// <summary>
+        /// Write the elements of a List of T or an array of T for a primitive T without boxing them.
+        /// </summary>
+        /// <remarks>
+        /// Off only in tests, to write with the boxing walk as the reference.
+        /// </remarks>
+        internal bool PrimitiveElements { get; set; } = true;
+
+        /// <summary>
         /// Writes a primitive member's value without boxing it, with the writer WriteValue picks for it.
         /// </summary>
         /// <exception cref="InvalidOperationException">If a getter carries a token with no writer here.</exception>
@@ -885,6 +884,24 @@ namespace DuraIT.FastBinaryJson
         {
             _output.WriteByte(Tokens.ArrayStart);
 
+            WriteElements(array);
+            _output.WriteByte(Tokens.ArrayEnd);
+        }
+
+        /*
+         * The elements of an array, comma separated, each written the way WriteValue writes it.
+         *
+         * A List of T or an array of T for a primitive T is read through its typed collection, so no element is
+         * boxed: a box is 24 bytes for an int and 32 for a decimal, per element, per call. Each case calls the
+         * writer WriteValue would have picked for that type, which is why the bytes are the same; the exact
+         * type of the collection is checked, so a subclass that changes its enumeration, or an array the CLR
+         * would also accept as another element type, still goes the long way.
+         */
+        private void WriteElements(IEnumerable array)
+        {
+            if (PrimitiveElements && TryWritePrimitiveElements(array))
+                return;
+
             bool pendingSeperator = false;
 
             foreach (object obj in array)
@@ -896,7 +913,61 @@ namespace DuraIT.FastBinaryJson
 
                 pendingSeperator = true;
             }
-            _output.WriteByte(Tokens.ArrayEnd);
+        }
+
+        private bool TryWritePrimitiveElements(object array)
+        {
+            return TryWriteElements<int>(array, static (s, v) => s.WriteInt(v))
+                || TryWriteElements<long>(array, static (s, v) => s.WriteLong(v))
+                || TryWriteElements<double>(array, static (s, v) => s.WriteDouble(v))
+                || TryWriteElements<decimal>(array, static (s, v) => s.WriteDecimal(v))
+                || TryWriteElements<bool>(array, static (s, v) => s.WriteBool(v))
+                || TryWriteElements<Guid>(array, static (s, v) => s.WriteGuid(v))
+                || TryWriteElements<DateTime>(array, static (s, v) => s.WriteDateTime(v))
+                || TryWriteElements<uint>(array, static (s, v) => s.WriteUInt(v))
+                || TryWriteElements<ulong>(array, static (s, v) => s.WriteULong(v))
+                || TryWriteElements<float>(array, static (s, v) => s.WriteFloat(v))
+                || TryWriteElements<short>(array, static (s, v) => s.WriteShort(v))
+                || TryWriteElements<ushort>(array, static (s, v) => s.WriteUShort(v))
+                || TryWriteElements<byte>(array, static (s, v) => s.WriteByte(v))
+                || TryWriteElements<sbyte>(array, static (s, v) => s.WriteSByte(v))
+                || TryWriteElements<char>(array, static (s, v) => s.WriteChar(v))
+                || TryWriteElements<TimeSpan>(array, static (s, v) => s.WriteTimeSpan(v));
+        }
+
+        private bool TryWriteElements<T>(object array, Action<BjsonSerializer, T> write)
+            where T : struct
+        {
+            if (array.GetType() == typeof(List<T>))
+            {
+                List<T> list = (List<T>)array;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (i > 0)
+                        WriteComma();
+
+                    write(this, list[i]);
+                }
+
+                return true;
+            }
+
+            // Exact type, not `is T[]`: the CLR lets a uint[] pass as an int[] (and an enum array as its underlying type).
+            if (array.GetType() == typeof(T[]))
+            {
+                T[] items = (T[])array;
+                for (int i = 0; i < items.Length; i++)
+                {
+                    if (i > 0)
+                        WriteComma();
+
+                    write(this, items[i]);
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         private void WriteStringDictionary(IDictionary dic)
