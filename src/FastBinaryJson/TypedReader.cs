@@ -606,6 +606,10 @@ namespace DuraIT.FastBinaryJson
         /// </summary>
         private object ReadGenericList(Type pt, Type? bt, Dictionary<string, object>? globaltypes)
         {
+            object? direct = TryReadPrimitiveList(pt, bt, out List<object?>? staged);
+            if (direct != null)
+                return direct;
+
             List<object?> items = ReadElements(
                 bt,
                 globaltypes,
@@ -618,7 +622,8 @@ namespace DuraIT.FastBinaryJson
                         return typed.DataList.ToArray();
 
                     return ob;
-                }
+                },
+                staged
             );
 
             // Created after the elements are read, so it gets the capacity CreateGenericList gives it.
@@ -629,17 +634,139 @@ namespace DuraIT.FastBinaryJson
             return col;
         }
 
+        /*
+         * A List of T for a primitive T, whose ARRAY_START was just read, read straight into a List of T.
+         *
+         * The long way parses each element into an object (a box), stages it in a List<object>, and then adds
+         * it to the real list: 24 bytes for an int and 32 for a decimal, plus the staging slot, per element.
+         * Here an element is parsed into the list as it is. That is only the same result when every element
+         * carries T's own token - then the parser would have produced exactly a boxed T and the list would have
+         * unboxed it. The first thing that is not that (another width, a null, a string, an unexpected
+         * structural token, damaged bytes) hands over to the long way: the elements read so far are boxed into
+         * `staged` and ReadElements carries on from where this stopped, so nothing is parsed twice. When the
+         * list does not qualify at all nothing was read and `staged` is null. The empty list is the one case
+         * both ways read to the same empty List<T>.
+         *
+         * The result is trimmed when growth left it with a lot of spare capacity, since a long-lived list should
+         * not pin up to twice its content. A small list is left alone: its slack is a few slots.
+         */
+        private object? TryReadPrimitiveList(Type pt, Type? bt, out List<object?>? staged)
+        {
+            staged = null;
+            // A reference type is never a primitive element, and this runs for every List<T> member read.
+            if (!_deserializer.PrimitiveListReads || bt is null || !bt.IsValueType)
+                return null;
+
+            switch (TypeReflector.TypedToken(bt))
+            {
+                case Tokens.Int32:
+                    return ReadPrimitiveList(pt, Tokens.Int32, static (r, _) => r._parser.ParseInt(), out staged);
+                case Tokens.Int64:
+                    return ReadPrimitiveList(pt, Tokens.Int64, static (r, _) => r._parser.ParseLong(), out staged);
+                case Tokens.True:
+                    return ReadPrimitiveList(pt, Tokens.True, static (_, token) => token == Tokens.True, out staged);
+                case Tokens.DateTime:
+                    return ReadPrimitiveList(pt, Tokens.DateTime, static (r, _) => r._parser.ParseDateTime(), out staged);
+                case Tokens.Guid:
+                    return ReadPrimitiveList(pt, Tokens.Guid, static (r, _) => r._parser.ParseGuid(), out staged);
+                case Tokens.Double:
+                    return ReadPrimitiveList(pt, Tokens.Double, static (r, _) => r._parser.ParseDouble(), out staged);
+                case Tokens.Single:
+                    return ReadPrimitiveList(pt, Tokens.Single, static (r, _) => r._parser.ParseFloat(), out staged);
+                case Tokens.Decimal:
+                    return ReadPrimitiveList(pt, Tokens.Decimal, static (r, _) => r._parser.ParseDecimal(), out staged);
+                case Tokens.Int16:
+                    return ReadPrimitiveList(pt, Tokens.Int16, static (r, _) => r._parser.ParseShort(), out staged);
+                case Tokens.UInt16:
+                    return ReadPrimitiveList(pt, Tokens.UInt16, static (r, _) => r._parser.ParseUShort(), out staged);
+                case Tokens.UInt32:
+                    return ReadPrimitiveList(pt, Tokens.UInt32, static (r, _) => r._parser.ParseUint(), out staged);
+                case Tokens.UInt64:
+                    return ReadPrimitiveList(pt, Tokens.UInt64, static (r, _) => r._parser.ParseULong(), out staged);
+                case Tokens.Byte:
+                    return ReadPrimitiveList(pt, Tokens.Byte, static (r, _) => r._parser.ParseByte(), out staged);
+                case Tokens.Char:
+                    return ReadPrimitiveList(pt, Tokens.Char, static (r, _) => r._parser.ParseChar(), out staged);
+                case Tokens.TimeSpan:
+                    return ReadPrimitiveList(pt, Tokens.TimeSpan, static (r, _) => r._parser.ParsTimeSpan(), out staged);
+                default:
+                    // sbyte, enums and DateTimeOffset have no reader here: they are converted, so they stay boxed.
+                    return null;
+            }
+        }
+
+        private List<T>? ReadPrimitiveList<T>(Type pt, byte token, Func<TypedReader, byte, T> parse, out List<object?>? staged)
+        {
+            staged = null;
+            if (pt != typeof(List<T>))
+                return null;
+
+            List<T> list = new List<T>();
+            while (true)
+            {
+                byte next = _parser.PeekToken();
+                if (next == Tokens.ArrayEnd && list.Count == 0)
+                {
+                    _parser.ReadToken();
+                    _deserializer.PrimitiveListsRead++;
+                    return list;
+                }
+
+                // bool is keyed on TRUE and stands for FALSE too.
+                if (next != token && (token != Tokens.True || next != Tokens.False))
+                {
+                    staged = Box(list);
+                    return null;
+                }
+
+                _parser.ReadToken();
+                list.Add(parse(this, next));
+
+                byte after = _parser.ReadToken();
+                if (after == Tokens.ArrayEnd)
+                {
+                    // TrimExcess leaves a list within 10% of its capacity alone, and the copy is not worth a small one.
+                    if (list.Count > TrimThreshold)
+                        list.TrimExcess();
+                    _deserializer.PrimitiveListsRead++;
+                    return list;
+                }
+
+                if (after != Tokens.Comma)
+                {
+                    // Not a separator: the long way takes the element read so far as given and reads on from here.
+                    staged = Box(list);
+                    return null;
+                }
+            }
+        }
+
+        private const int TrimThreshold = 64;
+
+        private static List<object?> Box<T>(List<T> list)
+        {
+            List<object?> boxed = new List<object?>(list.Count);
+            foreach (T item in list)
+                boxed.Add(item);
+
+            return boxed;
+        }
+
         /// <summary>
         /// The equivalent of RootList for a root ARRAY_START.
         /// </summary>
         private object ReadRootList(Type type)
         {
             Type[] gtypes = TypeReflector.Instance.GetGenericArguments(type);
+            _parser.ReadToken(); // ARRAY_START
+
+            object? direct = TryReadPrimitiveList(type, gtypes[0], out List<object?>? staged);
+            if (direct != null)
+                return direct;
+
             // Shared by every element, as in RootList: the first element's $types table lands here.
             Dictionary<string, object> globals = new Dictionary<string, object>();
-
-            _parser.ReadToken(); // ARRAY_START
-            List<object?> items = ReadElements(gtypes[0], globals, true, ob => ob);
+            List<object?> items = ReadElements(gtypes[0], globals, true, ob => ob, staged);
 
             IList o = (IList)TypeReflector.Instance.FastCreateList(type, items.Count);
             foreach (object? item in items)
@@ -653,9 +780,15 @@ namespace DuraIT.FastBinaryJson
         /// Object elements become <paramref name="bt"/> as ParseDictionary would make them; every
         /// other element is materialised by the parser and passed through <paramref name="convert"/>.
         /// </summary>
-        private List<object?> ReadElements(Type? bt, Dictionary<string, object>? globaltypes, bool mayExtendSharedTypes, Func<object?, object?> convert)
+        private List<object?> ReadElements(
+            Type? bt,
+            Dictionary<string, object>? globaltypes,
+            bool mayExtendSharedTypes,
+            Func<object?, object?> convert,
+            List<object?>? items = null
+        )
         {
-            List<object?> items = new List<object?>();
+            items ??= new List<object?>();
             bool broke = false;
             while (!broke)
             {

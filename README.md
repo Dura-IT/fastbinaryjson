@@ -58,7 +58,7 @@ byte[] smaller = Bjson.ToBjson(myObject, new BjsonParameters
 
 ## Performance
 
-Measured with the benchmark project in this repository, on the net10.0 build of 0.4.1, against
+Measured with the benchmark project in this repository, on the net10.0 build of 0.4.1 plus the primitive-list reader, against
 fastBinaryJSON 1.6.1 and System.Text.Json with its default options (UTF-16 strings, this package's
 default). The payloads are synthetic: **FlatPrimitives** is one flat object with every primitive type,
 **NestedOrder** an order with 25 lines, **LargeCollection** 1000 homogeneous items, **GuidDense** 200
@@ -69,10 +69,13 @@ Time per call, microseconds:
 
 | Payload | Serialize: this package | upstream | STJ | Deserialize: this package | upstream | STJ |
 |---|---:|---:|---:|---:|---:|---:|
-| FlatPrimitives | 0.22 | 0.61 | 0.27 | 0.23 | 0.75 | 0.47 |
-| NestedOrder | 2.41 | 8.09 | 2.44 | 3.69 | 9.44 | 5.49 |
-| LargeCollection | 126 | 665 | 172 | 102 | 474 | 283 |
-| GuidDense | 25.2 | 89.2 | 18.7 | 20.1 | 94.7 | 59.4 |
+| FlatPrimitives | 0.26 | 0.61 | 0.27 | 0.23 | 0.74 | 0.46 |
+| NestedOrder | 2.41 | 8.13 | 2.43 | 3.09 | 9.33 | 5.39 |
+| LargeCollection | 118 | 647 | 171 | 101 | 466 | 280 |
+| GuidDense | 25.0 | 88.4 | 18.7 | 20.5 | 93.3 | 59.7 |
+
+Two cells are noisy: this package's FlatPrimitives serialize and upstream's LargeCollection serialize carry error
+margins of about 22% of the mean, so read them as a range. Every other cell has an error margin of 3% or less.
 
 Allocation per call, bytes:
 
@@ -80,7 +83,7 @@ Allocation per call, bytes:
 |---|---:|---:|---:|---:|---:|---:|
 | FlatPrimitives | 1,088 | 5,576 | 432 | 792 | 4,688 | 224 |
 | NestedOrder | 8,512 | 68,152 | 3,864 | 8,248 | 42,240 | 7,080 |
-| LargeCollection | 583,947 | 3,928,745 | 208,343 | 285,224 | 1,913,112 | 260,696 |
+| LargeCollection | 583,927 | 3,928,737 | 208,343 | 285,224 | 1,913,112 | 260,696 |
 | GuidDense | 122,298 | 683,774 | 84,032 | 40,928 | 500,544 | 35,136 |
 
 Size on the wire, bytes. On these four payloads this package writes the same bytes as upstream (the cases
@@ -94,7 +97,7 @@ where it does not are listed under Compatibility below), so one column covers bo
 | LargeCollection | 582,675 | 332,338 | 207,942 |
 | GuidDense | 122,001 | 79,801 | 83,691 |
 
-What the numbers say: against the original this package is roughly 2.5 to 5 times faster and allocates
+What the numbers say: against the original this package is roughly 2.4 to 5.5 times faster and allocates
 5 to 12 times less memory, with the same bytes on these payloads. Against System.Text.Json it is faster to
 deserialize on all four payloads and level or faster to serialize on three of them, but it allocates more
 in every case and writes larger output, except for GUID-heavy data, where the UTF-8 setting comes out
