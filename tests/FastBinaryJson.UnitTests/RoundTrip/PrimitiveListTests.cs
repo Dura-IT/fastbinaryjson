@@ -159,14 +159,7 @@ namespace FastBinaryJson.UnitTests.RoundTrip
         private static long Allocated(object value, bool primitive)
         {
             BjsonParameters parameters = new BjsonParameters();
-            for (int i = 0; i < 20; i++)
-                Write(value, parameters, primitive);
-
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            const int runs = 50;
-            for (int i = 0; i < runs; i++)
-                Write(value, parameters, primitive);
-            return (GC.GetAllocatedBytesForCurrentThread() - before) / runs;
+            return AllocationProbe.PerCall(() => Write(value, parameters, primitive));
         }
 
         private static byte[] Write(object value, BjsonParameters parameters, bool primitive)

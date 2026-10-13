@@ -894,7 +894,7 @@ namespace DuraIT.FastBinaryJson.Internal
             [typeof(DateTimeOffset)] = Tokens.DateTimeOffset,
         };
 
-        private static byte TypedToken(Type t) => TypedTokens.TryGetValue(t, out byte token) ? token : (byte)0;
+        internal static byte TypedToken(Type t) => TypedTokens.TryGetValue(t, out byte token) ? token : (byte)0;
 
         /// <summary>
         /// Builds the boxing-free getter the writer uses for a primitive member of a class.

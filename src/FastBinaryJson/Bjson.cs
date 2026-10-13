@@ -742,6 +742,20 @@ namespace DuraIT.FastBinaryJson
         internal bool OneStep { get; set; } = true;
 
         /// <summary>
+        /// Read a List of T for a primitive T straight into a List of T when every element carries T's own token.
+        /// </summary>
+        /// <remarks>
+        /// Off only in tests, to read with the boxing path as the reference.
+        /// </remarks>
+        internal bool PrimitiveListReads { get; set; } = true;
+
+        /// <summary>
+        /// How many lists TypedReader read straight into a List of T. Diagnostic only, like TypedSets - lets the
+        /// tests prove the direct path did the work for each element type instead of quietly falling back.
+        /// </summary>
+        internal int PrimitiveListsRead { get; set; }
+
+        /// <summary>
         /// How many objects TypedReader handed back to the two-step path. Diagnostic only - lets the
         /// tests prove the reader did the work instead of quietly falling back every time.
         /// </summary>
