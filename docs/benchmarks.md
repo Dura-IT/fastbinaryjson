@@ -1,7 +1,7 @@
 # Benchmark: this package against upstream fastBinaryJSON 1.6.1 and System.Text.Json
 
 Measured 2026-10-13 with BenchmarkDotNet 0.15.8 (3 launches, 3 warmups, 5 iterations each) on an Apple M5 Pro,
-.NET 10.0.12, Arm64, the net10.0 build of 0.4.1 (`fcf3bcb`) plus the primitive-list reader, on an otherwise idle machine
+.NET 10.0.12, Arm64, the net10.0 build of 0.4.2 (`38b7a1c`), on an otherwise idle machine
 kept awake for the whole run. Upstream is the 1.6.1 package from NuGet and System.Text.Json uses its default options (`JsonSerializerDefaults.General`). This package and
 upstream write the same bytes for every payload below. The corpus and the benchmark classes are in
 `benchmarks/FastBinaryJson.Benchmarks`.
