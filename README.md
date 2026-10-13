@@ -58,7 +58,7 @@ byte[] smaller = Bjson.ToBjson(myObject, new BjsonParameters
 
 ## Performance
 
-Measured with the benchmark project in this repository, on the net10.0 build of 0.4.1 plus the primitive-list reader, against
+Measured with the benchmark project in this repository, on the net10.0 build of 0.4.2, against
 fastBinaryJSON 1.6.1 and System.Text.Json with its default options (UTF-16 strings, this package's
 default). The payloads are synthetic: **FlatPrimitives** is one flat object with every primitive type,
 **NestedOrder** an order with 25 lines, **LargeCollection** 1000 homogeneous items, **GuidDense** 200
