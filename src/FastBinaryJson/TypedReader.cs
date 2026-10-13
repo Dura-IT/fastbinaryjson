@@ -654,7 +654,7 @@ namespace DuraIT.FastBinaryJson
         {
             staged = null;
             // A reference type is never a primitive element, and this runs for every List<T> member read.
-            if (!_deserializer.PrimitiveListReads || bt is null || !bt.IsValueType)
+            if (!_deserializer.PrimitiveListReads || bt?.IsValueType != true)
                 return null;
 
             switch (TypeReflector.TypedToken(bt))
@@ -708,37 +708,38 @@ namespace DuraIT.FastBinaryJson
                 if (next == Tokens.ArrayEnd && list.Count == 0)
                 {
                     _parser.ReadToken();
-                    _deserializer.PrimitiveListsRead++;
-                    return list;
+                    return FinishPrimitiveList(list);
                 }
 
-                // bool is keyed on TRUE and stands for FALSE too.
-                if (next != token && (token != Tokens.True || next != Tokens.False))
-                {
-                    staged = Box(list);
-                    return null;
-                }
+                if (!IsElementToken(next, token))
+                    break;
 
                 _parser.ReadToken();
                 list.Add(parse(this, next));
 
                 byte after = _parser.ReadToken();
                 if (after == Tokens.ArrayEnd)
-                {
-                    // TrimExcess leaves a list within 10% of its capacity alone, and the copy is not worth a small one.
-                    if (list.Count > TrimThreshold)
-                        list.TrimExcess();
-                    _deserializer.PrimitiveListsRead++;
-                    return list;
-                }
+                    return FinishPrimitiveList(list);
 
+                // Not a separator: the long way takes the element read so far as given and reads on from here.
                 if (after != Tokens.Comma)
-                {
-                    // Not a separator: the long way takes the element read so far as given and reads on from here.
-                    staged = Box(list);
-                    return null;
-                }
+                    break;
             }
+
+            staged = Box(list);
+            return null;
+        }
+
+        // bool is keyed on TRUE and stands for FALSE too.
+        private static bool IsElementToken(byte next, byte token) => next == token || (token == Tokens.True && next == Tokens.False);
+
+        private List<T> FinishPrimitiveList<T>(List<T> list)
+        {
+            // TrimExcess leaves a list within 10% of its capacity alone, and the copy is not worth a small one.
+            if (list.Count > TrimThreshold)
+                list.TrimExcess();
+            _deserializer.PrimitiveListsRead++;
+            return list;
         }
 
         private const int TrimThreshold = 64;
